@@ -1,0 +1,139 @@
+package il.cshaifasweng.OCSFMediatorExample.server;
+
+import il.cshaifasweng.OCSFMediatorExample.entities.MenuItem;
+import org.hibernate.HibernateException;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
+import org.hibernate.boot.registry.StandardServiceRegistryBuilder;
+import org.hibernate.cfg.Configuration;
+import org.hibernate.service.ServiceRegistry;
+
+import javax.persistence.criteria.CriteriaBuilder;
+import javax.persistence.criteria.CriteriaQuery;
+import java.util.List;
+
+public class Database {
+    private static SessionFactory sessionFactory;
+    private static final String password = "Admin123";
+
+    static {
+        sessionFactory = getSessionFactory();
+    }
+
+    private static SessionFactory getSessionFactory() throws HibernateException {
+        if (sessionFactory == null) {
+            Configuration configuration = new Configuration();
+
+            // Add the necessary properties for connecting to the database
+            configuration.setProperty("hibernate.connection.url", "jdbc:mysql://localhost:3306/myFirstDataBase");
+            configuration.setProperty("hibernate.connection.username", "root");
+            configuration.setProperty("hibernate.connection.password", password);
+            configuration.setProperty("hibernate.dialect", "org.hibernate.dialect.MySQLDialect");
+            configuration.setProperty("hibernate.connection.driver_class", "com.mysql.cj.jdbc.Driver");
+            configuration.setProperty("hibernate.hbm2ddl.auto", "update"); // Auto-create or update table
+
+            // Add the entity classes
+            configuration.addAnnotatedClass(MenuItem.class);
+
+            ServiceRegistry serviceRegistry = new StandardServiceRegistryBuilder()
+                    .applySettings(configuration.getProperties())
+                    .build();
+
+            sessionFactory = configuration.buildSessionFactory(serviceRegistry);
+        }
+        return sessionFactory;
+    }
+
+    public void initializeMenu() {
+        try (Session session = sessionFactory.openSession()) {
+            session.beginTransaction();
+
+            CriteriaBuilder builder = session.getCriteriaBuilder();
+            CriteriaQuery<MenuItem> query = builder.createQuery(MenuItem.class);
+            query.from(MenuItem.class);
+            List<MenuItem> existingItems = session.createQuery(query).getResultList();
+
+            if (existingItems.isEmpty()) {
+                // Add default menu items
+                session.save(new MenuItem("Pizza", "Cheese, Tomato, Onions, Mushroom", "Vegetarian", 500.00));
+                session.save(new MenuItem("Hamburger", "Beef, Lettuce, Tomato", "No Cheese", 65.00));
+                session.save(new MenuItem("Vegan Hamburger", "Vegan patty, Tomato, Pickles, Lettuce", "Vegan", 60.00));
+                session.save(new MenuItem("SOUR CREAM SPINACH PASTA", "Sour cream, Garlic, Spinach", "Gluten-Free", 55.00));
+                session.save(new MenuItem("CEASAR SALAD", "Lettuce, Chicken breast, Parmesan cheese, Onions", "Keto-Friendly", 60.00));
+                session.save(new MenuItem("FATTO TIRAMISU", "", "", 18.00));
+                session.save(new MenuItem("SCUGNIZIELLI NUTELLA GELATO", "", "", 15.00));
+                session.save(new MenuItem("LEMON MERINGUE", "", "", 17.00));
+                session.save(new MenuItem("CHOCOLATE SALTED CARAMEL", "", "", 15.00));
+                session.save(new MenuItem("ESPRESSO", "", "", 8.00));
+                session.save(new MenuItem("MACCHIATO", "", "", 10.00));
+            }
+
+            session.getTransaction().commit();
+        } catch (Exception e) {
+            System.err.println("Failed to initialize the menu: " + e.getMessage());
+        }
+    }
+
+
+    public void addMenuItem(MenuItem item) {
+        try (Session session = sessionFactory.openSession()) {
+            session.beginTransaction();
+            session.save(item);
+            session.getTransaction().commit();
+        } catch (Exception e) {
+            System.err.println("Failed to add menu item: " + e.getMessage());
+        }
+    }
+
+    public void updatePriceByName(String name, double newPrice) {
+        try (Session session = sessionFactory.openSession()) {
+            session.beginTransaction();
+
+            String hql = "UPDATE MenuItem SET price = :newPrice WHERE name = :name";
+            int updatedEntities = session.createQuery(hql)
+                    .setParameter("newPrice", newPrice)
+                    .setParameter("name", name)
+                    .executeUpdate();
+
+            session.getTransaction().commit();
+
+            if (updatedEntities == 0) {
+                System.err.println("No menu item found with name: " + name);
+            } else {
+                System.out.println("Price updated for: " + name);
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to update price: " + e.getMessage());
+        }
+    }
+
+    public void deleteMenuItem(int id) {
+        try (Session session = sessionFactory.openSession()) {
+            session.beginTransaction();
+            MenuItem item = session.get(MenuItem.class, id);
+            if (item != null) {
+                session.delete(item);
+                session.getTransaction().commit();
+            } else {
+                System.err.println("No menu item found with ID: " + id);
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to delete menu item: " + e.getMessage());
+        }
+    }
+
+    public List<MenuItem> getMenuItems() {
+        List<MenuItem> items = null;
+        try (Session session = sessionFactory.openSession()) {
+            session.beginTransaction();
+            CriteriaBuilder builder = session.getCriteriaBuilder();
+            CriteriaQuery<MenuItem> query = builder.createQuery(MenuItem.class);
+            query.from(MenuItem.class);
+            items = session.createQuery(query).getResultList();
+            session.getTransaction().commit();
+        } catch (Exception e) {
+            System.err.println("Failed to get menu items: " + e.getMessage());
+        }
+        return items;
+    }
+}
