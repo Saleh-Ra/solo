@@ -11,10 +11,11 @@ import org.hibernate.service.ServiceRegistry;
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
 import java.util.List;
+import java.util.Scanner;
 
 public class Database {
     private static SessionFactory sessionFactory;
-    private static final String password = "Admin123";
+    //private static final String password = "212101828";
 
     static {
         sessionFactory = getSessionFactory();
@@ -23,9 +24,15 @@ public class Database {
     private static SessionFactory getSessionFactory() throws HibernateException {
         if (sessionFactory == null) {
             Configuration configuration = new Configuration();
+            Scanner scanner = new Scanner(System.in);
 
+            // Prompt the user
+            System.out.print("Enter a password: ");
+
+            // Read a string input
+            String password = scanner.nextLine();
             // Add the necessary properties for connecting to the database
-            configuration.setProperty("hibernate.connection.url", "jdbc:mysql://localhost:3306/myFirstDataBase");
+            configuration.setProperty("hibernate.connection.url", "jdbc:mysql://localhost:3306/myfirstdatabase?serverTimezone=UTC");
             configuration.setProperty("hibernate.connection.username", "root");
             configuration.setProperty("hibernate.connection.password", password);
             configuration.setProperty("hibernate.dialect", "org.hibernate.dialect.MySQLDialect");
@@ -60,12 +67,12 @@ public class Database {
                 session.save(new MenuItem("Vegan Hamburger", "Vegan patty, Tomato, Pickles, Lettuce", "Vegan", 60.00));
                 session.save(new MenuItem("SOUR CREAM SPINACH PASTA", "Sour cream, Garlic, Spinach", "Gluten-Free", 55.00));
                 session.save(new MenuItem("CEASAR SALAD", "Lettuce, Chicken breast, Parmesan cheese, Onions", "Keto-Friendly", 60.00));
-                session.save(new MenuItem("FATTO TIRAMISU", "", "", 18.00));
-                session.save(new MenuItem("SCUGNIZIELLI NUTELLA GELATO", "", "", 15.00));
-                session.save(new MenuItem("LEMON MERINGUE", "", "", 17.00));
-                session.save(new MenuItem("CHOCOLATE SALTED CARAMEL", "", "", 15.00));
-                session.save(new MenuItem("ESPRESSO", "", "", 8.00));
-                session.save(new MenuItem("MACCHIATO", "", "", 10.00));
+                //  session.save(new MenuItem("FATTO TIRAMISU", "", "", 18.00));
+                // session.save(new MenuItem("SCUGNIZIELLI NUTELLA GELATO", "", "", 15.00));
+                // session.save(new MenuItem("LEMON MERINGUE", "", "", 17.00));
+                // session.save(new MenuItem("CHOCOLATE SALTED CARAMEL", "", "", 15.00));
+                // session.save(new MenuItem("ESPRESSO", "", "", 8.00));
+                // session.save(new MenuItem("MACCHIATO", "", "", 10.00));
             }
 
             session.getTransaction().commit();
