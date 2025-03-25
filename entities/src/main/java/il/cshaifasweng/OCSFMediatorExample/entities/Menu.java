@@ -1,29 +1,41 @@
 package il.cshaifasweng.OCSFMediatorExample.entities;
 
-import java.util.ArrayList;
+import javax.persistence.*;
+import java.util.List;
 
-public class Menu {//menuid-int menuditems-list<menuItem>
-    int MenuID;
-    ArrayList<MenuItem> MenuItems;
+@Entity
+@Table(name = "menu")
+public class Menu {
 
-    public Menu(int menuID, ArrayList<MenuItem> menuItems) {
-        MenuID = menuID;
-        MenuItems = menuItems;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int menuID;
+
+    @OneToMany(cascade = CascadeType.ALL)
+    @JoinColumn(name = "menu_id") // Creates a foreign key in MenuItem pointing to this menu
+    private List<MenuItem> menuItems;
+
+    // Default constructor required by Hibernate
+    public Menu() {}
+
+    public Menu(List<MenuItem> menuItems) {
+        this.menuItems = menuItems;
     }
 
+    // Getters and setters
     public int getMenuID() {
-        return MenuID;
+        return menuID;
     }
 
     public void setMenuID(int menuID) {
-        MenuID = menuID;
+        this.menuID = menuID;
     }
 
-    public ArrayList<MenuItem> getMenuItems() {
-        return MenuItems;
+    public List<MenuItem> getMenuItems() {
+        return menuItems;
     }
 
-    public void setMenuItems(ArrayList<MenuItem> menuItems) {
-        MenuItems = menuItems;
+    public void setMenuItems(List<MenuItem> menuItems) {
+        this.menuItems = menuItems;
     }
 }

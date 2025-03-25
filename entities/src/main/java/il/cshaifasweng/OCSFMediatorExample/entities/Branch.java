@@ -1,59 +1,60 @@
 package il.cshaifasweng.OCSFMediatorExample.entities;
 
-import java.util.ArrayList;
+import javax.persistence.*;
 
+@Entity
+@Table(name = "branch")
 public class Branch {
-    int BranchID;
-    String Location;
-    Menu menu;
-    ArrayList<ResturantTable> tables;
-    String OpeningHours;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
 
-    public Branch(int branchID, String location, Menu menu, ArrayList<ResturantTable> tables, String OpeningHours) {
-        BranchID = branchID;
-        Location = location;
-        this.menu = menu;
-        this.tables = tables;
-        this.OpeningHours = OpeningHours;
+    private String location;
+    private String openingHours;
+
+    // Many branches belong to one restaurant chain (Aggregation)
+    @ManyToOne
+    @JoinColumn(name = "resturant_chain_id", nullable = true)
+    private ResturantChain restaurantChain;
+
+    public Branch() {}
+
+    public Branch(String location, String openingHours, ResturantChain restaurantChain) {
+        this.location = location;
+        this.openingHours = openingHours;
+        this.restaurantChain = restaurantChain;
     }
 
-    public int getBranchID() {
-        return BranchID;
+    // ✅ Getters and Setters
+    public int getId() {
+        return id;
     }
 
-    public void setBranchID(int branchID) {
-        BranchID = branchID;
+    public void setId(int id) {
+        this.id = id;
     }
 
     public String getLocation() {
-        return Location;
+        return location;
     }
 
     public void setLocation(String location) {
-        Location = location;
-    }
-
-    public Menu getMenu() {
-        return menu;
-    }
-
-    public void setMenu(Menu menu) {
-        this.menu = menu;
-    }
-
-    public ArrayList<ResturantTable> getTables() {
-        return tables;
-    }
-
-    public void setTables(ArrayList<ResturantTable> tables) {
-        this.tables = tables;
+        this.location = location;
     }
 
     public String getOpeningHours() {
-        return OpeningHours;
+        return openingHours;
     }
 
     public void setOpeningHours(String openingHours) {
-        OpeningHours = openingHours;
+        this.openingHours = openingHours;
+    }
+
+    public ResturantChain getRestaurantChain() {
+        return restaurantChain;
+    }
+
+    public void setRestaurantChain(ResturantChain restaurantChain) {
+        this.restaurantChain = restaurantChain;
     }
 }

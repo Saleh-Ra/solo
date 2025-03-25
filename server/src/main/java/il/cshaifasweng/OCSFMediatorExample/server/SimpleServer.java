@@ -11,12 +11,10 @@ import java.util.List;
 
 public class SimpleServer extends AbstractServer {
 	private static final ArrayList<SubscribedClient> SubscribersList = new ArrayList<>();
-	private Database database;
 
 	public SimpleServer(int port) {
 		super(port);
-		this.database = new Database();
-		this.database.initializeMenu(); // Initialize the database with default menu items
+		DatabaseInitializer.initializeMenu(); // Initialize the database with default menu items
 	}
 
 	public static void main(String[] args) {
@@ -45,7 +43,8 @@ public class SimpleServer extends AbstractServer {
 
 	private void sendMenuToClient(ConnectionToClient client) {
 		try {
-			List<MenuItem> updatedItems = database.getMenuItems(); // Fetch fresh data from DB
+			//List<MenuItem> updatedItems = database.getMenuItems(); // Fetch fresh data from DB
+			List<MenuItem> updatedItems = DataManager.fetchAll(MenuItem.class); // Fetch fresh data from DB
 			System.out.println("Sending menu items to client: " + updatedItems.size() + " items");
 			client.sendToClient(updatedItems);
 		} catch (IOException e) {
@@ -97,7 +96,7 @@ public class SimpleServer extends AbstractServer {
 		}
 
 		MenuItem newItem = new MenuItem(name, ingredients, preferences, price);
-		database.addMenuItem(newItem);
+		DataManager.add(newItem);
 		System.out.println("Added new item to database: " + name);
 
 		sendSuccessResponse(client, "ADD_ITEM_SUCCESS", name);
@@ -105,11 +104,11 @@ public class SimpleServer extends AbstractServer {
 	}
 
 	private boolean updateMenuItem(String name, double newPrice) {
-		List<MenuItem> items = database.getMenuItems();
+		List<MenuItem> items = DataManager.fetchAll(MenuItem.class);
 		for (MenuItem item : items) {
 			if (item.getName().equals(name)) {
 				item.setPrice(newPrice);
-				database.updatePriceByName(name, newPrice);
+				//database.updatePriceByName(name, newPrice);
 				System.out.println("Updated price for item: " + name + " to " + newPrice);
 				return true;
 			}
@@ -118,7 +117,7 @@ public class SimpleServer extends AbstractServer {
 	}
 
 	private void sendUpdatedMenuToAllClients() {
-		List<MenuItem> updatedItems = database.getMenuItems();
+		List<MenuItem> updatedItems = DataManager.fetchAll(MenuItem.class);
 		try {
 			for (SubscribedClient subscribedClient : SubscribersList) {
 				subscribedClient.getClient().sendToClient(updatedItems);
