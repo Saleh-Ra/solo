@@ -1,14 +1,26 @@
 package il.cshaifasweng.OCSFMediatorExample.entities;
 
-public class resturantChainManager {
+import javax.persistence.*;
+
+@Entity
+@Table(name = "branch_manager")
+public class BranchManager {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int managerId;
+
     private String managerName;
 
-    public resturantChainManager(int managerId, String managerName) {
+    // Default constructor required by Hibernate
+    public BranchManager() {}
+
+    public BranchManager(int managerId, String managerName) {
         this.managerId = managerId;
         this.managerName = managerName;
     }
 
+    // Getters and setters
     public int getManagerId() {
         return managerId;
     }

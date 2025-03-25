@@ -1,57 +1,83 @@
 package il.cshaifasweng.OCSFMediatorExample.entities;
 
+import javax.persistence.*;
+
+@Entity
+@Table(name = "complaint")
 public class Complaint {
-        private int complaintId;
-        private int clientId;
-        private int branchId;
-        private String description;
-        private String status;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
 
-        public Complaint(int complaintId, int clientId, int branchId, String description, String status) {
-            this.complaintId = complaintId;
-            this.clientId = clientId;
-            this.branchId = branchId;
-            this.description = description;
-            this.status = status;
-        }
+    @Column(nullable = false, length = 500)
+    private String description;
 
-        public int getComplaintId() {
-            return complaintId;
-        }
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Status status;
 
-        public void setComplaintId(int complaintId) {
-            this.complaintId = complaintId;
-        }
+    // ✅ One-to-One Association: A Client can have only ONE active Complaint at a time.
+    @OneToOne
+    @JoinColumn(name = "client_id", unique = true, nullable = false)
+    private Client client;
 
-        public int getClientId() {
-            return clientId;
-        }
+    // ✅ Many Complaints belong to ONE Branch.
+    @ManyToOne
+    @JoinColumn(name = "branch_id", nullable = false)
+    private Branch branch;
 
-        public void setClientId(int clientId) {
-            this.clientId = clientId;
-        }
+    public Complaint() {}
 
-        public int getBranchId() {
-            return branchId;
-        }
+    public Complaint(String description, Status status, Client client, Branch branch) {
+        this.description = description;
+        this.status = status;
+        this.client = client;
+        this.branch = branch;
+    }
 
-        public void setBranchId(int branchId) {
-            this.branchId = branchId;
-        }
+    // ✅ Getters and Setters
+    public int getId() {
+        return id;
+    }
 
-        public String getDescription() {
-            return description;
-        }
+    public void setId(int id) {
+        this.id = id;
+    }
 
-        public void setDescription(String description) {
-            this.description = description;
-        }
+    public String getDescription() {
+        return description;
+    }
 
-        public String getStatus() {
-            return status;
-        }
+    public void setDescription(String description) {
+        this.description = description;
+    }
 
-        public void setStatus(String status) {
-            this.status = status;
-        }
+    public Status getStatus() {
+        return status;
+    }
+
+    public void setStatus(Status status) {
+        this.status = status;
+    }
+
+    public Client getClient() {
+        return client;
+    }
+
+    public void setClient(Client client) {
+        this.client = client;
+    }
+
+    public Branch getBranch() {
+        return branch;
+    }
+
+    public void setBranch(Branch branch) {
+        this.branch = branch;
+    }
+
+    // ✅ Enum for Complaint Status
+    public enum Status {
+        PENDING, RESOLVED, REJECTED
+    }
 }

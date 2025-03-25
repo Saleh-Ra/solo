@@ -1,39 +1,51 @@
 package il.cshaifasweng.OCSFMediatorExample.entities;
 
-import java.util.ArrayList;
+import javax.persistence.*;
+import java.util.List;
 
+@Entity
+@Table(name = "resturant_chain")
 public class ResturantChain {
-    int ChainID;
-    String Name;
-    ArrayList<Branch> Branches;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
 
-    public ResturantChain(int chainID, String name, ArrayList<Branch> branches) {
-        ChainID = chainID;
-        Name = name;
-        Branches = branches;
+    @Column(nullable = false, unique = true)
+    private String name;
+
+    // Aggregation: A RestaurantChain can have multiple Branches, but Branches exist independently
+    @OneToMany(mappedBy = "restaurantChain", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
+    private List<Branch> branches;
+
+    public ResturantChain() {}
+
+    public ResturantChain(String name, List<Branch> branches) {
+        this.name = name;
+        this.branches = branches;
     }
 
-    public int getChainID() {
-        return ChainID;
+    // ✅ Getters and Setters
+    public int getId() {
+        return id;
     }
 
-    public void setChainID(int chainID) {
-        ChainID = chainID;
+    public void setId(int id) {
+        this.id = id;
     }
 
     public String getName() {
-        return Name;
+        return name;
     }
 
     public void setName(String name) {
-        Name = name;
+        this.name = name;
     }
 
-    public ArrayList<Branch> getBranches() {
-        return Branches;
+    public List<Branch> getBranches() {
+        return branches;
     }
 
-    public void setBranches(ArrayList<Branch> branches) {
-        Branches = branches;
+    public void setBranches(List<Branch> branches) {
+        this.branches = branches;
     }
 }

@@ -1,69 +1,69 @@
 package il.cshaifasweng.OCSFMediatorExample.entities;
 
-import java.util.ArrayList;
+import javax.persistence.*;
 
-public class Order {// totalcost  status-string
-    int OrderID;
-    int ClientID;
-    int BranchID;
-    ArrayList<MenuItem> MenuItems;
-    int TotalCost;
-    String Status;
+@Entity
+@Table(name = "order_table")
+public class Order {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int id;
+    private int branchId;
+    private double totalCost;
+    private String status;
 
-    public Order(int orderID, int clientID, int branchID, ArrayList<MenuItem> menuItems, int totalCost, String status) {
-        OrderID = orderID;
-        ClientID = clientID;
-        BranchID = branchID;
-        MenuItems = menuItems;
-        TotalCost = totalCost;
-        Status = status;
+    // ✅ Many-to-One Association: Many Orders belong to one Client.
+    @ManyToOne
+    @JoinColumn(name = "client_id", nullable = true)
+    private Client client;
+
+    public Order() {}
+
+    public Order(int branchid,double totalCost, String status, Client client) {
+        this.branchId = branchid;
+        this.totalCost = totalCost;
+        this.status = status;
+        this.client = client;
     }
 
-    public int getOrderID() {
-        return OrderID;
+    // ✅ Getters and Setters
+    public int getId() {
+        return id;
     }
 
-    public void setOrderID(int orderID) {
-        OrderID = orderID;
+    public void setId(int id) {
+        this.id = id;
     }
 
-    public int getClientID() {
-        return ClientID;
+    public int getBranchId() {
+        return branchId;
     }
 
-    public void setClientID(int clientID) {
-        ClientID = clientID;
+    public void setBranchId(int id) {
+        this.branchId = branchId;
     }
 
-    public int getBranchID() {
-        return BranchID;
+    public double getTotalCost() {
+        return totalCost;
     }
 
-    public void setBranchID(int branchID) {
-        BranchID = branchID;
-    }
-
-    public ArrayList<MenuItem> getMenuItems() {
-        return MenuItems;
-    }
-
-    public void setMenuItems(ArrayList<MenuItem> menuItems) {
-        this.MenuItems = menuItems;
-    }
-
-    public int getTotalCost() {
-        return TotalCost;
-    }
-
-    public void setTotalCost(int totalCost) {
-        TotalCost = totalCost;
+    public void setTotalCost(double totalCost) {
+        this.totalCost = totalCost;
     }
 
     public String getStatus() {
-        return Status;
+        return status;
     }
 
     public void setStatus(String status) {
-        Status = status;
+        this.status = status;
+    }
+
+    public Client getClient() {
+        return client;
+    }
+
+    public void setClient(Client client) {
+        this.client = client;
     }
 }

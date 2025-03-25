@@ -1,6 +1,6 @@
 package il.cshaifasweng.OCSFMediatorExample.server;
 
-import il.cshaifasweng.OCSFMediatorExample.entities.MenuItem;
+import il.cshaifasweng.OCSFMediatorExample.entities.*;
 import org.hibernate.HibernateException;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -41,6 +41,18 @@ public class Database {
 
             // Add the entity classes
             configuration.addAnnotatedClass(MenuItem.class);
+            configuration.addAnnotatedClass(Branch.class);
+            configuration.addAnnotatedClass(BranchManager.class);
+            configuration.addAnnotatedClass(Client.class);
+            configuration.addAnnotatedClass(Complaint.class);
+            configuration.addAnnotatedClass(Delivery.class);
+            configuration.addAnnotatedClass(Menu.class);
+            configuration.addAnnotatedClass(Order.class);
+            configuration.addAnnotatedClass(Payment.class);
+            configuration.addAnnotatedClass(ResturantChain.class);
+            configuration.addAnnotatedClass(Reservation.class);
+            configuration.addAnnotatedClass(ResturantChainManager.class);
+            configuration.addAnnotatedClass(ResturantTable.class);
 
             ServiceRegistry serviceRegistry = new StandardServiceRegistryBuilder()
                     .applySettings(configuration.getProperties())
@@ -49,6 +61,18 @@ public class Database {
             sessionFactory = configuration.buildSessionFactory(serviceRegistry);
         }
         return sessionFactory;
+    }
+
+    public static SessionFactory getSessionFactoryInstance() {
+        return sessionFactory;
+    }
+
+
+    // Optional shutdown method if needed
+    public static void shutdown() {
+        if (sessionFactory != null) {
+            sessionFactory.close();
+        }
     }
 
     public void initializeMenu() {
@@ -67,12 +91,6 @@ public class Database {
                 session.save(new MenuItem("Vegan Hamburger", "Vegan patty, Tomato, Pickles, Lettuce", "Vegan", 60.00));
                 session.save(new MenuItem("SOUR CREAM SPINACH PASTA", "Sour cream, Garlic, Spinach", "Gluten-Free", 55.00));
                 session.save(new MenuItem("CEASAR SALAD", "Lettuce, Chicken breast, Parmesan cheese, Onions", "Keto-Friendly", 60.00));
-                //  session.save(new MenuItem("FATTO TIRAMISU", "", "", 18.00));
-                // session.save(new MenuItem("SCUGNIZIELLI NUTELLA GELATO", "", "", 15.00));
-                // session.save(new MenuItem("LEMON MERINGUE", "", "", 17.00));
-                // session.save(new MenuItem("CHOCOLATE SALTED CARAMEL", "", "", 15.00));
-                // session.save(new MenuItem("ESPRESSO", "", "", 8.00));
-                // session.save(new MenuItem("MACCHIATO", "", "", 10.00));
             }
 
             session.getTransaction().commit();
@@ -87,6 +105,7 @@ public class Database {
             session.beginTransaction();
             session.save(item);
             session.getTransaction().commit();
+            //getMenuItems();
         } catch (Exception e) {
             System.err.println("Failed to add menu item: " + e.getMessage());
         }
@@ -103,7 +122,7 @@ public class Database {
                     .executeUpdate();
 
             session.getTransaction().commit();
-
+            //getMenuItems();
             if (updatedEntities == 0) {
                 System.err.println("No menu item found with name: " + name);
             } else {
@@ -121,6 +140,7 @@ public class Database {
             if (item != null) {
                 session.delete(item);
                 session.getTransaction().commit();
+                //getMenuItems();
             } else {
                 System.err.println("No menu item found with ID: " + id);
             }
