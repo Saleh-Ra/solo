@@ -1,47 +1,57 @@
 package il.cshaifasweng.OCSFMediatorExample.entities;
 
-public class ResturantTable {
-    int TableID;
-    int SeatingCapacity;
-    boolean IsOccupied;
-    int ReservedID;
+import javax.persistence.*;
 
-    public ResturantTable(int tableID, int seatingCapacity, boolean occupied, int reservedID) {
-        TableID = tableID;
-        SeatingCapacity = seatingCapacity;
-        IsOccupied = occupied;
-        ReservedID = reservedID;
+@Entity
+@Table(name = "resturant_table")
+public class ResturantTable {
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private int tableID;
+
+    private int seatingCapacity;
+    private boolean isOccupied;
+    private int reservedID;
+
+    // Default constructor (required by Hibernate)
+    public ResturantTable() {}
+
+    public ResturantTable(int seatingCapacity, boolean occupied, int reservedID) {
+        this.seatingCapacity = seatingCapacity;
+        this.isOccupied = occupied;
+        this.reservedID = reservedID;
     }
 
     public int getTableID() {
-        return TableID;
+        return tableID;
     }
 
     public void setTableID(int tableID) {
-        TableID = tableID;
+        this.tableID = tableID;
     }
 
     public int getSeatingCapacity() {
-        return SeatingCapacity;
+        return seatingCapacity;
     }
 
     public void setSeatingCapacity(int seatingCapacity) {
-        SeatingCapacity = seatingCapacity;
+        this.seatingCapacity = seatingCapacity;
     }
 
     public boolean isOccupied() {
-        return IsOccupied;
+        return isOccupied;
     }
 
     public void setOccupied(boolean occupied) {
-        IsOccupied = occupied;
+        isOccupied = occupied;
     }
 
     public int getReservedID() {
-        return ReservedID;
+        return reservedID;
     }
 
     public void setReservedID(int reservedID) {
-        ReservedID = reservedID;
+        this.reservedID = reservedID;
     }
 }
