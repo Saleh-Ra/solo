@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox xmlns="http://javafx.com/javafx/8"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="il.cshaifasweng.OCSFMediatorExample.client.boundary.PaymentController"
+      spacing="10" alignment="CENTER" style="-fx-padding: 20;">
+
+    <Label text="ביצוע תשלום" style="-fx-font-size: 16px;" />
+
+    <TextField fx:id="clientIdField" promptText="מזהה לקוח" />
+    <TextField fx:id="orderIdField" promptText="מזהה הזמנה" />
+    <TextField fx:id="amountField" promptText="סכום לתשלום" />
+    <TextField fx:id="methodField" promptText="אמצעי תשלום (כרטיס/מזומן)" />
+
+    <Button text="בצע תשלום" onAction="#onPayClicked" />
+</VBox>
