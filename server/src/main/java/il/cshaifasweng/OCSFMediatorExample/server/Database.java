@@ -53,6 +53,7 @@ public class Database {
             configuration.addAnnotatedClass(Reservation.class);
             configuration.addAnnotatedClass(ResturantChainManager.class);
             configuration.addAnnotatedClass(ResturantTable.class);
+            configuration.addAnnotatedClass(UserAccount.class);
 
             ServiceRegistry serviceRegistry = new StandardServiceRegistryBuilder()
                     .applySettings(configuration.getProperties())
