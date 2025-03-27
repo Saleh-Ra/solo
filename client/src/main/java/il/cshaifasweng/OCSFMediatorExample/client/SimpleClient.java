@@ -49,15 +49,33 @@ public class SimpleClient extends AbstractClient {
 			String foodName = parts[1];
 			String newPrice = parts[2];
 			System.out.println("Price updated successfully: " + foodName + " -> " + newPrice);
+
+			// 🔁 Refresh the menu
+			try {
+				sendToServer("GET_MENU");
+			} catch (IOException e) {
+				System.err.println("Failed to request menu refresh after update.");
+			}
+
 		} else if (message.startsWith("UPDATE_PRICE_FAILURE")) {
 			String reason = message.split(";")[1];
 			System.out.println("Failed to update price: " + reason);
+
 		} else if (message.startsWith("ADD_ITEM_SUCCESS")) {
 			String itemName = message.split(";")[1];
 			System.out.println("New item added successfully: " + itemName);
+
+			// 🔁 Refresh the menu
+			try {
+				sendToServer("GET_MENU");
+			} catch (IOException e) {
+				System.err.println("Failed to request menu refresh after adding item.");
+			}
+
 		} else if (message.startsWith("ADD_ITEM_FAILURE")) {
 			String reason = message.split(";")[1];
 			System.out.println("Failed to add item: " + reason);
+
 		} else {
 			System.out.println("Server message: " + message);
 		}
