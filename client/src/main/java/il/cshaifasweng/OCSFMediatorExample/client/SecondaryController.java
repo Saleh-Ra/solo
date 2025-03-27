@@ -1,5 +1,6 @@
 package il.cshaifasweng.OCSFMediatorExample.client;
 
+import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
@@ -135,16 +136,18 @@ public class SecondaryController implements MenuUpdateListener {
 
     @Override
     public void onMenuUpdate(List<MenuItem> menuItems) {
-        mealComboBox.getItems().clear();
-        menuDisplayVBox.getChildren().clear();
+        Platform.runLater(() -> {
+            mealComboBox.getItems().clear();
+            menuDisplayVBox.getChildren().clear();
 
-        for (MenuItem item : menuItems) {
-            mealComboBox.getItems().add(item.getName());
-            Label menuItemLabel = new Label(
-                    String.format("Name: %s | Ingredients: %s | Preferences: %s | Price: %.2f",
-                            item.getName(), item.getIngredients(), item.getPreferences(), item.getPrice())
-            );
-            menuDisplayVBox.getChildren().add(menuItemLabel);
-        }
+            for (MenuItem item : menuItems) {
+                mealComboBox.getItems().add(item.getName());
+                Label menuItemLabel = new Label(
+                        String.format("Name: %s | Ingredients: %s | Preferences: %s | Price: %.2f",
+                                item.getName(), item.getIngredients(), item.getPreferences(), item.getPrice())
+                );
+                menuDisplayVBox.getChildren().add(menuItemLabel);
+            }
+        });
     }
 }
