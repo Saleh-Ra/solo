@@ -1,15 +1,19 @@
 package il.cshaifasweng.OCSFMediatorExample.client;
 
 import il.cshaifasweng.OCSFMediatorExample.client.ocsf.AbstractClient;
+import il.cshaifasweng.OCSFMediatorExample.entities.Cart;
 import il.cshaifasweng.OCSFMediatorExample.entities.MenuItem;
 import il.cshaifasweng.OCSFMediatorExample.entities.Warning;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 public class SimpleClient extends AbstractClient {
 
 	private static SimpleClient client = null;
+	private static final Cart cart = new Cart();
+	private static List<MenuItem> cachedMenuItems = new ArrayList<>();
 	private MenuUpdateListener menuUpdateListener;
 
 	private SimpleClient(String host, int port) {
@@ -24,6 +28,30 @@ public class SimpleClient extends AbstractClient {
 		return client;
 	}
 
+	public static Cart getCart() {
+		return cart;
+	}
+
+	public static List<MenuItem> getMenuItems() {
+		return cachedMenuItems;
+	}
+
+	// ✅ Place order by sending cart data
+	public void placeOrder(Cart cart) throws IOException {
+		StringBuilder builder = new StringBuilder("PLACE_ORDER_CART;");
+		builder.append(cart.getId()).append(";");
+
+		for (MenuItem item : cart.getItems()) {
+			builder.append(item.getId()).append(",");
+		}
+
+		if (!cart.getItems().isEmpty()) {
+			builder.setLength(builder.length() - 1);
+		}
+
+		sendToServer(builder.toString());
+	}
+
 	@Override
 	protected void handleMessageFromServer(Object msg) {
 		System.out.println("Received message from server: " + msg.getClass().getSimpleName());
@@ -33,10 +61,10 @@ public class SimpleClient extends AbstractClient {
 		} else if (msg instanceof String) {
 			handleServerResponse((String) msg);
 		} else if (msg instanceof List) {
-			List<MenuItem> menuItems = (List<MenuItem>) msg;
-			System.out.println("Received " + menuItems.size() + " menu items from server.");
+			cachedMenuItems = (List<MenuItem>) msg;
+			System.out.println("Received " + cachedMenuItems.size() + " menu items from server.");
 			if (menuUpdateListener != null) {
-				menuUpdateListener.onMenuUpdate(menuItems);
+				menuUpdateListener.onMenuUpdate(cachedMenuItems);
 			}
 		} else {
 			System.out.println("Unhandled message type: " + msg.getClass());
@@ -44,40 +72,38 @@ public class SimpleClient extends AbstractClient {
 	}
 
 	private void handleServerResponse(String message) {
-		if (message.startsWith("UPDATE_PRICE_SUCCESS")) {
-			String[] parts = message.split(";");
-			String foodName = parts[1];
-			String newPrice = parts[2];
-			System.out.println("Price updated successfully: " + foodName + " -> " + newPrice);
-
-			// 🔁 Refresh the menu
-			try {
+		try {
+			if (message.startsWith("UPDATE_PRICE_SUCCESS")) {
+				System.out.println("✅ Price updated: " + message);
 				sendToServer("GET_MENU");
-			} catch (IOException e) {
-				System.err.println("Failed to request menu refresh after update.");
-			}
 
-		} else if (message.startsWith("UPDATE_PRICE_FAILURE")) {
-			String reason = message.split(";")[1];
-			System.out.println("Failed to update price: " + reason);
+			} else if (message.startsWith("UPDATE_PRICE_FAILURE")) {
+				System.out.println("❌ Failed to update price: " + message.split(";")[1]);
 
-		} else if (message.startsWith("ADD_ITEM_SUCCESS")) {
-			String itemName = message.split(";")[1];
-			System.out.println("New item added successfully: " + itemName);
-
-			// 🔁 Refresh the menu
-			try {
+			} else if (message.startsWith("ADD_ITEM_SUCCESS")) {
+				System.out.println("✅ New item added.");
 				sendToServer("GET_MENU");
-			} catch (IOException e) {
-				System.err.println("Failed to request menu refresh after adding item.");
+
+			} else if (message.startsWith("ADD_ITEM_FAILURE")) {
+				System.out.println("❌ Failed to add item: " + message.split(";")[1]);
+
+			} else if (message.startsWith("ORDER_SUCCESS")) {
+				System.out.println("✅ Order placed successfully.");
+
+			} else if (message.startsWith("ORDER_FAILURE")) {
+				System.out.println("❌ Failed to place order: " + message.split(";")[1]);
+
+			} else if (message.startsWith("DELIVERY_SUCCESS")) {
+				System.out.println("✅ Delivery placed successfully.");
+
+			} else if (message.startsWith("DELIVERY_FAILURE")) {
+				System.out.println("❌ Failed to place delivery: " + message.split(";")[1]);
+
+			} else {
+				System.out.println("ℹ️ Server message: " + message);
 			}
-
-		} else if (message.startsWith("ADD_ITEM_FAILURE")) {
-			String reason = message.split(";")[1];
-			System.out.println("Failed to add item: " + reason);
-
-		} else {
-			System.out.println("Server message: " + message);
+		} catch (IOException e) {
+			System.err.println("Error handling server response: " + e.getMessage());
 		}
 	}
 

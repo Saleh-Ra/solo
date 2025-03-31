@@ -1,7 +1,8 @@
-package il.cshaifasweng.OCSFMediatorExample.entities;
 
+package il.cshaifasweng.OCSFMediatorExample.entities;
 import javax.persistence.*;
 import java.util.Date;
+
 
 @Entity
 @Table(name = "delivery")
@@ -9,52 +10,73 @@ public class Delivery {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int deliveryID;
+    private int id;
 
-    private int clientID;  // Optional: You can later replace with @ManyToOne to a Client entity if needed
-    private int orderID;   // Optional: You can later replace with @ManyToOne to an Order entity if needed
+    // One-to-One with Order (each delivery is for one order)
+    @OneToOne
+    @JoinColumn(name = "order_id")
+    private Order order;
+
+    // Many-to-One with Client (a client can have multiple deliveries)
+    @ManyToOne
+    @JoinColumn(name = "client_id")
+    private Client client;
 
     private String deliveryAddress;
 
     @Temporal(TemporalType.TIMESTAMP)
     private Date deliveryDate;
 
-    private String status;
+    private String status; // e.g., "Pending", "In Transit", "Delivered"
 
-    // Default constructor (required by Hibernate)
+    private String notes; // Optional: to hold custom instructions
+
+    // Default constructor
     public Delivery() {}
 
-    public Delivery(int clientID, int orderID, String deliveryAddress, Date deliveryDate, String status) {
-        this.clientID = clientID;
-        this.orderID = orderID;
+    // Constructor using objects
+    public Delivery(Order order, Client client, String deliveryAddress, Date deliveryDate, String status, String notes) {
+        this.order = order;
+        this.client = client;
         this.deliveryAddress = deliveryAddress;
         this.deliveryDate = deliveryDate;
         this.status = status;
+        this.notes = notes;
+    }
+
+    // Additional constructor accepting int IDs (converts to objects)
+    public Delivery(int clientId, int orderId, String deliveryAddress, Date deliveryDate, String status) {
+        // Use your DataManager (or another lookup mechanism) to retrieve the objects:
+
+        this.deliveryAddress = deliveryAddress;
+        this.deliveryDate = deliveryDate;
+        this.status = status;
+        this.notes = "";
     }
 
     // Getters and Setters
-    public int getDeliveryID() {
-        return deliveryID;
+    public int getId() {
+        return id;
     }
 
-    public void setDeliveryID(int deliveryID) {
-        this.deliveryID = deliveryID;
+    public void setId(int id) {
+        this.id = id;
     }
 
-    public int getClientID() {
-        return clientID;
+    public Order getOrder() {
+        return order;
     }
 
-    public void setClientID(int clientID) {
-        this.clientID = clientID;
+    public void setOrder(Order order) {
+        this.order = order;
     }
 
-    public int getOrderID() {
-        return orderID;
+    public Client getClient() {
+        return client;
     }
 
-    public void setOrderID(int orderID) {
-        this.orderID = orderID;
+    public void setClient(Client client) {
+        this.client = client;
     }
 
     public String getDeliveryAddress() {
@@ -79,5 +101,13 @@ public class Delivery {
 
     public void setStatus(String status) {
         this.status = status;
+    }
+
+    public String getNotes() {
+        return notes;
+    }
+
+    public void setNotes(String notes) {
+        this.notes = notes;
     }
 }
