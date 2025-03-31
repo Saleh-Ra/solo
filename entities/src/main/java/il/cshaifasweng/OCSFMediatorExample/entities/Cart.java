@@ -7,34 +7,50 @@ public class Cart {
     private static int cartCounter = 0;
     private int id;
     private ArrayList<MenuItem> items;
-    private int sum;
+    private double totalCost;
+
     public Cart() {
-        int id=++cartCounter;
+        this.id = ++cartCounter; // ✅ Fixed: `this.id`, not a local variable
         this.items = new ArrayList<>();
-        this.sum = 0;
+        this.totalCost = 0;
     }
 
+    public void addItem(MenuItem item) {
+        items.add(item);
+        totalCost += item.getPrice();
+    }
+
+    public void removeItem(MenuItem item) {
+        if (items.remove(item)) {
+            totalCost -= item.getPrice();
+        }
+    }
+
+    public void clearCart() {
+        items.clear();
+        totalCost = 0;
+    }
+
+    public double calculateTotal() {
+        return totalCost;
+    }
+
+    // Getters and setters
     public int getId() {
         return id;
-    }
-
-    public void setId(int id) {
-        this.id = id;
     }
 
     public ArrayList<MenuItem> getItems() {
         return items;
     }
 
+    public double getTotalCost() {
+        return totalCost;
+    }
+
     public void setItems(ArrayList<MenuItem> items) {
         this.items = items;
-    }
-
-    public int getSum() {
-        return sum;
-    }
-
-    public void setSum(int sum) {
-        this.sum = sum;
+        // Recalculate total cost if setting a new list
+        this.totalCost = items.stream().mapToDouble(MenuItem::getPrice).sum();
     }
 }

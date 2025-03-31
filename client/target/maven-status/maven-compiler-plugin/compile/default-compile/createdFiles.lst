@@ -4,8 +4,12 @@ il\cshaifasweng\OCSFMediatorExample\client\MenuUpdateListener.class
 il\cshaifasweng\OCSFMediatorExample\client\App.class
 il\cshaifasweng\OCSFMediatorExample\client\WarningEvent.class
 il\cshaifasweng\OCSFMediatorExample\client\ocsf\ObservableSWRClient.class
+il\cshaifasweng\OCSFMediatorExample\client\boundary\DeliveryOrderController.class
 il\cshaifasweng\OCSFMediatorExample\client\SimpleClient.class
+il\cshaifasweng\OCSFMediatorExample\client\boundary\OrderController.class
 il\cshaifasweng\OCSFMediatorExample\client\ocsf\ObservableClient.class
+il\cshaifasweng\OCSFMediatorExample\client\boundary\CartController.class
+il\cshaifasweng\OCSFMediatorExample\client\boundary\UserMenuController.class
 il\cshaifasweng\OCSFMediatorExample\client\Main.class
 il\cshaifasweng\OCSFMediatorExample\client\ocsf\AdaptableClient.class
 il\cshaifasweng\OCSFMediatorExample\client\SecondaryController.class

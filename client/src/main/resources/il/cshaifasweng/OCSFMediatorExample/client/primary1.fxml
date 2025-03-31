@@ -5,10 +5,14 @@
 <?import javafx.scene.control.Label?>
 <?import javafx.scene.layout.VBox?>
 
-<VBox alignment="CENTER" prefHeight="382.0" prefWidth="565.0" spacing="20.0" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="il.cshaifasweng.OCSFMediatorExample.client.PrimaryController">
+<VBox alignment="CENTER" prefHeight="382.0" prefWidth="565.0" spacing="20.0"
+      xmlns="http://javafx.com/javafx/23.0.1"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="il.cshaifasweng.OCSFMediatorExample.client.PrimaryController">
    <children>
       <Label text="Welcome" />
-      <Button fx:id="viewMenuButton" mnemonicParsing="false" onAction="#handleViewMenu" text="view menu" />
+      <Button fx:id="managerLoginButton" mnemonicParsing="false" onAction="#handleManagerLogin" text="Manager Login" />
+      <Button fx:id="userMenuButton" mnemonicParsing="false" onAction="#handleUserMenu" text="User Menu" />
    </children>
    <padding>
       <Insets bottom="20.0" left="20.0" right="20.0" top="20.0" />
