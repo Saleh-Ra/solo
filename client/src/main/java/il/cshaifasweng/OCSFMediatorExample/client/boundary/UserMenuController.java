@@ -12,6 +12,7 @@ import javafx.scene.layout.VBox;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
 
 public class UserMenuController {
 
@@ -27,23 +28,18 @@ public class UserMenuController {
     @FXML
     private Button clearCartButton;
 
-    @FXML
-    private Button placeOrderButton;
-
     private Cart cart;
 
     @FXML
     public void initialize() {
         cart = SimpleClient.getCart();
 
-        // 🔁 Always request latest menu from server
         try {
             SimpleClient.getClient().sendToServer("GET_MENU");
         } catch (IOException e) {
             e.printStackTrace();
         }
 
-        // ✅ Register menu update listener
         SimpleClient.getClient().setMenuUpdateListener(menuItems ->
                 Platform.runLater(this::loadMenu)
         );
@@ -72,16 +68,48 @@ public class UserMenuController {
     private void refreshCartView() {
         cartListView.getItems().clear();
 
-        for (MenuItem item : cart.getItems()) {
-            Label itemLabel = new Label(item.getName() + " - $" + String.format("%.2f", item.getPrice()));
-            Button removeButton = new Button("Remove");
+        for (Map.Entry<MenuItem, Integer> entry : cart.getItems().entrySet()) {
+            MenuItem item = entry.getKey();
+            int quantity = entry.getValue();
+            String note = cart.getNote(item);
 
-            removeButton.setOnAction(event -> {
-                cart.removeItem(item);
+            Label itemLabel = new Label(item.getName() + " x" + quantity + " - $" + String.format("%.2f", item.getPrice() * quantity));
+            if (note != null && !note.isEmpty()) {
+                itemLabel.setText(itemLabel.getText() + " [" + note + "]");
+            }
+
+            Button plusButton = new Button("+");
+            Button minusButton = new Button("-");
+            Button removeButton = new Button("Remove");
+            Button editButton = new Button("Edit");
+
+            plusButton.setOnAction(e -> {
+                cart.addItem(item);
                 refreshCartView();
             });
 
-            HBox row = new HBox(10, itemLabel, removeButton);
+            minusButton.setOnAction(e -> {
+                cart.decreaseItem(item);
+                refreshCartView();
+            });
+
+            removeButton.setOnAction(e -> {
+                cart.removeCompletely(item);
+                refreshCartView();
+            });
+
+            editButton.setOnAction(e -> {
+                TextInputDialog dialog = new TextInputDialog(cart.getNote(item));
+                dialog.setTitle("Edit Meal");
+                dialog.setHeaderText("Enter special instructions for " + item.getName());
+                dialog.setContentText("Note:");
+                dialog.showAndWait().ifPresent(noteText -> {
+                    cart.setNote(item, noteText);
+                    refreshCartView();
+                });
+            });
+
+            HBox row = new HBox(10, itemLabel, plusButton, minusButton, removeButton, editButton);
             cartListView.getItems().add(row);
         }
 
@@ -95,30 +123,27 @@ public class UserMenuController {
     }
 
     @FXML
-    private void handlePlaceOrder() {
-        if (cart.getItems().isEmpty()) {
-            showAlert("Cart is empty", "Please add items before placing an order.");
-            return;
-        }
-
-        try {
-            SimpleClient.getClient().placeOrder(cart);
-            showAlert("Order Placed", "Your order was sent to the server!");
-            cart.clearCart();
-            refreshCartView();
-        } catch (IOException e) {
-            e.printStackTrace();
-            showAlert("Error", "Could not place order: " + e.getMessage());
-        }
-    }
-
-    @FXML
     private void handleBackToMainPage() {
         try {
             App.setRoot("primary1");
         } catch (IOException e) {
             e.printStackTrace();
             showAlert("Error", "Could not return to main menu.");
+        }
+    }
+
+    @FXML
+    private void handleProceedToCheckout() {
+        if (cart.getItems().isEmpty()) {
+            showAlert("Cart is empty", "Please add items before continuing.");
+            return;
+        }
+
+        try {
+            App.setRoot("order");
+        } catch (IOException e) {
+            e.printStackTrace();
+            showAlert("Navigation Error", "Could not open the order screen.");
         }
     }
 

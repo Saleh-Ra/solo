@@ -1,20 +1,32 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
-<?import javafx.scene.layout.VBox?>
-<?import javafx.scene.control.Label?>
-<?import javafx.scene.control.TextField?>
-<?import javafx.scene.control.Button?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
 
-<VBox xmlns="http://javafx.com/javafx/8"
-      xmlns:fx="http://javafx.com/fxml/1"
-      fx:controller="il.cshaifasweng.OCSFMediatorExample.client.boundary.OrderController"
-      spacing="10" alignment="CENTER" style="-fx-padding: 20;">
+<AnchorPane xmlns="http://javafx.com/javafx/23.0.1"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="il.cshaifasweng.OCSFMediatorExample.client.boundary.OrderController"
+            prefWidth="600" prefHeight="500">
 
-    <Label text="ביצוע הזמנה" style="-fx-font-size: 16px;" />
+    <VBox layoutX="50.0" layoutY="30.0" spacing="15" prefWidth="500">
+        <Label text="📝 Enter Your Delivery And Payment Info" style="-fx-font-size: 18px; -fx-font-weight: bold;" />
 
-    <TextField fx:id="clientIdField" promptText="מזהה לקוח" />
-    <TextField fx:id="branchIdField" promptText="מזהה סניף" />
-    <TextField fx:id="menuItemsField" promptText="מזהי מנות (מופרדים בפסיקים)" />
+        <TextField fx:id="nameField" promptText="Full Name" />
+        <TextField fx:id="idField" promptText="ID Number" />
+        <TextField fx:id="addressField" promptText="Delivery Address" />
 
-    <Button text="בצע הזמנה" onAction="#onOrderClicked" />
-</VBox>
+        <HBox spacing="10">
+            <DatePicker fx:id="datePicker" promptText="Delivery Date" />
+            <TextField fx:id="timeField" promptText="HH:mm (24-hour format)" />
+        </HBox>
+
+        <ComboBox fx:id="paymentMethodComboBox" promptText="Select Payment Method" />
+
+        <Button fx:id="confirmButton" onAction="#handleConfirm" text="Confirm And Place Order" prefWidth="200" />
+        <Button fx:id="backButton" onAction="#handleBack" text="← Back to Menu" prefWidth="200" />
+
+        <Label fx:id="statusLabel" style="-fx-text-fill: green;" />
+    </VBox>
+
+</AnchorPane>
