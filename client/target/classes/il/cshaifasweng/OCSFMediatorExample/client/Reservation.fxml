@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.layout.*?>
+<?import javafx.scene.control.*?>
+<?import javafx.geometry.Insets?>
+
+<AnchorPane xmlns="http://javafx.com/javafx/23.0.1"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="il.cshaifasweng.OCSFMediatorExample.client.boundary.ReservationController"
+            prefWidth="600" prefHeight="500">
+
+    <VBox layoutX="50" layoutY="30" spacing="15" alignment="CENTER">
+        <padding>
+            <Insets top="20" right="20" bottom="20" left="20"/>
+        </padding>
+
+        <Label text="🔖 Make a Reservation" style="-fx-font-size: 20px; -fx-font-weight: bold;" />
+
+        <ComboBox fx:id="branchComboBox" promptText="Choose Branch" prefWidth="300"/>
+        <TextField fx:id="guestsField" promptText="Number of Guests" prefWidth="300"/>
+
+        <ComboBox fx:id="areaComboBox" promptText="Seating Area" prefWidth="300"/>
+        <DatePicker fx:id="datePicker" promptText="Reservation Date" prefWidth="300"/>
+        <TextField fx:id="timeField" promptText="Time (e.g. 18:30)" prefWidth="300"/>
+
+        <HBox spacing="10">
+            <Button text="Check Availability" onAction="#handleCheckAvailability" />
+            <Button text="Back to Main" onAction="#handleBackToMain" />
+        </HBox>
+
+        <Label fx:id="statusLabel" style="-fx-text-fill: red;" />
+    </VBox>
+</AnchorPane>

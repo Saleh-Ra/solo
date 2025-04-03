@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/23.0.1"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="il.cshaifasweng.OCSFMediatorExample.client.boundary.UserMenuController">
+
+    <center>
+        <VBox fx:id="menuDisplayVBox" spacing="10">
+            <padding>
+                <Insets top="10" right="10" bottom="10" left="10" />
+            </padding>
+        </VBox>
+    </center>
+
+    <right>
+        <VBox spacing="10">
+            <padding>
+                <Insets top="10" right="10" bottom="10" left="10" />
+            </padding>
+            <Label text="🛒 Cart" style="-fx-font-size: 18px; -fx-font-weight: bold;" />
+            <ListView fx:id="cartListView" prefHeight="200" />
+            <Label fx:id="totalLabel" text="Total: $0.00" />
+            <Button fx:id="clearCartButton" text="Clear Cart" onAction="#handleClearCart" />
+        </VBox>
+    </right>
+
+    <bottom>
+        <HBox alignment="CENTER_RIGHT" spacing="10">
+            <padding>
+                <Insets top="10" right="10" bottom="10" left="10"/>
+            </padding>
+            <Button text="Back to Main Page" onAction="#handleBackToMainPage"/>
+            <Button text="Confirm Order And Pay" onAction="#handleProceedToCheckout"/>
+        </HBox>
+    </bottom>
+</BorderPane>

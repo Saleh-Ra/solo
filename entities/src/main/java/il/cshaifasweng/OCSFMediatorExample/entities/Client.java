@@ -16,6 +16,10 @@ public class Client {
     @Column(nullable = false, unique = true)
     private String contactDetails;
 
+    @OneToOne
+    @JoinColumn(name = "user_account_id", nullable = false)
+    private UserAccount account;
+
     // ✅ One-to-Many Association: A Client can have multiple Orders, but Orders remain if the Client is deleted.
     @OneToMany(mappedBy = "client", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
     private List<Order> orders;
@@ -34,9 +38,10 @@ public class Client {
 
     public Client() {}
 
-    public Client(String name, String contactDetails) {
+    public Client(String name, String contactDetails,UserAccount account) {
         this.name = name;
         this.contactDetails = contactDetails;
+        this.account = account;
     }
 
     // ✅ Getters and Setters

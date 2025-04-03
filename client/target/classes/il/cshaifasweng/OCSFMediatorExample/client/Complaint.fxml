@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.VBox?>
+
+<VBox xmlns="http://javafx.com/javafx/8"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="il.cshaifasweng.OCSFMediatorExample.client.boundary.ComplaintController"
+      spacing="10" alignment="CENTER" style="-fx-padding: 20;">
+
+    <Label text="הגשת תלונה" style="-fx-font-size: 16px;" />
+
+    <TextField fx:id="clientIdField" promptText="מזהה לקוח" />
+    <TextField fx:id="branchIdField" promptText="מזהה סניף" />
+    <TextArea fx:id="descriptionField" promptText="תיאור התלונה" prefRowCount="4" />
+
+    <Button text="שלח תלונה" onAction="#onSubmitClicked" />
+</VBox>

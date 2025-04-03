@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<AnchorPane xmlns="http://javafx.com/javafx/23.0.1"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="il.cshaifasweng.OCSFMediatorExample.client.boundary.OrderController"
+            prefWidth="600" prefHeight="500">
+
+    <VBox layoutX="50.0" layoutY="30.0" spacing="15" prefWidth="500">
+        <Label text="📝 Enter Your Delivery And Payment Info" style="-fx-font-size: 18px; -fx-font-weight: bold;" />
+
+        <TextField fx:id="nameField" promptText="Full Name" />
+        <TextField fx:id="idField" promptText="ID Number" />
+        <TextField fx:id="addressField" promptText="Delivery Address" />
+
+        <HBox spacing="10">
+            <DatePicker fx:id="datePicker" promptText="Delivery Date" />
+            <TextField fx:id="timeField" promptText="HH:mm (24-hour format)" />
+        </HBox>
+
+        <ComboBox fx:id="paymentMethodComboBox" promptText="Select Payment Method" />
+
+        <Button fx:id="confirmButton" onAction="#handleConfirm" text="Confirm And Place Order" prefWidth="200" />
+        <Button fx:id="backButton" onAction="#handleBack" text="← Back to Menu" prefWidth="200" />
+
+        <Label fx:id="statusLabel" style="-fx-text-fill: green;" />
+    </VBox>
+
+</AnchorPane>

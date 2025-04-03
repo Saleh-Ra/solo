@@ -23,11 +23,14 @@ public class MenuItem implements Serializable {
     @Column(nullable = false)
     private double price;
 
-    public MenuItem(String name, String ingredients, String preferences, double price) {
+    //private String catagory;
+
+    public MenuItem(String name, String ingredients, String preferences, double price){//,String catagory) {
         this.name = name;
         this.ingredients = ingredients;
         this.preferences = preferences;
         this.price = price;
+        //this.catagory = catagory;
     }
 
     public MenuItem() {
@@ -73,4 +76,12 @@ public class MenuItem implements Serializable {
     public void setPrice(double price) {
         this.price = price;
     }
+
+    /*public String getCatagory() {
+        return catagory;
+    }
+
+    public void setCatagory(String catagory) {
+        this.catagory = catagory;
+    }*/
 }

@@ -1,6 +1,7 @@
 package il.cshaifasweng.OCSFMediatorExample.entities;
 
 import javax.persistence.*;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "order_table")
@@ -10,6 +11,7 @@ public class Order {
     private int id;
     private int branchId;
     private double totalCost;
+    LocalDateTime orderTime;
     private String status;
 
     // ✅ Many-to-One Association: Many Orders belong to one Client.
@@ -19,10 +21,10 @@ public class Order {
 
     public Order() {}
 
-    public Order(int branchid,double totalCost, String status, Client client) {
+    public Order(int branchid, double totalCost, LocalDateTime time, Client client) {
         this.branchId = branchid;
         this.totalCost = totalCost;
-        this.status = status;
+        this.orderTime = time;
         this.client = client;
     }
 
@@ -66,4 +68,8 @@ public class Order {
     public void setClient(Client client) {
         this.client = client;
     }
+
+    public LocalDateTime getOrderTime() {return this.orderTime;}
+
+    public void setOrderTime(LocalDateTime orderTime) {this.orderTime=orderTime;}
 }

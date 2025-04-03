@@ -1,6 +1,7 @@
 package il.cshaifasweng.OCSFMediatorExample.entities;
 
 import javax.persistence.*;
+import java.util.List;
 
 @Entity
 @Table(name = "branch")
@@ -12,20 +13,25 @@ public class Branch {
     private String location;
     private String openingHours;
 
+    @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @JoinColumn(name = "branch_id")  // This will add a foreign key in RestaurantTable
+    private List<RestaurantTable> tables;
+
     // Many branches belong to one restaurant chain (Aggregation)
     @ManyToOne
-    @JoinColumn(name = "resturant_chain_id", nullable = true)
-    private ResturantChain restaurantChain;
+    @JoinColumn(name = "Restaurant_chain_id", nullable = true)
+    private RestaurantChain restaurantChain;
 
     public Branch() {}
 
-    public Branch(String location, String openingHours, ResturantChain restaurantChain) {
+    public Branch(String location, String openingHours, /*RestaurantChain restaurantChain*/List<RestaurantTable> tables) {
         this.location = location;
         this.openingHours = openingHours;
-        this.restaurantChain = restaurantChain;
+        //this.restaurantChain = restaurantChain;
+        this.tables = tables;
     }
 
-    // ✅ Getters and Setters
+    // Getters and Setters
     public int getId() {
         return id;
     }
@@ -50,11 +56,15 @@ public class Branch {
         this.openingHours = openingHours;
     }
 
-    public ResturantChain getRestaurantChain() {
+    /*public RestaurantChain getRestaurantChain() {
         return restaurantChain;
     }
 
-    public void setRestaurantChain(ResturantChain restaurantChain) {
+    public void setRestaurantChain(RestaurantChain restaurantChain) {
         this.restaurantChain = restaurantChain;
+    }*/
+    public List<RestaurantTable> getTables() {
+        return tables;
     }
+    public void setTables(List<RestaurantTable> tables) {}
 }
