@@ -5,13 +5,15 @@ import java.time.LocalDateTime;
 import java.util.List;
 
 @Entity
-@Table(name = "reservation")
+@javax.persistence.Table(name = "reservation")
 public class Reservation {
+    public static final int DEFAULT_DURATION_MINUTES = 90;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
-    private LocalDateTime reservationDate;
+    private LocalDateTime reservationTime;
     private int numberOfGuests;
 
     // ✅ One-to-One Association: A Client can have only ONE active Reservation at a time.
@@ -31,12 +33,12 @@ public class Reservation {
             joinColumns = @JoinColumn(name = "reservation_id"),
             inverseJoinColumns = @JoinColumn(name = "table_id")
     )
-    private List<ResturantTable> tables;
+    private List<RestaurantTable> tables;
 
     public Reservation() {}
 
-    public Reservation(LocalDateTime reservationDate, int numberOfGuests, Client client, Branch branch, List<ResturantTable> tables) {
-        this.reservationDate = reservationDate;
+    public Reservation(LocalDateTime reservationDate, int numberOfGuests, Client client, Branch branch, List<RestaurantTable> tables) {
+        this.reservationTime = reservationDate;
         this.numberOfGuests = numberOfGuests;
         this.client = client;
         this.branch = branch;
@@ -52,12 +54,12 @@ public class Reservation {
         this.id = id;
     }
 
-    public LocalDateTime getReservationDate() {
-        return reservationDate;
+    public LocalDateTime getReservationTime() {
+        return reservationTime;
     }
 
-    public void setReservationDate(LocalDateTime reservationDate) {
-        this.reservationDate = reservationDate;
+    public void setReservationTime(LocalDateTime reservationTime) {
+        this.reservationTime = reservationTime;
     }
 
     public int getNumberOfGuests() {
@@ -67,7 +69,7 @@ public class Reservation {
     public void setNumberOfGuests(int numberOfGuests) {
         this.numberOfGuests = numberOfGuests;
     }
-
+    
     public Client getClient() {
         return client;
     }
@@ -84,11 +86,15 @@ public class Reservation {
         this.branch = branch;
     }
 
-    public List<ResturantTable> getTables() {
+    public List<RestaurantTable> getTables() {
         return tables;
     }
 
-    public void setTables(List<ResturantTable> tables) {
+    public void setTables(List<RestaurantTable> tables) {
         this.tables = tables;
+    }
+
+    public int getDurationMinutes() {
+        return DEFAULT_DURATION_MINUTES;
     }
 }

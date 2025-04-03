@@ -12,12 +12,20 @@ public class BranchManager {
 
     private String managerName;
 
+    @OneToOne
+    private Branch branch;
+
+    @OneToOne
+    @JoinColumn(name = "user_account_id", nullable = false)
+    private UserAccount manager;
+
     // Default constructor required by Hibernate
     public BranchManager() {}
 
-    public BranchManager(int managerId, String managerName) {
-        this.managerId = managerId;
+    public BranchManager(String managerName, Branch branch, UserAccount manager) {
         this.managerName = managerName;
+        this.branch = branch;
+        this.manager = manager;
     }
 
     // Getters and setters
@@ -36,4 +44,8 @@ public class BranchManager {
     public void setManagerName(String managerName) {
         this.managerName = managerName;
     }
+    public Branch getBranch() {return branch;}
+    public void setBranch(Branch branch) {this.branch = branch;}
+    public UserAccount getManager() {return manager;}
+    public void setManager(UserAccount manager) {this.manager = manager;}
 }

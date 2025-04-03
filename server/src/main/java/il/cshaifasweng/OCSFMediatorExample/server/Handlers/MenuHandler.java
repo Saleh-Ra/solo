@@ -1,4 +1,7 @@
-package il.cshaifasweng.OCSFMediatorExample.server;
+package il.cshaifasweng.OCSFMediatorExample.server.Handlers;
+import il.cshaifasweng.OCSFMediatorExample.server.dataManagers.DataManager;
+import il.cshaifasweng.OCSFMediatorExample.server.SimpleServer;
+import il.cshaifasweng.OCSFMediatorExample.server.dataManagers.*;
 
 import il.cshaifasweng.OCSFMediatorExample.entities.MenuItem;
 import il.cshaifasweng.OCSFMediatorExample.server.ocsf.*;
@@ -8,7 +11,7 @@ import java.util.List;
 
 public class MenuHandler {
 
-    protected static void handleAddItemRequest(String msgString, ConnectionToClient client) {
+    public static void handleAddItemRequest(String msgString, ConnectionToClient client) {
         String[] parts = msgString.split(";");
         if (parts.length < 5) {
             SimpleServer.sendFailureResponse(client, "ADD_ITEM_FAILURE", "Invalid format");
@@ -34,7 +37,29 @@ public class MenuHandler {
         SimpleServer.sendUpdatedMenuToAllClients();
     }
 
-    protected static void handleUpdatePriceRequest(String msgString, ConnectionToClient client) {
+    protected static void handleDeleteItemRequest(String msgString, ConnectionToClient client) {
+        String[] parts = msgString.split(";");
+        if (parts.length < 2) {
+            SimpleServer.sendFailureResponse(client, "DELETE_ITEM_FAILURE", "Invalid format");
+            return;
+        }
+
+        String name = parts[1].trim(); // no need to parse or catch NumberFormatException
+
+        List<MenuItem> items = DataManager.fetchByField(MenuItem.class, "name", name);
+        if (items.isEmpty()) {
+            SimpleServer.sendFailureResponse(client, "DELETE_ITEM_FAILURE", "Item not found");
+            return;
+        }
+
+        // If you're sure there's only one item with that name, delete the first match
+        DataManager.delete(items.get(0));
+
+        SimpleServer.sendSuccessResponse(client, "DELETE_ITEM_SUCCESS", name);
+        SimpleServer.sendUpdatedMenuToAllClients();
+    }
+
+    public static void handleUpdatePriceRequest(String msgString, ConnectionToClient client) {
         String[] parts = msgString.split(";");
         if (parts.length < 3) {
             SimpleServer.sendFailureResponse(client, "UPDATE_PRICE_FAILURE", "Invalid format");
@@ -50,8 +75,8 @@ public class MenuHandler {
             return;
         }
 
-        boolean success = updateMenuItem(mealName, newPrice);
-        if (success) {
+        int updated = DataManager.updateFieldByCondition(MenuItem.class, "price", newPrice, "name", mealName);
+        if (updated > 0) {
             SimpleServer.sendSuccessResponse(client, "UPDATE_PRICE_SUCCESS", mealName + ";" + newPrice);
             SimpleServer.sendUpdatedMenuToAllClients(); // Notify all clients about the updated menu
         } else {
@@ -59,7 +84,7 @@ public class MenuHandler {
         }
     }
 
-    protected static void sendMenuToClient(ConnectionToClient client) {
+    public static void sendMenuToClient(ConnectionToClient client) {
         try {
             //List<MenuItem> updatedItems = database.getMenuItems(); // Fetch fresh data from DB
             List<MenuItem> updatedItems = DataManager.fetchAll(MenuItem.class); // Fetch fresh data from DB
@@ -68,19 +93,5 @@ public class MenuHandler {
         } catch (IOException e) {
             e.printStackTrace();
         }
-    }
-
-    private static boolean updateMenuItem(String name, double newPrice) {
-        List<MenuItem> items = DataManager.fetchAll(MenuItem.class);
-        for (MenuItem item : items) {
-            if (item.getName().equals(name)) {
-                item.setPrice(newPrice);
-
-                MenuManager.updatePriceByName(name, newPrice);
-                System.out.println("Updated price for item: " + name + " to " + newPrice);
-                return true;
-            }
-        }
-        return false;
     }
 }

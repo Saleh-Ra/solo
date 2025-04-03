@@ -4,8 +4,8 @@ import javax.persistence.*;
 import java.util.List;
 
 @Entity
-@Table(name = "resturant_chain")
-public class ResturantChain {
+@Table(name = "Restaurant_chain")
+public class RestaurantChain {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
@@ -17,9 +17,9 @@ public class ResturantChain {
     @OneToMany(mappedBy = "restaurantChain", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
     private List<Branch> branches;
 
-    public ResturantChain() {}
+    public RestaurantChain() {}
 
-    public ResturantChain(String name, List<Branch> branches) {
+    public RestaurantChain(String name, List<Branch> branches) {
         this.name = name;
         this.branches = branches;
     }

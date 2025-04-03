@@ -4,7 +4,7 @@ import javax.persistence.*;
 
 @Entity
 @Table(name = "restaurant_chain_manager")
-public class ResturantChainManager {
+public class RestaurantChainManager {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -12,12 +12,17 @@ public class ResturantChainManager {
 
     private String managerName;
 
-    // Default constructor required by Hibernate
-    public ResturantChainManager() {}
+    @OneToOne
+    @JoinColumn(name = "user_account_id", nullable = false)
+    private UserAccount account;
 
-    public ResturantChainManager(int managerId, String managerName) {
-        this.managerId = managerId;
+
+    // Default constructor required by Hibernate
+    public RestaurantChainManager() {}
+
+    public RestaurantChainManager(String managerName, UserAccount account) {
         this.managerName = managerName;
+        this.account = account;
     }
 
     // Getters and setters
@@ -36,4 +41,8 @@ public class ResturantChainManager {
     public void setManagerName(String managerName) {
         this.managerName = managerName;
     }
+
+    public UserAccount getAccount() {return this.account;}
+
+    public void setAccount(UserAccount account) {this.account = account;}
 }
