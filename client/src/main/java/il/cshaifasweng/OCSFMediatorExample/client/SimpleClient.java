@@ -8,6 +8,7 @@ import il.cshaifasweng.OCSFMediatorExample.entities.Warning;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 public class SimpleClient extends AbstractClient {
 
@@ -36,13 +37,17 @@ public class SimpleClient extends AbstractClient {
 		return cachedMenuItems;
 	}
 
-	// ✅ Place order by sending cart data
+	// ✅ Updated to handle quantity map
 	public void placeOrder(Cart cart) throws IOException {
 		StringBuilder builder = new StringBuilder("PLACE_ORDER_CART;");
 		builder.append(cart.getId()).append(";");
 
-		for (MenuItem item : cart.getItems()) {
-			builder.append(item.getId()).append(",");
+		for (Map.Entry<MenuItem, Integer> entry : cart.getItems().entrySet()) {
+			MenuItem item = entry.getKey();
+			int quantity = entry.getValue();
+			for (int i = 0; i < quantity; i++) {
+				builder.append(item.getId()).append(",");
+			}
 		}
 
 		if (!cart.getItems().isEmpty()) {
