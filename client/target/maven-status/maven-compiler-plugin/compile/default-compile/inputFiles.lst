@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 C:\Users\saleh\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\Main.java
 C:\Users\saleh\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\SimpleClient.java
 C:\Users\saleh\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\MenuUpdateListener.java
@@ -13,3 +14,22 @@ C:\Users\saleh\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng
 C:\Users\saleh\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\ocsf\ObservableClient.java
 C:\Users\saleh\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\boundary\UserMenuController.java
 C:\Users\saleh\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\ocsf\AdaptableClient.java
+=======
+C:\Users\DELL\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\boundary\UserMenuController.java
+C:\Users\DELL\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\MenuUpdateListener.java
+C:\Users\DELL\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\SecondaryController.java
+C:\Users\DELL\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\boundary\SignInController.java
+C:\Users\DELL\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\ocsf\ObservableClient.java
+C:\Users\DELL\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\boundary\OrderController.java
+C:\Users\DELL\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\SimpleClient.java
+C:\Users\DELL\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\Main.java
+C:\Users\DELL\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\ocsf\ObservableSWRClient.java
+C:\Users\DELL\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\App.java
+C:\Users\DELL\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\ocsf\AdaptableClient.java
+C:\Users\DELL\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\ocsf\AbstractClient.java
+C:\Users\DELL\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\WarningEvent.java
+C:\Users\DELL\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\boundary\CartController.java
+C:\Users\DELL\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\boundary\ReservationController.java
+C:\Users\DELL\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\boundary\PersonalAreaController.java
+C:\Users\DELL\IdeaProjects\working_kitchen\client\src\main\java\il\cshaifasweng\OCSFMediatorExample\client\PrimaryController.java
+>>>>>>> main

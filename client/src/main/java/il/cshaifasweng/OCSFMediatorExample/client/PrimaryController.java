@@ -22,7 +22,7 @@ public class PrimaryController {
 		if (result.isPresent()) {
 			if (result.get().equals(MANAGER_PASSWORD)) {
 				try {
-					App.setRoot("secondary2"); // Manager-only menu screen
+					App.setRoot("secondary2");
 				} catch (IOException e) {
 					showError("Failed to load manager view.");
 					e.printStackTrace();
@@ -39,6 +39,26 @@ public class PrimaryController {
 			App.setRoot("user_menu");
 		} catch (IOException e) {
 			showError("Failed to load user menu.");
+			e.printStackTrace();
+		}
+	}
+
+	@FXML
+	void handleMakeReservation() {
+		try {
+			App.setRoot("reservation");
+		} catch (IOException e) {
+			showError("Failed to load reservation screen.");
+			e.printStackTrace();
+		}
+	}
+
+	@FXML
+	void handlePersonalArea() {
+		try {
+			App.setRoot("sign_in");
+		} catch (IOException e) {
+			showError("Failed to load personal area.");
 			e.printStackTrace();
 		}
 	}

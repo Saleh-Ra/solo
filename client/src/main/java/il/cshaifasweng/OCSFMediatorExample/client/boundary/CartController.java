@@ -11,6 +11,7 @@ import javafx.scene.control.Label;
 import javafx.scene.control.ListView;
 
 import java.io.IOException;
+import java.util.Map;
 
 public class CartController {
 
@@ -38,9 +39,16 @@ public class CartController {
         cartListView.getItems().clear();
         double total = 0;
 
-        for (MenuItem item : cart.getItems()) {
-            cartListView.getItems().add(String.format("%s - %.2f", item.getName(), item.getPrice()));
-            total += item.getPrice();
+        for (Map.Entry<MenuItem, Integer> entry : cart.getItems().entrySet()) {
+            MenuItem item = entry.getKey();
+            int quantity = entry.getValue();
+            double itemTotal = item.getPrice() * quantity;
+
+            cartListView.getItems().add(
+                    String.format("%s x%d - $%.2f", item.getName(), quantity, itemTotal)
+            );
+
+            total += itemTotal;
         }
 
         totalCostLabel.setText("Total: $" + String.format("%.2f", total));
@@ -56,8 +64,7 @@ public class CartController {
         try {
             SimpleClient.getClient().placeOrder(cart);
             showAlert("Order Placed", "Your order was sent to the server!");
-            cart.getItems().clear();
-            cart.getTotalCost();
+            cart.clearCart();
             refreshCartView();
         } catch (IOException e) {
             e.printStackTrace();
@@ -67,8 +74,7 @@ public class CartController {
 
     @FXML
     private void handleClearCart() {
-        cart.getItems().clear();
-        cart.getTotalCost();
+        cart.clearCart();
         refreshCartView();
     }
 
