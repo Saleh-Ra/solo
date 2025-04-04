@@ -9,27 +9,22 @@ public class UserAccount {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
+    private String name;
 
+    @Column(nullable = false, unique = true)
     private String phoneNumber;
-
     // true = manager, false = regular client
     private boolean isManager;
-
-    private String username;
-
     private String password;
 
     public UserAccount() {}
 
-    public UserAccount( String phoneNumber, boolean isManager) {
+    //we don't ask if the user is a client.
+    //the isManager will be true only in the initialized data, other than that, it will be a manager
+    public UserAccount( String name,String phoneNumber, boolean isManager, String password) {
+        this.name = name;
         this.phoneNumber = phoneNumber;
         this.isManager = isManager;
-    }
-
-    public UserAccount( String phoneNumber, boolean isManager, String username, String password) {
-        this.phoneNumber = phoneNumber;
-        this.isManager = isManager;
-        this.username = username;
         this.password = password;
     }
 
@@ -53,4 +48,8 @@ public class UserAccount {
     public void setManager(boolean manager) {
         isManager = manager;
     }
+    public String getPassword() {return password;}
+    public void setPassword(String password) {this.password = password;}
+    public String getName() {return name;}
+    public void setName(String name) {this.name = name;}
 }

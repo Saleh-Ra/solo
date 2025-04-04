@@ -15,7 +15,7 @@ public class BranchManager {
     @OneToOne
     private Branch branch;
 
-    @OneToOne
+    @OneToOne(cascade = CascadeType.PERSIST)
     @JoinColumn(name = "user_account_id", nullable = false)
     private UserAccount manager;
 

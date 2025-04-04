@@ -9,7 +9,7 @@ public class RestaurantTable {
     public static final int MINUTES = 720;
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private int tableID;
+    private int id;
 
     private int seatingCapacity;
     //private boolean isOccupied;
@@ -35,12 +35,12 @@ public class RestaurantTable {
         this.minutes=time_array;
     }
 
-    public int getTableID() {
-        return tableID;
+    public int getid() {
+        return id;
     }
 
-    public void setTableID(int tableID) {
-        this.tableID = tableID;
+    public void setid(int id) {
+        this.id = id;
     }
 
     public int getSeatingCapacity() {

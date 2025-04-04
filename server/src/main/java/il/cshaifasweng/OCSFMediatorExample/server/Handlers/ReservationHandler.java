@@ -27,7 +27,7 @@ public class ReservationHandler {
     /*public static void handleReserveRequest(String msgString, ConnectionToClient client) {
         //just like other requests, this method doesn't check anything, it is required to only add to the database
         // TODO: Parse reservation data, check availability, and reserve
-        //the message will probably be {command;required branch; number of guests; where to sit(out of 4 options);time of arrival;time they will spend}
+        //the message will probably be {command;required branch; number of guests; where to sit(out of 4 options);time of arrival;}
     }*/
     public static void handleReserveRequest(String msgString, ConnectionToClient client) {
         String[] parts = msgString.split(";");
@@ -42,11 +42,11 @@ public class ReservationHandler {
             int guestCount = Integer.parseInt(parts[2]);
             String seatingPref = parts[3];
             LocalDateTime arrival = LocalDateTime.parse(parts[4], DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
-            int clientId = Integer.parseInt(parts[5]);
+            String phoneNumber = parts[5];
             String location=parts[6];
 
             List<Branch> branches = DataManager.fetchByField(Branch.class, "id", branchId);
-            List<Client> clients = DataManager.fetchByField(Client.class, "id", clientId);
+            List<Client> clients = DataManager.fetchByField(Client.class, "account.phoneNumber", phoneNumber);
 
             if (branches.isEmpty() || clients.isEmpty()) {
                 SimpleServer.sendFailureResponse(client, "RESERVATION_FAILURE", "Branch or Client not found");
@@ -75,6 +75,7 @@ public class ReservationHandler {
                 reserveTables(tablesToAdd,toIndex(arrival));
                 Reservation newreservation = new Reservation(arrival, guestCount, customer, branch,tablesToAdd);
                 DataManager.add(newreservation);
+                customer.getReservations().add(newreservation);
                 SimpleServer.sendSuccessResponse(client, "RESERVATION_SUCCESS", "Table reserved successfully");
             }
             else {
@@ -168,7 +169,8 @@ public class ReservationHandler {
             } else {
                 refundPercentage = 0.0; // No refund
             }
-
+            Client customer=reservation.getClient();
+            customer.getReservations().remove(reservation);
             int start = arrival.getHour() * 60 + arrival.getMinute();
 
             // Free the occupied minutes

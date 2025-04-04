@@ -15,9 +15,32 @@ public class DatabaseInitializer {
         initializeMenu();
         initializeBranches();
         initializeRestaurantChain();
+        initializeRestaurantTable();
+        initializeManager();
         initializeBranchesManagers();
+        //just for checking
+        initializeClinets();
     }
 
+    public static void initializeClinets()
+    {
+        try (Session session = factory.openSession()) {
+            session.beginTransaction();
+            CriteriaBuilder builder = session.getCriteriaBuilder();
+            CriteriaQuery<Client> query = builder.createQuery(Client.class);
+            query.from(Client.class);
+
+            // Add default menu items
+            UserAccount userAccount = new UserAccount("Saleh2","05281890992",false,"saleh1234");
+            session.save(userAccount);
+            Client client1 = new Client("Saleh",userAccount);
+            session.save(client1);
+
+            session.getTransaction().commit();
+        } catch (Exception e) {
+            System.err.println("Failed to initialize the menu: " + e.getMessage());
+        }
+    }
     public static void initializeMenu() {
         try (Session session = factory.openSession()) {
             session.beginTransaction();
@@ -28,12 +51,32 @@ public class DatabaseInitializer {
             List<MenuItem> existingItems = session.createQuery(query).getResultList();
 
             if (existingItems.isEmpty()) {
-                // Add default menu items
-                session.save(new MenuItem("Pizza", "Cheese, Tomato, Onions, Mushroom", "Vegetarian", 500.00));
-                session.save(new MenuItem("Hamburger", "Beef, Lettuce, Tomato", "No Cheese", 65.00));
-                session.save(new MenuItem("Vegan Hamburger", "Vegan patty, Tomato, Pickles, Lettuce", "Vegan", 60.00));
-                session.save(new MenuItem("SOUR CREAM SPINACH PASTA", "Sour cream, Garlic, Spinach", "Gluten-Free", 55.00));
-                session.save(new MenuItem("CEASAR SALAD", "Lettuce, Chicken breast, Parmesan cheese, Onions", "Keto-Friendly", 60.00));
+                // Create the menu first
+                /*Menu menu = new Menu();
+                session.save(menu); // Save it early or use CascadeType.PERSIST later*/
+
+                // Create and assign items
+                MenuItem menuItem1 = new MenuItem("Pizza", "Cheese, Tomato, Onions, Mushroom", "Vegetarian", 500.00);
+                //menuItem1.setMenu(menu);
+                session.save(menuItem1);
+
+                MenuItem menuItem2 = new MenuItem("Hamburger", "Beef, Lettuce, Tomato", "No Cheese", 65.00);
+                //menuItem2.setMenu(menu);
+                session.save(menuItem2);
+
+                MenuItem menuItem3 = new MenuItem("Vegan Hamburger", "Vegan patty, Tomato, Pickles, Lettuce", "Vegan", 60.00);
+                //menuItem3.setMenu(menu);
+                session.save(menuItem3);
+
+                MenuItem menuItem4 = new MenuItem("SOUR CREAM SPINACH PASTA", "Sour cream, Garlic, Spinach", "Gluten-Free", 55.00);
+                //menuItem4.setMenu(menu);
+                session.save(menuItem4);
+
+                MenuItem menuItem5 = new MenuItem("CEASAR SALAD", "Lettuce, Chicken breast, Parmesan cheese, Onions", "Keto-Friendly", 60.00);
+                //menuItem5.setMenu(menu);
+                session.save(menuItem5);
+
+                //session.update(menu); // If you want to update the menu with the item list
             }
 
             session.getTransaction().commit();
@@ -53,10 +96,11 @@ public class DatabaseInitializer {
 
             if (existingItems.isEmpty()) {
                 // Branch(String location, String openingHours,List<RestaurantTable> tables)
-                session.save(new Branch("Tel-Aviv", "daily 10:00-22:00", DataManager.fetchByIdRange(RestaurantTable.class, 1, 12)));
-                session.save(new Branch("Haifa", "from Sunday to Thursday 10:00-22:00", DataManager.fetchByIdRange(RestaurantTable.class, 13, 18)));
-                session.save(new Branch("Jerusalem", "daily 10:00-22:00", DataManager.fetchByIdRange(RestaurantTable.class, 19, 24)));
-                session.save(new Branch("Beer-Shiva", "daily 10:00-22:00", DataManager.fetchByIdRange(RestaurantTable.class, 25, 33)));
+                RestaurantChain chain=DataManager.fetchByField(RestaurantChain.class,"name","foreign restaurant").get(0);
+                session.save(new Branch("Tel-Aviv", "daily 10:00-22:00",chain, DataManager.fetchByIdRange(RestaurantTable.class, 1, 12)));
+                session.save(new Branch("Haifa", "from Sunday to Thursday 10:00-22:00",chain, DataManager.fetchByIdRange(RestaurantTable.class, 13, 18)));
+                session.save(new Branch("Jerusalem", "daily 10:00-22:00", chain,DataManager.fetchByIdRange(RestaurantTable.class, 19, 24)));
+                session.save(new Branch("Beer-Shiva", "daily 10:00-22:00", chain,DataManager.fetchByIdRange(RestaurantTable.class, 25, 33)));
             }
 
             session.getTransaction().commit();
@@ -170,7 +214,7 @@ public class DatabaseInitializer {
             List<RestaurantChainManager> existingItems = session.createQuery(query).getResultList();
 
             if (existingItems.isEmpty()) {
-                session.save(new RestaurantChainManager("Saleh",new UserAccount("0528189099",true,"saleh123","123456789")));
+                session.save(new RestaurantChainManager("Saleh",new UserAccount("Saleh","0528189099",true,"saleh123")));
             }
 
             session.getTransaction().commit();
@@ -190,7 +234,25 @@ public class DatabaseInitializer {
 
             if (existingItems.isEmpty()) {
                 // to be chaneged
-                session.save(new BranchManager());
+                Branch branch1=DataManager.fetchByField(Branch.class,"location","Tel-Aviv").get(0);
+                UserAccount account1=new UserAccount("Nassim","0544347642",true,"Nassim123");
+                session.save(account1);
+                session.save(new BranchManager("Nassim",branch1,account1));
+
+                Branch branch2=DataManager.fetchByField(Branch.class,"location","Haifa").get(0);
+                UserAccount account2=new UserAccount("Hali","0526112238",true,"Hali123");
+                session.save(account2);
+                session.save(new BranchManager("Hali",branch2,account2));
+
+                Branch branch3=DataManager.fetchByField(Branch.class,"location","Jerusalem").get(0);
+                UserAccount account3=new UserAccount("Mohammad","0543518310",true,"Mohammad123");
+                session.save(account3);
+                session.save(new BranchManager("Mohammad",branch3,account3));
+
+                Branch branch4=DataManager.fetchByField(Branch.class,"location","Beer-Shiva").get(0);
+                UserAccount account4=new UserAccount("Natali","0502404146",true,"Natali123");
+                session.save(account4);
+                session.save(new BranchManager("Natali",branch4,account4));
             }
 
             session.getTransaction().commit();

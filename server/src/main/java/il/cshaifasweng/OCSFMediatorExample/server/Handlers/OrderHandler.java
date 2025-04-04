@@ -16,17 +16,18 @@ public class OrderHandler {
     //this method here will be called only after the customer finds a good time, otherwise this should not be called
     //the reason to that is that this method will only add to the database, it will not check any details
     public static void handleCreateOrder(String msgString, ConnectionToClient client) {
+
         LocalDateTime now = LocalDateTime.now();
         DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
         String status = "Arrived at " + now.format(formatter);
         String[] parts = msgString.split(";");
-        //msg is {command; branch id; cost; client id}
+        //msg is {command; branch id; cost; phone}
         if (parts.length < 4) {
             SimpleServer.sendFailureResponse(client, "ADD_ITEM_FAILURE", "Invalid format");
             return;
         }
         //parts[3] should include a Client's id
-        List<Client> clients = DataManager.fetchByField(Client.class, "id", Integer.parseInt(parts[3]));
+        List<Client> clients = DataManager.fetchByField(Client.class, "account.phoneNumber", Integer.parseInt(parts[3]));
         if (clients.isEmpty()) {
             SimpleServer.sendFailureResponse(client, "CREATE_ORDER_FAILURE", "Client not found");
             return;
@@ -34,6 +35,7 @@ public class OrderHandler {
         Client foundClient = clients.get(0);
         Order order = new Order(Integer.parseInt(parts[1]),Double.parseDouble(parts[2]),now,foundClient);
         DataManager.add(order);
+        foundClient.getOrders().add(order);
         System.out.println("Received order creation request: " + msgString);
     }
 
@@ -67,8 +69,10 @@ public class OrderHandler {
 
         // TODO: Process refund (optional, maybe just a print for now)
         //System.out.println("Refund for client: " + (refundPercentage * 100) + "%");
-
+        Client customer=order.getClient();
+        customer.getOrders().remove(order);
         DataManager.delete(order);
+
         SimpleServer.sendSuccessResponse(client, "CANCEL_ORDER_SUCCESS",
                 "Order cancelled. Refund: " + (int)(refundPercentage * 100) + "%");
         System.out.println("Received order cancel request: " + msgString);
