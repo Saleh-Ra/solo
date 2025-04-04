@@ -16,10 +16,24 @@ public class App
     public static void main( String[] args ) throws IOException
     {
         server = new SimpleServer(3000);
-        Database.getSessionFactoryInstance();
-        DatabaseInitializer.initializeAll();  // 👈 Add this line
-        System.out.println("hello");
+        
+        try {
+            System.out.println("Initializing database connection...");
+            Database.getSessionFactoryInstance();
+            System.out.println("Database connection established.");
+            
+            System.out.println("Initializing database data...");
+            DatabaseInitializer.initializeAll();
+            System.out.println("Database initialization complete.");
+        } catch (Exception e) {
+            System.err.println("ERROR: Database initialization failed!");
+            System.err.println("Error details: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        System.out.println("Starting server on port 3000...");
         server.listen();
+        System.out.println("Server is listening for connections.");
     }
 }
 

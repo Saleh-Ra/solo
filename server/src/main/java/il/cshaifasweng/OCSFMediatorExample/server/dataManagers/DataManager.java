@@ -14,11 +14,18 @@ public class DataManager {
 
     // Add any entity
     public static <T> void add(T entity) {
-        Session session = factory.openSession();
-        session.beginTransaction();
-        session.save(entity);
-        session.getTransaction().commit();
-        session.close();
+        System.out.println("DataManager.add called for entity: " + entity.getClass().getSimpleName());
+        try {
+            Session session = factory.openSession();
+            session.beginTransaction();
+            session.save(entity);
+            session.getTransaction().commit();
+            session.close();
+            System.out.println("Entity saved successfully: " + entity.getClass().getSimpleName());
+        } catch (Exception e) {
+            System.err.println("Error saving entity: " + e.getMessage());
+            e.printStackTrace();
+        }
     }
 
     // Delete any entity

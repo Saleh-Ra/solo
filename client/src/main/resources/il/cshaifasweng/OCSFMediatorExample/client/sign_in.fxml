@@ -11,10 +11,11 @@
 
     <Label text="🔐 Sign In to Your Account" style="-fx-font-size: 20px; -fx-font-weight: bold;" />
 
-    <TextField fx:id="emailField" promptText="Email" />
+    <TextField fx:id="usernameField" promptText="Username" />
     <PasswordField fx:id="passwordField" promptText="Password" />
 
     <Button text="Sign In" onAction="#handleSignIn" prefWidth="150" />
+    <Button text="Don't have an account? Sign Up" onAction="#handleGoToSignUp" />
     <Button text="Back" onAction="#handleBack" />
 
     <Label fx:id="statusLabel" style="-fx-text-fill: red;" />

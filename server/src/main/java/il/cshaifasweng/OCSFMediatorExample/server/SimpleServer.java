@@ -31,6 +31,7 @@ public class SimpleServer extends AbstractServer {
 
 	@Override
 	protected void handleMessageFromClient(Object msg, ConnectionToClient client) {
+		System.out.println("Received message from client: " + msg);
 		String msgString = msg.toString();
 		System.out.println("Received message from client: " + msgString);
 
@@ -58,7 +59,11 @@ public class SimpleServer extends AbstractServer {
 			OrderHandler.handleGetAllOrders(client);
 		}
 		//client
-		else if (msgString.startsWith("REGISTER_CLIENT")) {
+		else if (msgString.startsWith("SIGNUP")) {
+			ClientHandler.handleSignup(msgString, client);
+		} else if (msgString.startsWith("LOGIN")) {
+			ClientHandler.handleLogin(msgString, client);
+		} else if (msgString.startsWith("REGISTER_CLIENT")) {
 			ClientHandler.handleRegisterClient(msgString, client);
 		} else if (msgString.startsWith("GET_CLIENT_INFO")) {
 			ClientHandler.handleGetClientInfo(msgString, client);

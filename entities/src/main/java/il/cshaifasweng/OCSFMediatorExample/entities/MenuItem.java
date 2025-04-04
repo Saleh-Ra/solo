@@ -23,8 +23,8 @@ public class MenuItem implements Serializable {
     @Column(nullable = false)
     private double price;
 
-    @ManyToOne(optional = false)
-    @JoinColumn(name = "menu_id")
+    @ManyToOne(optional = true)
+    @JoinColumn(name = "menu_id", nullable = true)
     private Menu menu;
 
     //private String catagory;
