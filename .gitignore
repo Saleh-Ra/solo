@@ -23,5 +23,5 @@
 hs_err_pid*
 replay_pid*
 
-# Ignore all target folders in subdirectories
-**/target/
+# Ignore all .lst files inside any target/ directory
+**/target/**/*.lst
