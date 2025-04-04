@@ -40,30 +40,32 @@ public class SimpleClient extends AbstractClient {
 
 	@Override
 	protected void handleMessageFromServer(Object msg) {
-		System.out.println("Received message from server: " + msg.getClass().getSimpleName());
-
+		System.out.println("Received message from server: " + msg);
+		// Check if it's a Warning
 		if (msg instanceof Warning) {
 			Warning warning = (Warning) msg;
 			String message = warning.getMessage();
+			System.out.println("Handling warning: " + message);
 			
+			// Handle login responses
 			if (message.startsWith("LOGIN_SUCCESS")) {
 				try {
-					App.setRoot("personal_area");
+					App.setRoot("primary1");
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
-			} else if (message.startsWith("LOGIN_FAILURE")) {
-				EventBus.getDefault().post(new WarningEvent(warning));
-			} else if (message.startsWith("SIGNUP_SUCCESS")) {
+			} 
+			// Handle signup responses
+			else if (message.startsWith("SIGNUP_SUCCESS")) {
 				try {
+					System.out.println("Signup successful, redirecting to sign-in page");
 					App.setRoot("sign_in");
-					EventBus.getDefault().post(new WarningEvent(warning));
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
-			} else if (message.startsWith("SIGNUP_FAILURE")) {
-				EventBus.getDefault().post(new WarningEvent(warning));
-			} else {
+			}
+			// Post other warnings to EventBus for display
+			else {
 				EventBus.getDefault().post(new WarningEvent(warning));
 			}
 		} else if (msg instanceof List) {
