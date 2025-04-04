@@ -17,7 +17,7 @@ public class Reservation {
     private int numberOfGuests;
 
     // ✅ One-to-One Association: A Client can have only ONE active Reservation at a time.
-    @OneToOne
+    @ManyToOne
     @JoinColumn(name = "client_id", unique = true, nullable = false)
     private Client client;
 

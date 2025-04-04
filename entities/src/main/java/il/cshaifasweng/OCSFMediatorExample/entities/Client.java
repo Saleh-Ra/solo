@@ -13,10 +13,10 @@ public class Client {
     @Column(nullable = false)
     private String name;
 
-    @Column(nullable = false, unique = true)
-    private String contactDetails;
+    /*@Column(nullable = false, unique = true)
+    private String contactDetails;*/
 
-    @OneToOne
+    @OneToOne(cascade = CascadeType.PERSIST)
     @JoinColumn(name = "user_account_id", nullable = false)
     private UserAccount account;
 
@@ -29,8 +29,8 @@ public class Client {
     private List<Payment> payments;
 
     // ✅ One-to-One Association: A Client can have ONLY ONE active Reservation at a time.
-    @OneToOne(mappedBy = "client", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
-    private Reservation reservation;
+    @OneToMany(mappedBy = "client", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
+    private List<Reservation> reservations;
 
     // ✅ One-to-One Association: A Client can have ONLY ONE active Complaint at a time.
     @OneToOne(mappedBy = "client", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
@@ -38,9 +38,9 @@ public class Client {
 
     public Client() {}
 
-    public Client(String name, String contactDetails,UserAccount account) {
+    public Client(String name, UserAccount account) {
         this.name = name;
-        this.contactDetails = contactDetails;
+        //this.contactDetails = contactDetails;
         this.account = account;
     }
 
@@ -61,13 +61,15 @@ public class Client {
         this.name = name;
     }
 
-    public String getContactDetails() {
+    /*public String getContactDetails() {
         return contactDetails;
     }
 
     public void setContactDetails(String contactDetails) {
         this.contactDetails = contactDetails;
-    }
+    }*/
+    public UserAccount getAccount() {return account;}
+    public void setAccount(UserAccount account) {this.account = account;}
 
     public List<Order> getOrders() {
         return orders;
@@ -85,12 +87,12 @@ public class Client {
         this.payments = payments;
     }
 
-    public Reservation getReservation() {
-        return reservation;
+    public List<Reservation> getReservations() {
+        return reservations;
     }
 
-    public void setReservation(Reservation reservation) {
-        this.reservation = reservation;
+    public void setReservation(List<Reservation> reservations) {
+        this.reservations = reservations;
     }
 
     public Complaint getComplaint() {

@@ -24,10 +24,10 @@ public class Branch {
 
     public Branch() {}
 
-    public Branch(String location, String openingHours, /*RestaurantChain restaurantChain*/List<RestaurantTable> tables) {
+    public Branch(String location, String openingHours, RestaurantChain restaurantChain,List<RestaurantTable> tables) {
         this.location = location;
         this.openingHours = openingHours;
-        //this.restaurantChain = restaurantChain;
+        this.restaurantChain = restaurantChain;
         this.tables = tables;
     }
 
@@ -56,13 +56,13 @@ public class Branch {
         this.openingHours = openingHours;
     }
 
-    /*public RestaurantChain getRestaurantChain() {
+    public RestaurantChain getRestaurantChain() {
         return restaurantChain;
     }
 
     public void setRestaurantChain(RestaurantChain restaurantChain) {
         this.restaurantChain = restaurantChain;
-    }*/
+    }
     public List<RestaurantTable> getTables() {
         return tables;
     }

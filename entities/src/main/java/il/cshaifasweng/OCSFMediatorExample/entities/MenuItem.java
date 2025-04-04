@@ -23,6 +23,10 @@ public class MenuItem implements Serializable {
     @Column(nullable = false)
     private double price;
 
+    @ManyToOne(optional = false)
+    @JoinColumn(name = "menu_id")
+    private Menu menu;
+
     //private String catagory;
 
     public MenuItem(String name, String ingredients, String preferences, double price){//,String catagory) {
@@ -52,6 +56,10 @@ public class MenuItem implements Serializable {
     public void setName(String name) {
         this.name = name;
     }
+
+    public Menu getMenu() {return menu;}
+
+    public void setMenu(Menu menu) {this.menu = menu;}
 
     public String getIngredients() {
         return ingredients;
