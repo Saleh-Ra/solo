@@ -50,7 +50,7 @@ public class SimpleClient extends AbstractClient {
 			// Handle login responses
 			if (message.startsWith("LOGIN_SUCCESS")) {
 				try {
-					App.setRoot("primary1");
+					App.setRoot("personal_area");
 				} catch (IOException e) {
 					e.printStackTrace();
 				}
