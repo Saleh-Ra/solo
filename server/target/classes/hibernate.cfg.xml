@@ -13,13 +13,24 @@
 
         <!-- Hibernate settings -->
         <property name="hibernate.dialect">org.hibernate.dialect.MySQL5InnoDBDialect</property>
-        <property name="hibernate.hbm2ddl.auto">create</property>
+        <property name="hibernate.hbm2ddl.auto">update</property>
         <property name="hibernate.show_sql">true</property>
 
         <!-- Entities -->
         <mapping class="il.cshaifasweng.OCSFMediatorExample.entities.MenuItem"/>
         <mapping class="il.cshaifasweng.OCSFMediatorExample.entities.Order"/>
         <mapping class="il.cshaifasweng.OCSFMediatorExample.entities.Client"/>
+        <mapping class="il.cshaifasweng.OCSFMediatorExample.entities.UserAccount"/>
+        <mapping class="il.cshaifasweng.OCSFMediatorExample.entities.Branch"/>
+        <mapping class="il.cshaifasweng.OCSFMediatorExample.entities.BranchManager"/>
+        <mapping class="il.cshaifasweng.OCSFMediatorExample.entities.RestaurantChain"/>
+        <mapping class="il.cshaifasweng.OCSFMediatorExample.entities.RestaurantChainManager"/>
+        <mapping class="il.cshaifasweng.OCSFMediatorExample.entities.RestaurantTable"/>
+        <mapping class="il.cshaifasweng.OCSFMediatorExample.entities.Complaint"/>
+        <mapping class="il.cshaifasweng.OCSFMediatorExample.entities.Delivery"/>
+        <mapping class="il.cshaifasweng.OCSFMediatorExample.entities.Menu"/>
+        <mapping class="il.cshaifasweng.OCSFMediatorExample.entities.Payment"/>
+        <mapping class="il.cshaifasweng.OCSFMediatorExample.entities.Reservation"/>
 
     </session-factory>
 </hibernate-configuration>

@@ -18,29 +18,10 @@ public class DatabaseInitializer {
         initializeRestaurantTable();
         initializeManager();
         initializeBranchesManagers();
-        //just for checking
-        initializeClinets();
+
     }
 
-    public static void initializeClinets()
-    {
-        try (Session session = factory.openSession()) {
-            session.beginTransaction();
-            CriteriaBuilder builder = session.getCriteriaBuilder();
-            CriteriaQuery<Client> query = builder.createQuery(Client.class);
-            query.from(Client.class);
 
-            // Add default menu items
-            UserAccount userAccount = new UserAccount("Saleh2","05281890992",false,"saleh1234");
-            session.save(userAccount);
-            Client client1 = new Client("Saleh",userAccount);
-            session.save(client1);
-
-            session.getTransaction().commit();
-        } catch (Exception e) {
-            System.err.println("Failed to initialize the menu: " + e.getMessage());
-        }
-    }
     public static void initializeMenu() {
         try (Session session = factory.openSession()) {
             session.beginTransaction();
@@ -51,32 +32,11 @@ public class DatabaseInitializer {
             List<MenuItem> existingItems = session.createQuery(query).getResultList();
 
             if (existingItems.isEmpty()) {
-                // Create the menu first
-                /*Menu menu = new Menu();
-                session.save(menu); // Save it early or use CascadeType.PERSIST later*/
-
-                // Create and assign items
-                MenuItem menuItem1 = new MenuItem("Pizza", "Cheese, Tomato, Onions, Mushroom", "Vegetarian", 500.00);
-                //menuItem1.setMenu(menu);
-                session.save(menuItem1);
-
-                MenuItem menuItem2 = new MenuItem("Hamburger", "Beef, Lettuce, Tomato", "No Cheese", 65.00);
-                //menuItem2.setMenu(menu);
-                session.save(menuItem2);
-
-                MenuItem menuItem3 = new MenuItem("Vegan Hamburger", "Vegan patty, Tomato, Pickles, Lettuce", "Vegan", 60.00);
-                //menuItem3.setMenu(menu);
-                session.save(menuItem3);
-
-                MenuItem menuItem4 = new MenuItem("SOUR CREAM SPINACH PASTA", "Sour cream, Garlic, Spinach", "Gluten-Free", 55.00);
-                //menuItem4.setMenu(menu);
-                session.save(menuItem4);
-
-                MenuItem menuItem5 = new MenuItem("CEASAR SALAD", "Lettuce, Chicken breast, Parmesan cheese, Onions", "Keto-Friendly", 60.00);
-                //menuItem5.setMenu(menu);
-                session.save(menuItem5);
-
-                //session.update(menu); // If you want to update the menu with the item list
+                session.save(new MenuItem("Pizza", "Cheese, Tomato, Onions, Mushroom", "Vegetarian", 50.00));
+                session.save(new MenuItem("Hamburger", "Beef, Lettuce, Tomato", "No Cheese", 65.00));
+                session.save(new MenuItem("Vegan Hamburger", "Vegan patty, Tomato, Pickles, Lettuce", "Vegan", 60.00));
+                session.save(new MenuItem("SOUR CREAM SPINACH PASTA", "Sour cream, Garlic, Spinach", "Gluten-Free", 55.00));
+                session.save(new MenuItem("CEASAR SALAD", "Lettuce, Chicken breast, Parmesan cheese, Onions", "Keto-Friendly", 60.00));
             }
 
             session.getTransaction().commit();

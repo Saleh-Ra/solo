@@ -15,7 +15,6 @@ import java.util.Scanner;
 
 public class Database {
     private static SessionFactory sessionFactory;
-    //private static final String password = "212101828";
 
     static {
         sessionFactory = getSessionFactory();
@@ -31,13 +30,14 @@ public class Database {
 
             // Read a string input
             String password = scanner.nextLine();
+            
             // Add the necessary properties for connecting to the database
             configuration.setProperty("hibernate.connection.url", "jdbc:mysql://localhost:3306/myfirstdatabase?serverTimezone=UTC");
             configuration.setProperty("hibernate.connection.username", "root");
             configuration.setProperty("hibernate.connection.password", password);
             configuration.setProperty("hibernate.dialect", "org.hibernate.dialect.MySQL8Dialect");
             configuration.setProperty("hibernate.connection.driver_class", "com.mysql.cj.jdbc.Driver");
-            configuration.setProperty("hibernate.hbm2ddl.auto", "update"); // Auto-create or update table
+            configuration.setProperty("hibernate.hbm2ddl.auto", "create"); // Changed from update to create
 
             // Add the entity classes
             configuration.addAnnotatedClass(MenuItem.class);
@@ -67,7 +67,6 @@ public class Database {
     public static SessionFactory getSessionFactoryInstance() {
         return sessionFactory;
     }
-
 
     // Optional shutdown method if needed
     public static void shutdown() {

@@ -1,6 +1,7 @@
 package il.cshaifasweng.OCSFMediatorExample.client.boundary;
 
 import il.cshaifasweng.OCSFMediatorExample.client.App;
+import il.cshaifasweng.OCSFMediatorExample.client.SimpleClient;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 
@@ -8,32 +9,36 @@ import java.io.IOException;
 
 public class SignInController {
 
-    @FXML private TextField emailField;
+    @FXML private TextField usernameField;
     @FXML private PasswordField passwordField;
     @FXML private Label statusLabel;
 
     @FXML
     private void handleSignIn() {
-        String email = emailField.getText().trim();
+        String username = usernameField.getText().trim();
         String password = passwordField.getText().trim();
 
-        if (email.isEmpty() || password.isEmpty()) {
-            statusLabel.setText("⚠ Please enter both email and password.");
+        if (username.isEmpty() || password.isEmpty()) {
+            statusLabel.setText("⚠ Please enter both username and password.");
             return;
         }
 
-        // TODO: Validate credentials with the DB/server
-        boolean credentialsAreValid = true; // Simulate success
+        // Send login request to server
+        try {
+            SimpleClient.getClient().sendToServer("LOGIN;" + username + ";" + password);
+        } catch (IOException e) {
+            statusLabel.setText("❌ Connection error. Please try again.");
+            e.printStackTrace();
+        }
+    }
 
-        if (credentialsAreValid) {
-            try {
-                App.setRoot("personal_area");
-            } catch (IOException e) {
-                statusLabel.setText("❌ Failed to load personal area.");
-                e.printStackTrace();
-            }
-        } else {
-            statusLabel.setText("❌ Invalid email or password.");
+    @FXML
+    private void handleGoToSignUp() {
+        try {
+            App.setRoot("sign_up");
+        } catch (IOException e) {
+            statusLabel.setText("❌ Could not load sign up page.");
+            e.printStackTrace();
         }
     }
 
