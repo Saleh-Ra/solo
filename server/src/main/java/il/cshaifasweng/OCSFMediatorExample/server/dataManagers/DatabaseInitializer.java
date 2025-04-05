@@ -114,7 +114,7 @@ public class DatabaseInitializer {
             for (String[] data : clientData) {
                 // Only add if phone number doesn't exist
                 if (!userExists(session, data[1])) {
-                    UserAccount account = new UserAccount(data[0], data[1], false, data[2]);
+                    UserAccount account = new UserAccount(data[0], data[1], "client", data[2]);
                     session.save(account);
                     
                     Client client = new Client(data[0], account);
@@ -325,7 +325,7 @@ public class DatabaseInitializer {
             
             // First add the chain manager if not exists
             if (!userExists(session, managerData[0][1])) {
-                UserAccount chainManagerAccount = new UserAccount(managerData[0][0], managerData[0][1], true, managerData[0][2]);
+                UserAccount chainManagerAccount = new UserAccount(managerData[0][0], managerData[0][1], "manager", managerData[0][2]);
                 session.save(chainManagerAccount);
                 session.save(new RestaurantChainManager(managerData[0][0], chainManagerAccount));
                 System.out.println("Added chain manager: " + managerData[0][0]);
@@ -341,7 +341,7 @@ public class DatabaseInitializer {
                     int idx = i + 1; // Skip the first manager (chain manager)
                     
                     if (!userExists(session, managerData[idx][1])) {
-                        UserAccount account = new UserAccount(managerData[idx][0], managerData[idx][1], true, managerData[idx][2]);
+                        UserAccount account = new UserAccount(managerData[idx][0], managerData[idx][1], "manager", managerData[idx][2]);
                         session.save(account);
                         session.save(new BranchManager(managerData[idx][0], branches.get(i), account));
                         System.out.println("Added branch manager: " + managerData[idx][0]);

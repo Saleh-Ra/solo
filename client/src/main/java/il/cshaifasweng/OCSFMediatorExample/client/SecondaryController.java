@@ -44,7 +44,14 @@ public class SecondaryController implements MenuUpdateListener {
     private void initialize() {
         SimpleClient.getClient().setMenuUpdateListener(this);
         mealComboBox.setValue(null);
-        statusLabel.setText("");
+        
+        // Display welcome message for manager
+        String role = SimpleClient.getCurrentUserRole();
+        if ("manager".equalsIgnoreCase(role)) {
+            statusLabel.setText("Welcome Manager! You can update menu items and prices.");
+        } else {
+            statusLabel.setText("");
+        }
 
         if (switchToPrimaryButton != null) {
             switchToPrimaryButton.setOnAction(event -> {

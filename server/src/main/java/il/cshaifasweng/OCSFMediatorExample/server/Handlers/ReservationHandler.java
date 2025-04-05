@@ -98,7 +98,7 @@ public class ReservationHandler {
             if (userAccounts.isEmpty()) {
                 System.out.println("User not found with phone: " + phoneNumber + ". Creating new user account.");
                 // Create a new user account
-                userAccount = new UserAccount("Guest", phoneNumber, false, "password");
+                userAccount = new UserAccount("Guest", phoneNumber, "client", "password");
                 DataManager.add(userAccount);
                 System.out.println("Created new user account with ID: " + userAccount.getId());
             } else {
@@ -177,7 +177,7 @@ public class ReservationHandler {
                     // Save the reservation
                     saveSession.save(newReservation);
                     System.out.println("Reservation saved with ID: " + newReservation.getId());
-                    
+
                     // Add reservation to client's list in the same session
                     if (freshClient.getReservations() == null) {
                         freshClient.setReservation(new ArrayList<>());
@@ -363,7 +363,7 @@ public class ReservationHandler {
                 if (userAccounts.isEmpty()) {
                     System.out.println("No user account found with phone: " + phoneNumber + ". Creating new account.");
                     // Create a new user account
-                    UserAccount userAccount = new UserAccount("Guest", phoneNumber, false, "password");
+                    UserAccount userAccount = new UserAccount("Guest", phoneNumber, "client", "password");
                     DataManager.add(userAccount);
                     System.out.println("Created new user account with ID: " + userAccount.getId());
                     
@@ -432,3 +432,4 @@ public class ReservationHandler {
         return reservations;
     }
 }
+

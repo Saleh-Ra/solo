@@ -6,7 +6,7 @@
 <AnchorPane prefHeight="700.0" prefWidth="800.0" xmlns="http://javafx.com/javafx/23.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="il.cshaifasweng.OCSFMediatorExample.client.SecondaryController">
     <children>
         <!-- Title -->
-        <Label layoutX="300.0" layoutY="20.0" style="-fx-font-size: 24px; -fx-font-weight: bold;" text="Restaurant Menu" />
+        <Label layoutX="300.0" layoutY="20.0" style="-fx-font-size: 24px; -fx-font-weight: bold;" text="Manager Dashboard" />
 
         <!-- Scrollable Menu Display -->
         <ScrollPane layoutX="50.0" layoutY="60.0" prefWidth="700.0" prefHeight="400.0" fitToWidth="true">

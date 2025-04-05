@@ -13,13 +13,11 @@ import java.util.List;
 public class ClientHandler {
 
     public static void handleRegisterClient(String msgString, ConnectionToClient client) {
-        System.out.println("In handleRegisterClient with message: " + msgString);
+        // Expected: "REGISTER_CLIENT;name;phone;role;password"
         String[] parts = msgString.split(";");
-        // Expected: "REGISTER_CLIENT;name;phone;isManager;password"
-
         if (parts.length < 5) {
             try {
-                client.sendToClient(new Warning("SIGNUP_FAILURE: Invalid format"));
+                client.sendToClient(new Warning("REGISTER_CLIENT_FAILURE: Invalid format"));
             } catch (IOException e) {
                 e.printStackTrace();
             }
@@ -28,41 +26,54 @@ public class ClientHandler {
 
         String name = parts[1].trim();
         String phone = parts[2].trim();
-        boolean isManager = Boolean.parseBoolean(parts[3].trim());
+        String role = parts[3].trim();
         String password = parts[4].trim();
 
-        // Check if phone number already exists
-        List<UserAccount> existingAccounts = DataManager.fetchByField(UserAccount.class, "phoneNumber", phone);
-        if (!existingAccounts.isEmpty()) {
+        // Validate required fields
+        if (name.isEmpty() || phone.isEmpty() || password.isEmpty()) {
             try {
-                client.sendToClient(new Warning("SIGNUP_FAILURE: Phone number already registered"));
+                client.sendToClient(new Warning("REGISTER_CLIENT_FAILURE: All fields are required"));
             } catch (IOException e) {
                 e.printStackTrace();
             }
             return;
         }
 
-        try {
-            // Create and save the UserAccount
-            UserAccount account = new UserAccount(name, phone, false, password);
-            System.out.println("About to save UserAccount: " + account.getName() + ", " + account.getPhoneNumber());
-            DataManager.add(account);
-            System.out.println("UserAccount saved successfully with ID: " + account.getId());
+        // Ensure role is valid, default to "client" if not specified or invalid
+        if (role.isEmpty() || (!role.equalsIgnoreCase("client") && !role.equalsIgnoreCase("manager"))) {
+            role = "client";
+        }
 
-            // Create and save the Client
-            Client newClient = new Client(name, account);
-            System.out.println("About to save Client: " + newClient.getName());
-            DataManager.add(newClient);
-            System.out.println("Client saved successfully with ID: " + newClient.getId());
-
-            // Send success response
-            System.out.println("Sending success response to client");
-            client.sendToClient(new Warning("SIGNUP_SUCCESS"));
-        } catch (Exception e) {
-            System.err.println("Error during registration: " + e.getMessage());
-            e.printStackTrace();
+        // Check if the user already exists by phone number
+        List<UserAccount> existingAccounts = DataManager.fetchByField(UserAccount.class, "phoneNumber", phone);
+        if (!existingAccounts.isEmpty()) {
             try {
-                client.sendToClient(new Warning("SIGNUP_FAILURE: " + e.getMessage()));
+                client.sendToClient(new Warning("REGISTER_CLIENT_FAILURE: Phone number already registered"));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return;
+        }
+
+        // Create new user account
+        try {
+            UserAccount account = new UserAccount(name, phone, role, password);
+            DataManager.add(account);
+            System.out.println("Created new account: " + name + " with role: " + role);
+
+            // Create client entity if role is "client"
+            if (role.equalsIgnoreCase("client")) {
+                Client newClient = new Client(name, account);
+                DataManager.add(newClient);
+                System.out.println("Created new client: " + name);
+            }
+
+            // Success response
+            client.sendToClient(new Warning("REGISTER_CLIENT_SUCCESS"));
+        } catch (Exception e) {
+            try {
+                client.sendToClient(new Warning("REGISTER_CLIENT_FAILURE: " + e.getMessage()));
+                e.printStackTrace();
             } catch (IOException ex) {
                 ex.printStackTrace();
             }
@@ -70,8 +81,7 @@ public class ClientHandler {
     }
 
     public static void handleSignup(String msgString, ConnectionToClient client) {
-        System.out.println("In handleSignup with message: " + msgString);
-        // Expected: "SIGNUP;username;phone;password;confirmed password"
+        // Expected: "SIGNUP;username;phone;password;confirmPassword"
         String[] parts = msgString.split(";");
         if (parts.length < 5) {
             try {
@@ -106,7 +116,7 @@ public class ClientHandler {
         }
 
         //if everything is fine then we register
-        String message = "REGISTER_CLIENT;" + username + ";" + phone + ";false;" + password;
+        String message = "REGISTER_CLIENT;" + username + ";" + phone + ";client;" + password;
         handleRegisterClient(message, client);
     }
 
@@ -156,11 +166,12 @@ public class ClientHandler {
             return;
         }
 
-        // Login successful - include phone number in success message
+        // Login successful - include phone number and role in success message
         try {
             String phoneNumber = account.getPhoneNumber();
-            client.sendToClient(new Warning("LOGIN_SUCCESS;" + phoneNumber));
-            System.out.println("User logged in: " + username + " with phone: " + phoneNumber);
+            String role = account.getRole();
+            client.sendToClient(new Warning("LOGIN_SUCCESS;" + phoneNumber + ";" + role));
+            System.out.println("User logged in: " + username + " with phone: " + phoneNumber + " and role: " + role);
         } catch (IOException e) {
             e.printStackTrace();
         }
