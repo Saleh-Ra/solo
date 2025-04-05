@@ -7,7 +7,8 @@
 <VBox xmlns="http://javafx.com/javafx/23.0.1"
       xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="il.cshaifasweng.OCSFMediatorExample.client.boundary.SignUpController"
-      spacing="15" alignment="CENTER" style="-fx-padding: 30; -fx-background-color: #f4f4f4;">
+      spacing="15" alignment="CENTER" style="-fx-padding: 30; -fx-background-color: #f4f4f4;"
+      stylesheets="@modern-style.css">
 
     <Label text="📝 Create New Account" style="-fx-font-size: 20px; -fx-font-weight: bold;" />
 
@@ -16,8 +17,8 @@
     <PasswordField fx:id="passwordField" promptText="Password" />
     <PasswordField fx:id="confirmPasswordField" promptText="Confirm Password" />
 
-    <Button text="Sign Up" onAction="#handleSignUp" prefWidth="150" />
-    <Button text="Already have an account? Sign In" onAction="#handleGoToSignIn" />
+    <Button text="Sign Up" onAction="#handleSignUp" />
+    <Button text="Already have an account? Sign In" onAction="#handleGoToSignIn" styleClass="secondary-button, wide-button" />
 
     <Label fx:id="statusLabel" style="-fx-text-fill: red;" />
 </VBox> 

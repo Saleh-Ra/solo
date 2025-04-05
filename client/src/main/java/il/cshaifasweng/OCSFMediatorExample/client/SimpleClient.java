@@ -4,6 +4,7 @@ import il.cshaifasweng.OCSFMediatorExample.client.ocsf.AbstractClient;
 import il.cshaifasweng.OCSFMediatorExample.entities.Cart;
 import il.cshaifasweng.OCSFMediatorExample.entities.MenuItem;
 import il.cshaifasweng.OCSFMediatorExample.entities.Order;
+import il.cshaifasweng.OCSFMediatorExample.entities.Reservation;
 import il.cshaifasweng.OCSFMediatorExample.entities.Warning;
 import org.greenrobot.eventbus.EventBus;
 
@@ -93,6 +94,20 @@ public class SimpleClient extends AbstractClient {
 				System.out.println("Received " + orders.size() + " orders from server");
 				EventBus.getDefault().post(new OrdersReceivedEvent(orders));
 			}
+			// Check if it's a list of reservations
+			else if (!((List<?>) msg).isEmpty() && ((List<?>) msg).get(0) instanceof Reservation) {
+				List<Reservation> reservations = (List<Reservation>) msg;
+				System.out.println("Received " + reservations.size() + " reservations from server");
+				EventBus.getDefault().post(new ReservationsReceivedEvent(reservations));
+			}
+			// Or it's an empty list - check the instance type from generic signature
+			else if (((List<?>) msg).isEmpty()) {
+				// Since we can't tell what type of empty list it is, post both empty events
+				// The controller will handle whichever is relevant
+				System.out.println("Received empty list from server");
+				EventBus.getDefault().post(new OrdersReceivedEvent(new ArrayList<>()));
+				EventBus.getDefault().post(new ReservationsReceivedEvent(new ArrayList<>()));
+			}
 			// Otherwise assume it's menu items
 			else {
 				cachedMenuItems = (List<MenuItem>) msg;
@@ -139,6 +154,16 @@ public class SimpleClient extends AbstractClient {
 		}
 	}
 
+	public void getUserReservations() throws IOException {
+		if (currentUserPhone != null && !currentUserPhone.isEmpty()) {
+			String message = "GET_USER_RESERVATIONS;" + currentUserPhone;
+			sendToServer(message);
+			System.out.println("Requesting reservations for user with phone: " + currentUserPhone);
+		} else {
+			System.out.println("Cannot get reservations - no current user phone number");
+		}
+	}
+
 	@Override
 	public void sendToServer(Object msg) throws IOException {
 		System.out.println("Sending to server: " + msg);
@@ -155,6 +180,19 @@ public class SimpleClient extends AbstractClient {
 		
 		public List<Order> getOrders() {
 			return orders;
+		}
+	}
+
+	// Event class for reservations received
+	public static class ReservationsReceivedEvent {
+		private final List<Reservation> reservations;
+		
+		public ReservationsReceivedEvent(List<Reservation> reservations) {
+			this.reservations = reservations;
+		}
+		
+		public List<Reservation> getReservations() {
+			return reservations;
 		}
 	}
 }

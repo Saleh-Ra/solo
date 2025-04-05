@@ -12,7 +12,6 @@ import javafx.scene.layout.VBox;
 
 import java.io.IOException;
 import java.util.List;
-import java.util.Map;
 
 public class UserMenuController {
 
@@ -20,13 +19,10 @@ public class UserMenuController {
     private VBox menuDisplayVBox;
 
     @FXML
-    private ListView<HBox> cartListView;
-
+    private Label cartCountLabel;
+    
     @FXML
-    private Label totalLabel;
-
-    @FXML
-    private Button clearCartButton;
+    private Button cartButton;
 
     private Cart cart;
 
@@ -43,8 +39,8 @@ public class UserMenuController {
         SimpleClient.getClient().setMenuUpdateListener(menuItems ->
                 Platform.runLater(this::loadMenu)
         );
-
-        refreshCartView();
+        
+        updateCartCount();
     }
 
     private void loadMenu() {
@@ -54,72 +50,34 @@ public class UserMenuController {
         for (MenuItem item : items) {
             Label nameLabel = new Label(item.getName() + " - $" + String.format("%.2f", item.getPrice()));
             Button addButton = new Button("Add to Cart");
+            addButton.getStyleClass().add("small-button");
 
             addButton.setOnAction(event -> {
                 cart.addItem(item);
-                refreshCartView();
+                updateCartCount();
             });
 
             HBox row = new HBox(10, nameLabel, addButton);
             menuDisplayVBox.getChildren().add(row);
         }
     }
-
-    private void refreshCartView() {
-        cartListView.getItems().clear();
-
-        for (Map.Entry<MenuItem, Integer> entry : cart.getItems().entrySet()) {
-            MenuItem item = entry.getKey();
-            int quantity = entry.getValue();
-            String note = cart.getNote(item);
-
-            Label itemLabel = new Label(item.getName() + " x" + quantity + " - $" + String.format("%.2f", item.getPrice() * quantity));
-            if (note != null && !note.isEmpty()) {
-                itemLabel.setText(itemLabel.getText() + " [" + note + "]");
-            }
-
-            Button plusButton = new Button("+");
-            Button minusButton = new Button("-");
-            Button removeButton = new Button("Remove");
-            Button editButton = new Button("Edit");
-
-            plusButton.setOnAction(e -> {
-                cart.addItem(item);
-                refreshCartView();
-            });
-
-            minusButton.setOnAction(e -> {
-                cart.decreaseItem(item);
-                refreshCartView();
-            });
-
-            removeButton.setOnAction(e -> {
-                cart.removeCompletely(item);
-                refreshCartView();
-            });
-
-            editButton.setOnAction(e -> {
-                TextInputDialog dialog = new TextInputDialog(cart.getNote(item));
-                dialog.setTitle("Edit Meal");
-                dialog.setHeaderText("Enter special instructions for " + item.getName());
-                dialog.setContentText("Note:");
-                dialog.showAndWait().ifPresent(noteText -> {
-                    cart.setNote(item, noteText);
-                    refreshCartView();
-                });
-            });
-
-            HBox row = new HBox(10, itemLabel, plusButton, minusButton, removeButton, editButton);
-            cartListView.getItems().add(row);
+    
+    private void updateCartCount() {
+        int itemCount = 0;
+        for (Integer quantity : cart.getItems().values()) {
+            itemCount += quantity;
         }
-
-        totalLabel.setText("Total: $" + String.format("%.2f", cart.calculateTotal()));
+        cartCountLabel.setText(String.valueOf(itemCount));
     }
 
     @FXML
-    private void handleClearCart() {
-        cart.clearCart();
-        refreshCartView();
+    private void handleViewCart() {
+        try {
+            App.setRoot("cart_page");
+        } catch (IOException e) {
+            e.printStackTrace();
+            showAlert("Error", "Could not open cart page.");
+        }
     }
 
     @FXML

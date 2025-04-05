@@ -49,6 +49,8 @@ public class SimpleServer extends AbstractServer {
 			ReservationHandler.handleCancelReservation(msgString, client);
 		} else if (msgString.startsWith("GET_AVAILABLE_TABLES")) {
 			ReservationHandler.handleGetAvailableTables(msgString,client);
+		} else if (msgString.startsWith("GET_USER_RESERVATIONS")) {
+			ReservationHandler.handleGetUserReservations(msgString, client);
 		}
 		//order
 		else if (msgString.startsWith("CREATE_ORDER")) {

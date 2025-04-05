@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<BorderPane xmlns="http://javafx.com/javafx/23.0.1"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="il.cshaifasweng.OCSFMediatorExample.client.boundary.CartPageController"
+            stylesheets="@modern-style.css">
+
+    <top>
+        <BorderPane style="-fx-padding: 20 20 10 20;">
+            <left>
+                <Label text="🛒 Your Cart" style="-fx-font-size: 24px; -fx-font-weight: bold;" />
+            </left>
+            <right>
+                <Button text="Back to Menu" onAction="#handleBackToMenu" styleClass="secondary-button"/>
+            </right>
+        </BorderPane>
+    </top>
+
+    <center>
+        <ScrollPane fitToWidth="true">
+            <VBox spacing="15" style="-fx-padding: 20;">
+                <ListView fx:id="cartListView" VBox.vgrow="ALWAYS" prefHeight="350" />
+            </VBox>
+        </ScrollPane>
+    </center>
+
+    <bottom>
+        <VBox spacing="15" style="-fx-padding: 10 20 20 20;">
+            <HBox alignment="CENTER_RIGHT" spacing="10">
+                <Label fx:id="totalLabel" text="Total: $0.00" style="-fx-font-size: 18px; -fx-font-weight: bold;" />
+            </HBox>
+            <HBox alignment="CENTER" spacing="15">
+                <Button fx:id="clearCartButton" text="Clear Cart" onAction="#handleClearCart" styleClass="warning-button" />
+                <Button text="Confirm Order And Pay" onAction="#handleProceedToCheckout" styleClass="success-button, wide-button"/>
+            </HBox>
+        </VBox>
+    </bottom>
+</BorderPane> 
