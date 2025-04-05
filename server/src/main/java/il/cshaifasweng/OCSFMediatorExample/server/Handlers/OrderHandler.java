@@ -11,6 +11,7 @@ import il.cshaifasweng.OCSFMediatorExample.server.dataManagers.DataManager;
 import il.cshaifasweng.OCSFMediatorExample.server.ocsf.ConnectionToClient;
 
 import java.util.List;
+import java.util.ArrayList;
 
 public class OrderHandler {
     //this method here will be called only after the customer finds a good time, otherwise this should not be called
@@ -117,6 +118,44 @@ public class OrderHandler {
             client.sendToClient(orders);
         }catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    public static void handleGetOrdersByPhoneNumber(String msgString, ConnectionToClient client) {
+        // Format: GET_USER_ORDERS;phoneNumber
+        String[] parts = msgString.split(";");
+        if (parts.length < 2) {
+            SimpleServer.sendFailureResponse(client, "GET_ORDERS_FAILURE", "Invalid format");
+            return;
+        }
+        
+        String phoneNumber = parts[1];
+        System.out.println("Fetching orders for phone number: " + phoneNumber);
+        
+        try {
+            // Get all orders
+            List<Order> allOrders = DataManager.fetchAll(Order.class);
+            
+            // Filter orders by phone number
+            List<Order> userOrders = new ArrayList<>();
+            for (Order order : allOrders) {
+                if (phoneNumber.equals(order.getPhoneNumber())) {
+                    userOrders.add(order);
+                    System.out.println("Found order: " + order.getId() + " for phone: " + phoneNumber);
+                }
+            }
+            
+            // Send orders to client
+            client.sendToClient(userOrders);
+            System.out.println("Sent " + userOrders.size() + " orders to client");
+        } catch (Exception e) {
+            System.err.println("Error fetching orders: " + e.getMessage());
+            e.printStackTrace();
+            try {
+                SimpleServer.sendFailureResponse(client, "GET_ORDERS_FAILURE", "Error fetching orders");
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
         }
     }
 }

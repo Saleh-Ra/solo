@@ -1,10 +1,11 @@
 package il.cshaifasweng.OCSFMediatorExample.entities;
 
 import javax.persistence.*;
+import java.io.Serializable;
 
 @Entity
 @javax.persistence.Table(name = "Restaurant_table")
-public class RestaurantTable {
+public class RestaurantTable implements Serializable {
 
     public static final int MINUTES = 720;
     @Id

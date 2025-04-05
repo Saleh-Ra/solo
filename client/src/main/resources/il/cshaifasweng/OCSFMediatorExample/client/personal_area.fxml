@@ -30,6 +30,9 @@
             <ListView fx:id="reservationsListView"
                       style="-fx-background-color: #f9f9f9; -fx-border-color: #ddd;
                              -fx-border-radius: 8; -fx-background-radius: 8;" />
+                             
+            <Label fx:id="statusLabel" 
+                   style="-fx-text-fill: #3498db; -fx-font-style: italic;" />
         </VBox>
     </center>
 
