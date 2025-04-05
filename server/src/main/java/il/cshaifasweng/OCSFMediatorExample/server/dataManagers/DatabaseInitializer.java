@@ -19,31 +19,63 @@ public class DatabaseInitializer {
             System.out.println("\n=== Starting database initialization ===\n");
             
             // Check if database has already been initialized
-            if (isDatabaseInitialized()) {
-                System.out.println("Database already contains data. Skipping initialization.");
-                return;
+            boolean databaseInitialized = isDatabaseInitialized();
+            
+            if (!databaseInitialized) {
+                System.out.println("Database is empty. Starting fresh initialization...");
+                
+                // Initialize in the correct order to avoid circular dependencies
+                initializeRestaurantTable();  // First tables
+                System.out.println("\n✓ Restaurant tables initialized\n");
+                
+                initializeMenu();             // Then menu items (global default menu)
+                System.out.println("\n✓ Default menu initialized\n");
+                
+                initializeRestaurantChain();  // Then restaurant chain
+                System.out.println("\n✓ Restaurant chain initialized\n");
+                
+                initializeBranches();         // Then branches (which need chain and tables)
+                System.out.println("\n✓ Branches initialized\n");
+                
+                initializeBranchMenus();      // Then branch-specific menus
+                System.out.println("\n✓ Branch menus initialized\n");
+                
+                initializeClientsAndAccounts();  // Then clients and their accounts
+                System.out.println("\n✓ Clients initialized\n");
+                
+                initializeManagers();            // Then branch managers
+                System.out.println("\n✓ Managers initialized\n");
+            } else {
+                System.out.println("Database already contains basic data. Checking for new roles and branch menus...");
+                
+                // Force check branch menus - this will ensure menus are created even for existing database
+                ensureBranchMenusExist();
             }
             
-            System.out.println("Database is empty. Starting fresh initialization...");
+            // Always initialize new roles regardless of whether database is initialized
+            // Check if we have any chain managers
+            if (!roleExists("chain_manager")) {
+                initializeChainManagers();       // Chain managers (new role)
+                System.out.println("\n✓ Chain managers initialized\n");
+            } else {
+                System.out.println("\n✓ Chain managers already exist\n");
+            }
             
-            // Initialize in the correct order to avoid circular dependencies
-            initializeRestaurantTable();  // First tables
-            System.out.println("\n✓ Restaurant tables initialized\n");
+            // Check if we have any customer support
+            if (!roleExists("customer_support")) {
+                initializeCustomerSupport();     // Customer support staff (new role)
+                System.out.println("\n✓ Customer support initialized\n");
+            } else {
+                System.out.println("\n✓ Customer support already exists\n");
+            }
             
-            initializeMenu();             // Then menu items
-            System.out.println("\n✓ Menu initialized\n");
-            
-            initializeRestaurantChain();  // Then restaurant chain
-            System.out.println("\n✓ Restaurant chain initialized\n");
-            
-            initializeBranches();         // Then branches (which need chain and tables)
-            System.out.println("\n✓ Branches initialized\n");
-            
-            initializeClientsAndAccounts();  // Then clients and their accounts
-            System.out.println("\n✓ Clients initialized\n");
-            
-            initializeManagers();            // Finally managers
-            System.out.println("\n✓ Managers initialized\n");
+            // Check if we have any nutritionists
+            if (!roleExists("nutritionist")) {
+                initializeNutritionists();       // Nutritionists (new role)
+                System.out.println("\n✓ Nutritionists initialized\n");
+            } else {
+                System.out.println("\n✓ Nutritionists already exist\n");
+            }
             
             System.out.println("\n=== Database initialization completed successfully! ===\n");
             
@@ -51,7 +83,8 @@ public class DatabaseInitializer {
             try (Session session = factory.openSession()) {
                 long menuItems = session.createQuery("select count(*) from MenuItem", Long.class).getSingleResult();
                 long users = session.createQuery("select count(*) from UserAccount", Long.class).getSingleResult();
-                System.out.println("Final database state - Menu Items: " + menuItems + ", Users: " + users);
+                long menus = session.createQuery("select count(*) from Menu", Long.class).getSingleResult();
+                System.out.println("Final database state - Menu Items: " + menuItems + ", Users: " + users + ", Menus: " + menus);
             }
         } catch (Exception e) {
             System.err.println("Error during database initialization: " + e.getMessage());
@@ -323,7 +356,7 @@ public class DatabaseInitializer {
                 {"Natali", "0502404146", "Natali123"}
             };
             
-            // First add the chain manager if not exists
+            // First add the chain manager if not exists - chain manager doesn't have branch
             if (!userExists(session, managerData[0][1])) {
                 UserAccount chainManagerAccount = new UserAccount(managerData[0][0], managerData[0][1], "manager", managerData[0][2]);
                 session.save(chainManagerAccount);
@@ -339,22 +372,471 @@ public class DatabaseInitializer {
             if (!branches.isEmpty()) {
                 for (int i = 0; i < Math.min(branches.size(), managerData.length - 1); i++) {
                     int idx = i + 1; // Skip the first manager (chain manager)
+                    Branch branch = branches.get(i);
                     
                     if (!userExists(session, managerData[idx][1])) {
-                        UserAccount account = new UserAccount(managerData[idx][0], managerData[idx][1], "manager", managerData[idx][2]);
+                        // Use the constructor with branch ID and name
+                        UserAccount account = new UserAccount(
+                            managerData[idx][0],
+                            managerData[idx][1],
+                            "manager",
+                            managerData[idx][2],
+                            branch.getId(),
+                            branch.getLocation()
+                        );
                         session.save(account);
-                        session.save(new BranchManager(managerData[idx][0], branches.get(i), account));
-                        System.out.println("Added branch manager: " + managerData[idx][0]);
+                        session.save(new BranchManager(managerData[idx][0], branch, account));
+                        System.out.println("Added branch manager: " + managerData[idx][0] + " for branch: " + branch.getLocation());
                     } else {
-                        System.out.println("Branch manager with phone " + managerData[idx][1] + " already exists, skipped.");
+                        System.out.println("Branch manager with phone " + managerData[idx][1] + " already exists, updating branch info if needed.");
+                        // Update existing manager with branch info
+                        List<UserAccount> existingAccounts = DataManager.fetchUserAccountsByPhoneNumber(managerData[idx][1]);
+                        if (!existingAccounts.isEmpty()) {
+                            UserAccount existingAccount = existingAccounts.get(0);
+                            if (existingAccount.getBranchId() == null || existingAccount.getBranchName() == null) {
+                                existingAccount.setBranchId(branch.getId());
+                                existingAccount.setBranchName(branch.getLocation());
+                                session.update(existingAccount);
+                                System.out.println("Updated branch info for manager: " + existingAccount.getName());
+                            }
+                        }
                     }
                 }
             }
 
             session.getTransaction().commit();
             System.out.println("Manager initialization completed");
+            
+            // After initialization, update any managers that might still have null branch info
+            updateExistingManagersWithBranchInfo();
         } catch (Exception e) {
             System.err.println("Failed to initialize managers: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Updates existing manager accounts with branch information if not already set
+     */
+    public static void updateExistingManagersWithBranchInfo() {
+        try (Session session = factory.openSession()) {
+            session.beginTransaction();
+            
+            // Get all managers with role='manager' and null branchId
+            String hql = "FROM UserAccount u WHERE u.role = 'manager' AND (u.branchId IS NULL OR u.branchName IS NULL)";
+            List<UserAccount> managersToUpdate = session.createQuery(hql, UserAccount.class).getResultList();
+            
+            if (managersToUpdate.isEmpty()) {
+                System.out.println("No manager accounts need branch info update");
+                session.getTransaction().commit();
+                return;
+            }
+            
+            System.out.println("Found " + managersToUpdate.size() + " manager accounts that need branch info update");
+            
+            // For each manager, find their branch through BranchManager relationship
+            for (UserAccount manager : managersToUpdate) {
+                String branchManagerHql = "FROM BranchManager bm WHERE bm.manager.id = :accountId";
+                List<BranchManager> branchManagers = session.createQuery(branchManagerHql, BranchManager.class)
+                    .setParameter("accountId", manager.getId())
+                    .getResultList();
+                    
+                if (!branchManagers.isEmpty()) {
+                    BranchManager branchManager = branchManagers.get(0);
+                    Branch branch = branchManager.getBranch();
+                    
+                    if (branch != null) {
+                        manager.setBranchId(branch.getId());
+                        manager.setBranchName(branch.getLocation());
+                        session.update(manager);
+                        System.out.println("Updated manager " + manager.getName() + " with branch: " + branch.getLocation());
+                    }
+                }
+            }
+            
+            session.getTransaction().commit();
+            System.out.println("Finished updating manager accounts with branch info");
+        } catch (Exception e) {
+            System.err.println("Error updating managers with branch info: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    // Add new initialization methods for chain managers (separate from initializeManagers)
+    public static void initializeChainManagers() {
+        try (Session session = factory.openSession()) {
+            session.beginTransaction();
+            
+            // Chain manager data (name, phone, password)
+            String[][] chainManagerData = {
+                {"David Cohen", "0521234567", "david123"},
+                {"Sarah Levy", "0529876543", "sarah123"},
+                {"Michael Gold", "0531234321", "michael123"}
+            };
+            
+            // Add chain managers - they don't have branch associations
+            for (String[] data : chainManagerData) {
+                if (!userExists(session, data[1])) {
+                    UserAccount account = new UserAccount(data[0], data[1], "chain_manager", data[2]);
+                    // Branch fields intentionally left null for chain managers
+                    session.save(account);
+                    session.save(new RestaurantChainManager(data[0], account));
+                    System.out.println("Added chain manager: " + data[0]);
+                } else {
+                    System.out.println("Chain manager with phone " + data[1] + " already exists, skipped.");
+                }
+            }
+
+            session.getTransaction().commit();
+            System.out.println("Chain manager initialization completed");
+        } catch (Exception e) {
+            System.err.println("Failed to initialize chain managers: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public static void initializeCustomerSupport() {
+        try (Session session = factory.openSession()) {
+            session.beginTransaction();
+            
+            // Get all branches to assign customer support staff
+            List<Branch> branches = session.createQuery("from Branch").getResultList();
+            
+            if (branches.isEmpty()) {
+                System.out.println("No branches found for customer support assignment");
+                session.getTransaction().commit();
+                return;
+            }
+            
+            // Customer support data per branch (multiple per branch)
+            String[][][] supportData = {
+                // Tel-Aviv branch support staff
+                {
+                    {"Omer Tal", "0531111001", "omer123"},
+                    {"Noa Golan", "0531111002", "noa123"}
+                },
+                // Haifa branch support staff
+                {
+                    {"Yair Cohen", "0532222001", "yair123"},
+                    {"Maya Ben", "0532222002", "maya123"},
+                    {"Tomer Levi", "0532222003", "tomer123"}
+                },
+                // Jerusalem branch support staff
+                {
+                    {"Shira Katz", "0533333001", "shira123"},
+                    {"Dan Mizrahi", "0533333002", "dan123"}
+                },
+                // Beer-Sheva branch support staff
+                {
+                    {"Avi Peretz", "0534444001", "avi123"},
+                    {"Dana Schwartz", "0534444002", "dana123"}
+                }
+            };
+            
+            // Create customer support accounts for each branch
+            for (int i = 0; i < Math.min(branches.size(), supportData.length); i++) {
+                Branch branch = branches.get(i);
+                String[][] branchSupportData = supportData[i];
+                
+                for (String[] data : branchSupportData) {
+                    if (!userExists(session, data[1])) {
+                        UserAccount account = new UserAccount(
+                            data[0], data[1], "customer_support", data[2],
+                            branch.getId(), branch.getLocation()
+                        );
+                        session.save(account);
+                        System.out.println("Added customer support: " + data[0] + " for branch: " + branch.getLocation());
+                    } else {
+                        System.out.println("Customer support with phone " + data[1] + " already exists, skipped.");
+                    }
+                }
+            }
+
+            session.getTransaction().commit();
+            System.out.println("Customer support initialization completed");
+        } catch (Exception e) {
+            System.err.println("Failed to initialize customer support: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public static void initializeNutritionists() {
+        try (Session session = factory.openSession()) {
+            session.beginTransaction();
+            
+            // Get all branches to assign nutritionists
+            List<Branch> branches = session.createQuery("from Branch").getResultList();
+            
+            if (branches.isEmpty()) {
+                System.out.println("No branches found for nutritionist assignment");
+                session.getTransaction().commit();
+                return;
+            }
+            
+            // Nutritionist data per branch (multiple per branch)
+            String[][][] nutritionistData = {
+                // Tel-Aviv branch nutritionists
+                {
+                    {"Rachel Green", "0535555001", "rachel123"},
+                    {"Jonathan Klein", "0535555002", "jonathan123"}
+                },
+                // Haifa branch nutritionists
+                {
+                    {"Tamar Levin", "0536666001", "tamar123"},
+                    {"Eitan Paz", "0536666002", "eitan123"}
+                },
+                // Jerusalem branch nutritionists
+                {
+                    {"Michal Keren", "0537777001", "michal123"},
+                    {"Yossi Berger", "0537777002", "yossi123"}
+                },
+                // Beer-Sheva branch nutritionists
+                {
+                    {"Liora Shani", "0538888001", "liora123"},
+                    {"Boaz Cohen", "0538888002", "boaz123"}
+                }
+            };
+            
+            // Create nutritionist accounts for each branch
+            for (int i = 0; i < Math.min(branches.size(), nutritionistData.length); i++) {
+                Branch branch = branches.get(i);
+                String[][] branchNutritionistData = nutritionistData[i];
+                
+                for (String[] data : branchNutritionistData) {
+                    if (!userExists(session, data[1])) {
+                        UserAccount account = new UserAccount(
+                            data[0], data[1], "nutritionist", data[2],
+                            branch.getId(), branch.getLocation()
+                        );
+                        session.save(account);
+                        System.out.println("Added nutritionist: " + data[0] + " for branch: " + branch.getLocation());
+                    } else {
+                        System.out.println("Nutritionist with phone " + data[1] + " already exists, skipped.");
+                    }
+                }
+            }
+
+            session.getTransaction().commit();
+            System.out.println("Nutritionist initialization completed");
+        } catch (Exception e) {
+            System.err.println("Failed to initialize nutritionists: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Checks if users with a specific role already exist in the database
+     */
+    private static boolean roleExists(String role) {
+        try (Session session = factory.openSession()) {
+            String hql = "SELECT COUNT(u) FROM UserAccount u WHERE u.role = :role";
+            Long count = session.createQuery(hql, Long.class)
+                .setParameter("role", role)
+                .getSingleResult();
+            return count > 0;
+        } catch (Exception e) {
+            System.err.println("Error checking if role exists: " + e.getMessage());
+            e.printStackTrace();
+            return false;
+        }
+    }
+
+    /**
+     * Initialize branch-specific menus with special items for each branch
+     */
+    public static void initializeBranchMenus() {
+        try (Session session = factory.openSession()) {
+            session.beginTransaction();
+            
+            // Get all branches
+            List<Branch> branches = session.createQuery("from Branch", Branch.class).getResultList();
+            if (branches.isEmpty()) {
+                System.out.println("No branches found for menu creation");
+                session.getTransaction().commit();
+                return;
+            }
+            
+            // The special items for each branch (one unique item per branch)
+            String[][] specialMenuItems = {
+                // Tel-Aviv special - format: name, ingredients, preferences, price
+                {"Tel-Aviv Fusion Plate", "Local fish, Mediterranean herbs, Tahini sauce", "Chef's special", "85.00"},
+                
+                // Haifa special
+                {"Haifa Seafood Platter", "Fresh catch of the day, garlic butter, lemon", "Locally sourced", "95.00"},
+                
+                // Jerusalem special
+                {"Jerusalem Mixed Grill", "Chicken hearts, livers, and spices", "Traditional recipe", "78.00"},
+                
+                // Beer-Sheva special
+                {"Negev Desert Lamb", "Slow-cooked lamb, date honey, pine nuts", "Bedouin-inspired", "89.00"}
+            };
+            
+            // Create a special item for each branch
+            for (int i = 0; i < Math.min(branches.size(), specialMenuItems.length); i++) {
+                Branch branch = branches.get(i);
+                String[] specialItemData = specialMenuItems[i];
+                
+                // Check if this item already exists for this branch to avoid duplicates
+                List<MenuItem> existingItems = session.createQuery(
+                    "FROM MenuItem WHERE name = :name AND branch = :branch",
+                    MenuItem.class
+                )
+                .setParameter("name", specialItemData[0])
+                .setParameter("branch", branch)
+                .getResultList();
+                
+                if (!existingItems.isEmpty()) {
+                    System.out.println("Special item '" + specialItemData[0] + "' already exists for branch " + branch.getLocation());
+                    continue;
+                }
+                
+                // Create the branch's special item with direct branch association
+                MenuItem specialItem = new MenuItem(
+                    specialItemData[0],
+                    specialItemData[1], 
+                    specialItemData[2],
+                    Double.parseDouble(specialItemData[3])
+                );
+                
+                // Set the branch directly to ensure proper association
+                specialItem.setBranch(branch);
+                session.save(specialItem);
+                
+                System.out.println("Created special menu item for " + branch.getLocation() + ": " + specialItemData[0]);
+            }
+            
+            session.getTransaction().commit();
+            System.out.println("Branch-specific menu initialization completed");
+            
+            // Debug the menu state after initialization
+            debugMenuState();
+        } catch (Exception e) {
+            System.err.println("Failed to initialize branch-specific menus: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Ensures each branch has at least one special menu item
+     * This is a safety method that will run even on an initialized database.
+     */
+    public static void ensureBranchMenusExist() {
+        try (Session session = factory.openSession()) {
+            session.beginTransaction();
+            
+            // Get all branches
+            List<Branch> branches = session.createQuery("from Branch", Branch.class).getResultList();
+            if (branches.isEmpty()) {
+                System.out.println("No branches found for menu item verification");
+                session.getTransaction().commit();
+                return;
+            }
+            
+            System.out.println("Checking branch menu items for " + branches.size() + " branches...");
+            int specialItemsCreated = 0;
+            
+            // The special items for each branch (one unique item per branch)
+            String[][] specialMenuItems = {
+                // Tel-Aviv special - format: name, ingredients, preferences, price
+                {"Tel-Aviv Fusion Plate", "Local fish, Mediterranean herbs, Tahini sauce", "Chef's special", "85.00"},
+                
+                // Haifa special
+                {"Haifa Seafood Platter", "Fresh catch of the day, garlic butter, lemon", "Locally sourced", "95.00"},
+                
+                // Jerusalem special
+                {"Jerusalem Mixed Grill", "Chicken hearts, livers, and spices", "Traditional recipe", "78.00"},
+                
+                // Beer-Sheva special
+                {"Negev Desert Lamb", "Slow-cooked lamb, date honey, pine nuts", "Bedouin-inspired", "89.00"}
+            };
+            
+            // Check each branch and create special menu item if needed
+            for (int i = 0; i < Math.min(branches.size(), specialMenuItems.length); i++) {
+                Branch branch = branches.get(i);
+                String[] specialItemData = specialMenuItems[i];
+                
+                // Check if branch already has any special menu items
+                List<MenuItem> branchItems = session.createQuery(
+                    "FROM MenuItem WHERE branch = :branch", 
+                    MenuItem.class
+                )
+                .setParameter("branch", branch)
+                .getResultList();
+                
+                // If branch has no special items, create one
+                if (branchItems.isEmpty()) {
+                    System.out.println("Creating special menu item for branch: " + branch.getLocation());
+                    
+                    // Create the branch's special item with direct branch association
+                    MenuItem specialItem = new MenuItem(
+                        specialItemData[0],
+                        specialItemData[1], 
+                        specialItemData[2],
+                        Double.parseDouble(specialItemData[3])
+                    );
+                    
+                    // Set the branch directly to ensure proper association
+                    specialItem.setBranch(branch);
+                    session.save(specialItem);
+                    
+                    System.out.println("Created special menu item for branch: " + branch.getLocation() + 
+                                    ": " + specialItemData[0]);
+                    specialItemsCreated++;
+                } else {
+                    System.out.println("Branch " + branch.getLocation() + " already has " + 
+                                       branchItems.size() + " special menu items");
+                }
+            }
+            
+            session.getTransaction().commit();
+            System.out.println("Branch menu verification completed. Created " + specialItemsCreated + " new special menu items.");
+            
+            // After transactions are complete, debug the current menu state
+            debugMenuState();
+        } catch (Exception e) {
+            System.err.println("Error ensuring branch menu items exist: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Debug method to print all menu items and their branch associations
+     */
+    private static void debugMenuState() {
+        try (Session session = factory.openSession()) {
+            System.out.println("\n=== DEBUG: MENU ITEM STATE ===");
+            
+            // Get default menu items (no branch association)
+            List<MenuItem> defaultItems = session.createQuery(
+                "FROM MenuItem WHERE branch IS NULL", 
+                MenuItem.class
+            ).getResultList();
+            System.out.println("\nDefault menu has " + defaultItems.size() + " items:");
+            for (MenuItem item : defaultItems) {
+                System.out.println("  - " + item.getName() + " (ID: " + item.getId() + ")");
+            }
+            
+            // Find branch-specific menu items
+            List<Branch> branches = session.createQuery("FROM Branch", Branch.class).getResultList();
+            System.out.println("\nBranch-specific menu items:");
+            for (Branch branch : branches) {
+                List<MenuItem> branchItems = session.createQuery(
+                    "FROM MenuItem WHERE branch = :branch", 
+                    MenuItem.class
+                )
+                .setParameter("branch", branch)
+                .getResultList();
+                
+                System.out.println("Branch: " + branch.getLocation() + " (ID: " + branch.getId() + 
+                                  ") has " + branchItems.size() + " special menu items:");
+                for (MenuItem item : branchItems) {
+                    System.out.println("  - " + item.getName() + " (ID: " + item.getId() + ")");
+                }
+            }
+            
+            System.out.println("=== END DEBUG ===\n");
+        } catch (Exception e) {
+            System.err.println("Error in debug menu state: " + e.getMessage());
             e.printStackTrace();
         }
     }

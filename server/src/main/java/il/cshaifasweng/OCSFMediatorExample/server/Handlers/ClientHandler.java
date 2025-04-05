@@ -58,6 +58,7 @@ public class ClientHandler {
         // Create new user account
         try {
             UserAccount account = new UserAccount(name, phone, role, password);
+            // For clients, branch fields remain null by default (set in constructor)
             DataManager.add(account);
             System.out.println("Created new account: " + name + " with role: " + role);
 
@@ -166,12 +167,27 @@ public class ClientHandler {
             return;
         }
 
-        // Login successful - include phone number and role in success message
+        // Store the user account in the client connection for future use
+        client.setInfo("user", account);
+
+        // Login successful - include phone number, role, and branch name in success message
         try {
             String phoneNumber = account.getPhoneNumber();
             String role = account.getRole();
-            client.sendToClient(new Warning("LOGIN_SUCCESS;" + phoneNumber + ";" + role));
-            System.out.println("User logged in: " + username + " with phone: " + phoneNumber + " and role: " + role);
+            String branchName = account.getBranchName(); // This might be null for non-managers
+            
+            StringBuilder successMessage = new StringBuilder("LOGIN_SUCCESS;")
+                .append(phoneNumber).append(";")
+                .append(role);
+            
+            // Add branch name for managers if available
+            if ("manager".equalsIgnoreCase(role) && branchName != null) {
+                successMessage.append(";").append(branchName);
+            }
+            
+            client.sendToClient(new Warning(successMessage.toString()));
+            System.out.println("User logged in: " + username + " with phone: " + phoneNumber + 
+                ", role: " + role + (branchName != null ? ", branch: " + branchName : ""));
         } catch (IOException e) {
             e.printStackTrace();
         }

@@ -17,6 +17,9 @@ public class Branch implements Serializable {
     @OneToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JoinColumn(name = "branch_id")  // This will add a foreign key in RestaurantTable
     private List<RestaurantTable> tables;
+    
+    @OneToMany(mappedBy = "branch", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private List<MenuItem> menuItems;
 
     // Many branches belong to one restaurant chain (Aggregation)
     @ManyToOne
@@ -25,7 +28,7 @@ public class Branch implements Serializable {
 
     public Branch() {}
 
-    public Branch(String location, String openingHours, RestaurantChain restaurantChain,List<RestaurantTable> tables) {
+    public Branch(String location, String openingHours, RestaurantChain restaurantChain, List<RestaurantTable> tables) {
         this.location = location;
         this.openingHours = openingHours;
         this.restaurantChain = restaurantChain;
@@ -64,8 +67,20 @@ public class Branch implements Serializable {
     public void setRestaurantChain(RestaurantChain restaurantChain) {
         this.restaurantChain = restaurantChain;
     }
+    
     public List<RestaurantTable> getTables() {
         return tables;
     }
-    public void setTables(List<RestaurantTable> tables) {}
+    
+    public void setTables(List<RestaurantTable> tables) {
+        this.tables = tables;
+    }
+    
+    public List<MenuItem> getMenuItems() {
+        return menuItems;
+    }
+    
+    public void setMenuItems(List<MenuItem> menuItems) {
+        this.menuItems = menuItems;
+    }
 }

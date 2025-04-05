@@ -96,11 +96,16 @@ public class ReservationHandler {
             
             UserAccount userAccount;
             if (userAccounts.isEmpty()) {
-                System.out.println("User not found with phone: " + phoneNumber + ". Creating new user account.");
-                // Create a new user account
+                System.out.println("No user account found with phone: " + phoneNumber + ". Creating new account.");
+                // Create a new user account - for Guest client with null branch fields
                 userAccount = new UserAccount("Guest", phoneNumber, "client", "password");
+                // Branch fields remain null by default for client accounts
                 DataManager.add(userAccount);
                 System.out.println("Created new user account with ID: " + userAccount.getId());
+                
+                // Send empty reservations list for new account
+                client.sendToClient(new ArrayList<Reservation>()); 
+                return;
             } else {
                 userAccount = userAccounts.get(0);
                 System.out.println("Found user account: " + userAccount.getName() + " with ID: " + userAccount.getId());
@@ -362,8 +367,9 @@ public class ReservationHandler {
                 
                 if (userAccounts.isEmpty()) {
                     System.out.println("No user account found with phone: " + phoneNumber + ". Creating new account.");
-                    // Create a new user account
+                    // Create a new user account - for Guest client with null branch fields
                     UserAccount userAccount = new UserAccount("Guest", phoneNumber, "client", "password");
+                    // Branch fields remain null by default for client accounts
                     DataManager.add(userAccount);
                     System.out.println("Created new user account with ID: " + userAccount.getId());
                     
