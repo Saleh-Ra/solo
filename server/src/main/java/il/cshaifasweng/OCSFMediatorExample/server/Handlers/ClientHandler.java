@@ -156,9 +156,11 @@ public class ClientHandler {
             return;
         }
 
-        // Login successful
+        // Login successful - include phone number in success message
         try {
-            client.sendToClient(new Warning("LOGIN_SUCCESS"));
+            String phoneNumber = account.getPhoneNumber();
+            client.sendToClient(new Warning("LOGIN_SUCCESS;" + phoneNumber));
+            System.out.println("User logged in: " + username + " with phone: " + phoneNumber);
         } catch (IOException e) {
             e.printStackTrace();
         }

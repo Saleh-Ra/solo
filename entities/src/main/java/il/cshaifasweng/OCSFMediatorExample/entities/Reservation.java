@@ -3,10 +3,11 @@ package il.cshaifasweng.OCSFMediatorExample.entities;
 import javax.persistence.*;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.io.Serializable;
 
 @Entity
 @javax.persistence.Table(name = "reservation")
-public class Reservation {
+public class Reservation implements Serializable {
     public static final int DEFAULT_DURATION_MINUTES = 90;
 
     @Id

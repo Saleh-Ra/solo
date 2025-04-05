@@ -57,6 +57,8 @@ public class SimpleServer extends AbstractServer {
 			OrderHandler.handleCancelOrder(msgString, client);
 		} else if (msgString.startsWith("GET_ALL_ORDERS")) {
 			OrderHandler.handleGetAllOrders(client);
+		} else if (msgString.startsWith("GET_USER_ORDERS")) {
+			OrderHandler.handleGetOrdersByPhoneNumber(msgString, client);
 		}
 		//client
 		else if (msgString.startsWith("SIGNUP")) {

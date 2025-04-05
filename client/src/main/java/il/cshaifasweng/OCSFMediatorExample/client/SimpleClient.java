@@ -3,6 +3,7 @@ package il.cshaifasweng.OCSFMediatorExample.client;
 import il.cshaifasweng.OCSFMediatorExample.client.ocsf.AbstractClient;
 import il.cshaifasweng.OCSFMediatorExample.entities.Cart;
 import il.cshaifasweng.OCSFMediatorExample.entities.MenuItem;
+import il.cshaifasweng.OCSFMediatorExample.entities.Order;
 import il.cshaifasweng.OCSFMediatorExample.entities.Warning;
 import org.greenrobot.eventbus.EventBus;
 
@@ -16,6 +17,7 @@ public class SimpleClient extends AbstractClient {
 	private static SimpleClient client = null;
 	private static final Cart cart = new Cart();
 	private static List<MenuItem> cachedMenuItems = new ArrayList<>();
+	private static String currentUserPhone;
 	private MenuUpdateListener menuUpdateListener;
 
 	private SimpleClient(String host, int port) {
@@ -37,6 +39,15 @@ public class SimpleClient extends AbstractClient {
 	public static List<MenuItem> getMenuItems() {
 		return cachedMenuItems;
 	}
+	
+	public static String getCurrentUserPhone() {
+		return currentUserPhone;
+	}
+	
+	public static void setCurrentUserPhone(String phoneNumber) {
+		currentUserPhone = phoneNumber;
+		System.out.println("Set current user phone to: " + phoneNumber);
+	}
 
 	@Override
 	protected void handleMessageFromServer(Object msg) {
@@ -50,6 +61,13 @@ public class SimpleClient extends AbstractClient {
 			// Handle login responses
 			if (message.startsWith("LOGIN_SUCCESS")) {
 				try {
+					// Extract phone number from login success message
+					String[] parts = message.split(";");
+					if (parts.length > 1) {
+						String phoneNumber = parts[1];
+						setCurrentUserPhone(phoneNumber);
+						System.out.println("Logged in user with phone: " + phoneNumber);
+					}
 					App.setRoot("personal_area");
 				} catch (IOException e) {
 					e.printStackTrace();
@@ -69,10 +87,19 @@ public class SimpleClient extends AbstractClient {
 				EventBus.getDefault().post(new WarningEvent(warning));
 			}
 		} else if (msg instanceof List) {
-			cachedMenuItems = (List<MenuItem>) msg;
-			System.out.println("Received " + cachedMenuItems.size() + " menu items from server.");
-			if (menuUpdateListener != null) {
-				menuUpdateListener.onMenuUpdate(cachedMenuItems);
+			// Check if it's a list of orders
+			if (!((List<?>) msg).isEmpty() && ((List<?>) msg).get(0) instanceof Order) {
+				List<Order> orders = (List<Order>) msg;
+				System.out.println("Received " + orders.size() + " orders from server");
+				EventBus.getDefault().post(new OrdersReceivedEvent(orders));
+			}
+			// Otherwise assume it's menu items
+			else {
+				cachedMenuItems = (List<MenuItem>) msg;
+				System.out.println("Received " + cachedMenuItems.size() + " menu items from server.");
+				if (menuUpdateListener != null) {
+					menuUpdateListener.onMenuUpdate(cachedMenuItems);
+				}
 			}
 		} else {
 			System.out.println("Unhandled message type: " + msg.getClass());
@@ -101,10 +128,33 @@ public class SimpleClient extends AbstractClient {
 
 		sendToServer(builder.toString());
 	}
+	
+	public void getUserOrders() throws IOException {
+		if (currentUserPhone != null && !currentUserPhone.isEmpty()) {
+			String message = "GET_USER_ORDERS;" + currentUserPhone;
+			sendToServer(message);
+			System.out.println("Requesting orders for user with phone: " + currentUserPhone);
+		} else {
+			System.out.println("Cannot get orders - no current user phone number");
+		}
+	}
 
 	@Override
 	public void sendToServer(Object msg) throws IOException {
 		System.out.println("Sending to server: " + msg);
 		super.sendToServer(msg);
+	}
+	
+	// Event class for orders received
+	public static class OrdersReceivedEvent {
+		private final List<Order> orders;
+		
+		public OrdersReceivedEvent(List<Order> orders) {
+			this.orders = orders;
+		}
+		
+		public List<Order> getOrders() {
+			return orders;
+		}
 	}
 }

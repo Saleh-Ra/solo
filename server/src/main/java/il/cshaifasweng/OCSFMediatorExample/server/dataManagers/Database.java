@@ -38,6 +38,9 @@ public class Database {
             configuration.setProperty("hibernate.dialect", "org.hibernate.dialect.MySQL8Dialect");
             configuration.setProperty("hibernate.connection.driver_class", "com.mysql.cj.jdbc.Driver");
             configuration.setProperty("hibernate.hbm2ddl.auto", "create"); // Changed from update to create
+            configuration.setProperty("hibernate.show_sql", "true");
+            configuration.setProperty("hibernate.format_sql", "true");
+            configuration.setProperty("hibernate.use_sql_comments", "true");
 
             // Add the entity classes
             configuration.addAnnotatedClass(MenuItem.class);
@@ -60,6 +63,7 @@ public class Database {
                     .build();
 
             sessionFactory = configuration.buildSessionFactory(serviceRegistry);
+            System.out.println("Session factory created successfully");
         }
         return sessionFactory;
     }

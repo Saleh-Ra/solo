@@ -11,32 +11,65 @@ import il.cshaifasweng.OCSFMediatorExample.server.dataManagers.DataManager;
 import il.cshaifasweng.OCSFMediatorExample.server.ocsf.ConnectionToClient;
 
 import java.util.List;
+import java.util.ArrayList;
 
 public class OrderHandler {
     //this method here will be called only after the customer finds a good time, otherwise this should not be called
     //the reason to that is that this method will only add to the database, it will not check any details
     public static void handleCreateOrder(String msgString, ConnectionToClient client) {
-
+        System.out.println("Received order request: " + msgString);
         LocalDateTime now = LocalDateTime.now();
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
-        String status = "Arrived at " + now.format(formatter);
+        
+        // Format: CREATE_ORDER;customerName;phone;deliveryDate;deliveryTime;deliveryLocation;paymentMethod;totalCost
         String[] parts = msgString.split(";");
-        //msg is {command; branch id; cost; phone}
-        if (parts.length < 4) {
-            SimpleServer.sendFailureResponse(client, "ADD_ITEM_FAILURE", "Invalid format");
+        if (parts.length < 8) {
+            System.out.println("Invalid order format: " + msgString);
+            SimpleServer.sendFailureResponse(client, "CREATE_ORDER_FAILURE", "Invalid format. Expected 8 parts, got " + parts.length);
             return;
         }
-        //parts[3] should include a Client's id
-        List<Client> clients = DataManager.fetchByField(Client.class, "account.phoneNumber", Integer.parseInt(parts[3]));
-        if (clients.isEmpty()) {
-            SimpleServer.sendFailureResponse(client, "CREATE_ORDER_FAILURE", "Client not found");
-            return;
+
+        try {
+            String customerName = parts[1];
+            String phone = parts[2];
+            String deliveryDate = parts[3];
+            String deliveryTime = parts[4]; 
+            String deliveryLocation = parts[5];
+            String paymentMethod = parts[6];
+            double totalCost = Double.parseDouble(parts[7]);
+            
+            System.out.println("Creating order for customer: " + customerName);
+            System.out.println("Phone: " + phone);
+            System.out.println("Delivery: " + deliveryDate + " at " + deliveryTime + " to " + deliveryLocation);
+            System.out.println("Payment method: " + paymentMethod);
+            System.out.println("Total cost: $" + totalCost);
+            
+            // Create order object
+            Order order = new Order(1, totalCost, now, null);
+            
+            // Set additional details
+            order.setStatus("Pending");
+            order.setCustomerName(customerName);
+            order.setPhoneNumber(phone);
+            order.setDeliveryDate(deliveryDate);
+            order.setDeliveryTime(deliveryTime);
+            order.setDeliveryLocation(deliveryLocation);
+            order.setPaymentMethod(paymentMethod);
+            
+            // Save to database
+            System.out.println("Saving order to database...");
+            DataManager.add(order);
+            System.out.println("Order saved with ID: " + order.getId());
+            
+            // Send success response
+            SimpleServer.sendSuccessResponse(client, "CREATE_ORDER_SUCCESS", "Order created successfully with ID: " + order.getId());
+        } catch (NumberFormatException e) {
+            System.out.println("Failed to parse total cost: " + e.getMessage());
+            SimpleServer.sendFailureResponse(client, "CREATE_ORDER_FAILURE", "Invalid number format: " + e.getMessage());
+        } catch (Exception e) {
+            System.out.println("Failed to create order: " + e.getMessage());
+            e.printStackTrace();
+            SimpleServer.sendFailureResponse(client, "CREATE_ORDER_FAILURE", "Failed to create order: " + e.getMessage());
         }
-        Client foundClient = clients.get(0);
-        Order order = new Order(Integer.parseInt(parts[1]),Double.parseDouble(parts[2]),now,foundClient);
-        DataManager.add(order);
-        foundClient.getOrders().add(order);
-        System.out.println("Received order creation request: " + msgString);
     }
 
 
@@ -85,6 +118,44 @@ public class OrderHandler {
             client.sendToClient(orders);
         }catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    public static void handleGetOrdersByPhoneNumber(String msgString, ConnectionToClient client) {
+        // Format: GET_USER_ORDERS;phoneNumber
+        String[] parts = msgString.split(";");
+        if (parts.length < 2) {
+            SimpleServer.sendFailureResponse(client, "GET_ORDERS_FAILURE", "Invalid format");
+            return;
+        }
+        
+        String phoneNumber = parts[1];
+        System.out.println("Fetching orders for phone number: " + phoneNumber);
+        
+        try {
+            // Get all orders
+            List<Order> allOrders = DataManager.fetchAll(Order.class);
+            
+            // Filter orders by phone number
+            List<Order> userOrders = new ArrayList<>();
+            for (Order order : allOrders) {
+                if (phoneNumber.equals(order.getPhoneNumber())) {
+                    userOrders.add(order);
+                    System.out.println("Found order: " + order.getId() + " for phone: " + phoneNumber);
+                }
+            }
+            
+            // Send orders to client
+            client.sendToClient(userOrders);
+            System.out.println("Sent " + userOrders.size() + " orders to client");
+        } catch (Exception e) {
+            System.err.println("Error fetching orders: " + e.getMessage());
+            e.printStackTrace();
+            try {
+                SimpleServer.sendFailureResponse(client, "GET_ORDERS_FAILURE", "Error fetching orders");
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
         }
     }
 }
