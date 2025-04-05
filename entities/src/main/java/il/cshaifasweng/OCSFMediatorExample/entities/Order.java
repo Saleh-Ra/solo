@@ -11,8 +11,17 @@ public class Order {
     private int id;
     private int branchId;
     private double totalCost;
-    LocalDateTime orderTime;
+    @Column(nullable = false)
+    private LocalDateTime orderTime;
     private String status;
+
+    // Customer details
+    private String customerName;
+    private String phoneNumber;
+    private String deliveryDate;
+    private String deliveryTime;
+    private String deliveryLocation;
+    private String paymentMethod;
 
     // ✅ Many-to-One Association: Many Orders belong to one Client.
     @ManyToOne
@@ -26,6 +35,7 @@ public class Order {
         this.totalCost = totalCost;
         this.orderTime = time;
         this.client = client;
+        this.status = "Pending";
     }
 
     // ✅ Getters and Setters
@@ -72,4 +82,52 @@ public class Order {
     public LocalDateTime getOrderTime() {return this.orderTime;}
 
     public void setOrderTime(LocalDateTime orderTime) {this.orderTime=orderTime;}
+
+    public String getCustomerName() {
+        return customerName;
+    }
+
+    public void setCustomerName(String customerName) {
+        this.customerName = customerName;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
+    }
+
+    public String getDeliveryDate() {
+        return deliveryDate;
+    }
+
+    public void setDeliveryDate(String deliveryDate) {
+        this.deliveryDate = deliveryDate;
+    }
+
+    public String getDeliveryTime() {
+        return deliveryTime;
+    }
+
+    public void setDeliveryTime(String deliveryTime) {
+        this.deliveryTime = deliveryTime;
+    }
+
+    public String getDeliveryLocation() {
+        return deliveryLocation;
+    }
+
+    public void setDeliveryLocation(String deliveryLocation) {
+        this.deliveryLocation = deliveryLocation;
+    }
+
+    public String getPaymentMethod() {
+        return paymentMethod;
+    }
+
+    public void setPaymentMethod(String paymentMethod) {
+        this.paymentMethod = paymentMethod;
+    }
 }

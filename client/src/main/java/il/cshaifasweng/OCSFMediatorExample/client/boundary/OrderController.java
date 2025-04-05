@@ -105,16 +105,31 @@ public class OrderController {
         System.out.println("Delivery: " + date + " at " + time + " to " + address);
         System.out.println("Payment: " + method + " | Total: $" + cart.calculateTotal());
 
-        cart.clearCart();
-        statusLabel.setText("🎉 Your order has been placed successfully! " +
-                "Our kitchen has started preparing it. Expect delivery at your selected time. " +
-                "Thank you for choosing us!");
-
+        // Send order to server
         try {
-            Thread.sleep(3000);
-            App.setRoot("primary1");
-        } catch (IOException | InterruptedException e) {
+            // Format the order message
+            String orderMsg = String.format("CREATE_ORDER;%s;%s;%s;%s;%s;%s;%.2f", 
+                name, id, date.toString(), time, address, method, cart.calculateTotal());
+            
+            // Send to server
+            SimpleClient.getClient().sendToServer(orderMsg);
+            System.out.println("Order sent to server: " + orderMsg);
+            
+            // Clear cart and show success message
+            cart.clearCart();
+            statusLabel.setText("🎉 Your order has been placed successfully! " +
+                    "Our kitchen has started preparing it. Expect delivery at your selected time. " +
+                    "Thank you for choosing us!");
+
+            try {
+                Thread.sleep(3000);
+                App.setRoot("primary1");
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        } catch (IOException e) {
             e.printStackTrace();
+            statusLabel.setText("❌ Failed to send order: " + e.getMessage());
         }
     }
 
