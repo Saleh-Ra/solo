@@ -1,5 +1,7 @@
 package il.cshaifasweng.OCSFMediatorExample.server.dataManagers;
 
+import il.cshaifasweng.OCSFMediatorExample.entities.Client;
+import il.cshaifasweng.OCSFMediatorExample.entities.UserAccount;
 import il.cshaifasweng.OCSFMediatorExample.server.dataManagers.Database;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
@@ -77,6 +79,42 @@ public class DataManager {
         session.getTransaction().commit();
         session.close();
 
+        return results;
+    }
+
+    // Special method for fetching clients by phone number
+    public static List<Client> fetchClientsByPhoneNumber(String phoneNumber) {
+        System.out.println("Fetching clients by phone number: " + phoneNumber);
+        Session session = factory.openSession();
+        session.beginTransaction();
+
+        String hql = "FROM Client c WHERE c.account.phoneNumber = :phoneNumber";
+        List<Client> results = session.createQuery(hql, Client.class)
+                .setParameter("phoneNumber", phoneNumber)
+                .getResultList();
+
+        session.getTransaction().commit();
+        session.close();
+        
+        System.out.println("Found " + results.size() + " clients with phone number: " + phoneNumber);
+        return results;
+    }
+
+    // Method to fetch user accounts directly by phone number
+    public static List<UserAccount> fetchUserAccountsByPhoneNumber(String phoneNumber) {
+        System.out.println("Fetching user accounts by phone number: " + phoneNumber);
+        Session session = factory.openSession();
+        session.beginTransaction();
+
+        String hql = "FROM UserAccount ua WHERE ua.phoneNumber = :phoneNumber";
+        List<UserAccount> results = session.createQuery(hql, UserAccount.class)
+                .setParameter("phoneNumber", phoneNumber)
+                .getResultList();
+
+        session.getTransaction().commit();
+        session.close();
+        
+        System.out.println("Found " + results.size() + " user accounts with phone number: " + phoneNumber);
         return results;
     }
 

@@ -18,16 +18,16 @@
 
         <ComboBox fx:id="branchComboBox" promptText="Choose Branch" prefWidth="300"/>
         <TextField fx:id="guestsField" promptText="Number of Guests" prefWidth="300"/>
-
+        <TextField fx:id="phoneField" promptText="Phone Number" prefWidth="300"/>
         <ComboBox fx:id="areaComboBox" promptText="Seating Area" prefWidth="300"/>
         <DatePicker fx:id="datePicker" promptText="Reservation Date" prefWidth="300"/>
         <TextField fx:id="timeField" promptText="Time (e.g. 18:30)" prefWidth="300"/>
 
         <HBox spacing="10">
-            <Button text="Check Availability" onAction="#handleCheckAvailability" />
+            <Button text="Make Reservation" onAction="#handleCheckAvailability" />
             <Button text="Back to Main" onAction="#handleBackToMain" />
         </HBox>
 
-        <Label fx:id="statusLabel" style="-fx-text-fill: red;" />
+        <Label fx:id="statusLabel" style="-fx-text-fill: red;" wrapText="true" />
     </VBox>
 </AnchorPane>

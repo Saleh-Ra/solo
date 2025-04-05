@@ -16,10 +16,11 @@ public class Reservation implements Serializable {
 
     private LocalDateTime reservationTime;
     private int numberOfGuests;
+    private String phoneNumber;
 
     // ✅ One-to-One Association: A Client can have only ONE active Reservation at a time.
     @ManyToOne
-    @JoinColumn(name = "client_id", unique = true, nullable = false)
+    @JoinColumn(name = "client_id", nullable = false)
     private Client client;
 
     // ✅ Many Reservations belong to ONE Branch.
@@ -44,6 +45,17 @@ public class Reservation implements Serializable {
         this.client = client;
         this.branch = branch;
         this.tables = tables;
+        this.phoneNumber = client.getAccount().getPhoneNumber();
+    }
+
+    // Alternative constructor that takes a phone number instead of a client
+    public Reservation(LocalDateTime reservationDate, int numberOfGuests, String phoneNumber, Branch branch, List<RestaurantTable> tables) {
+        this.reservationTime = reservationDate;
+        this.numberOfGuests = numberOfGuests;
+        this.branch = branch;
+        this.tables = tables;
+        this.phoneNumber = phoneNumber;
+        // client will be set separately
     }
 
     // ✅ Getters and Setters
@@ -97,5 +109,13 @@ public class Reservation implements Serializable {
 
     public int getDurationMinutes() {
         return DEFAULT_DURATION_MINUTES;
+    }
+
+    public String getPhoneNumber() {
+        return phoneNumber;
+    }
+
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
     }
 }

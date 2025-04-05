@@ -2,7 +2,9 @@ package il.cshaifasweng.OCSFMediatorExample.client.boundary;
 
 import il.cshaifasweng.OCSFMediatorExample.client.App;
 import il.cshaifasweng.OCSFMediatorExample.client.SimpleClient;
+import il.cshaifasweng.OCSFMediatorExample.entities.Branch;
 import il.cshaifasweng.OCSFMediatorExample.entities.Order;
+import il.cshaifasweng.OCSFMediatorExample.entities.Reservation;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
@@ -11,6 +13,7 @@ import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 
 import java.io.IOException;
+import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 
@@ -36,18 +39,16 @@ public class PersonalAreaController {
         reservationsListView.getItems().clear();
         
         // Show loading message
-        statusLabel.setText("Loading your orders...");
+        statusLabel.setText("Loading your data...");
         
-        // Request orders from server
+        // Request orders and reservations from server
         try {
             SimpleClient.getClient().getUserOrders();
+            SimpleClient.getClient().getUserReservations();
         } catch (IOException e) {
             e.printStackTrace();
-            statusLabel.setText("Error loading orders: " + e.getMessage());
+            statusLabel.setText("Error loading data: " + e.getMessage());
         }
-        
-        // Load sample reservations for now
-        loadSampleReservations();
     }
     
     @Subscribe
@@ -56,7 +57,25 @@ public class PersonalAreaController {
         Platform.runLater(() -> {
             List<Order> orders = event.getOrders();
             displayUserOrders(orders);
-            statusLabel.setText("Found " + orders.size() + " orders");
+            if (orders.isEmpty()) {
+                statusLabel.setText("You have no orders");
+            } else {
+                statusLabel.setText("Found " + orders.size() + " orders");
+            }
+        });
+    }
+    
+    @Subscribe
+    public void onReservationsReceived(SimpleClient.ReservationsReceivedEvent event) {
+        // This runs on background thread, so use Platform.runLater
+        Platform.runLater(() -> {
+            List<Reservation> reservations = event.getReservations();
+            displayUserReservations(reservations);
+            if (reservations.isEmpty()) {
+                statusLabel.setText(statusLabel.getText() + " and no reservations");
+            } else {
+                statusLabel.setText(statusLabel.getText() + " and " + reservations.size() + " reservations");
+            }
         });
     }
     
@@ -83,11 +102,40 @@ public class PersonalAreaController {
         }
     }
 
-    private void loadSampleReservations() {
+    private void displayUserReservations(List<Reservation> reservations) {
         reservationsListView.getItems().clear();
+        
+        if (reservations.isEmpty()) {
+            return;
+        }
+        
+        for (Reservation reservation : reservations) {
+            // Format reservation details
+            String reservationTime = reservation.getReservationTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+            Branch branch = reservation.getBranch();
+            String branchName = branch != null ? branch.getLocation() : "Unknown";
+            
+            String details = String.format("Reservation #%d - %s branch - %d guests - %s", 
+                reservation.getId(), 
+                branchName,
+                reservation.getNumberOfGuests(),
+                reservationTime);
+            
+            // Reservation is active if it's in the future
+            boolean isActive = reservation.getReservationTime().isAfter(LocalDateTime.now());
+            
+            addReservationItem(details, isActive, reservation.getId());
+        }
+    }
 
-        addReservationItem("Reservation at Downtown - 2 guests, 2025-04-05 18:00", true);
-        addReservationItem("Reservation at Beachside - 4 guests, 2025-04-01 20:00", false);
+    private void loadSampleReservations() {
+        // This method is no longer used - we load real reservations
+        reservationsListView.getItems().clear();
+    }
+    
+    // Keep this for backward compatibility
+    private void addReservationItem(String text, boolean isActive) {
+        addReservationItem(text, isActive, -1);
     }
 
     private void addOrderItem(String text, boolean isActive) {
@@ -124,7 +172,7 @@ public class PersonalAreaController {
         }
     }
 
-    private void addReservationItem(String text, boolean isActive) {
+    private void addReservationItem(String text, boolean isActive, int reservationId) {
         Label label = new Label((isActive ? "🟢 " : "⚪ ") + text);
         Button cancelButton = new Button("Cancel");
         cancelButton.setVisible(isActive);
@@ -134,6 +182,13 @@ public class PersonalAreaController {
             if (confirmed) {
                 reservationsListView.getItems().removeIf(row -> ((Label) row.getChildren().get(0)).getText().equals(label.getText()));
                 System.out.println("Reservation canceled: " + text);
+                try {
+                    SimpleClient.getClient().sendToServer("CANCEL_RESERVATION;" + reservationId);
+                    System.out.println("Sent cancel request for reservation: " + reservationId);
+                } catch (IOException ex) {
+                    ex.printStackTrace();
+                    showError("Failed to cancel reservation: " + ex.getMessage());
+                }
             }
         });
 
