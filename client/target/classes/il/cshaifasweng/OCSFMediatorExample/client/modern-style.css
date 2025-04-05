@@ -1,0 +1,92 @@
+.button {
+    -fx-background-color: #5271c0;
+    -fx-text-fill: white;
+    -fx-background-radius: 4px;
+    -fx-padding: 8px 12px;
+    -fx-font-size: 12px;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 2, 0, 0, 1);
+    -fx-cursor: hand;
+    -fx-font-family: "Segoe UI", Arial, sans-serif;
+    -fx-font-weight: normal;
+    -fx-min-width: 120px;
+    -fx-max-width: 120px;
+    -fx-min-height: 32px;
+    -fx-max-height: 32px;
+}
+
+.button:hover {
+    -fx-background-color: #4461b0;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.2), 3, 0, 0, 2);
+}
+
+.button:pressed {
+    -fx-background-color: #3a559e;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.1), 1, 0, 0, 1);
+}
+
+/* Secondary button style for alternative actions */
+.secondary-button {
+    -fx-background-color: #d8d8d8;
+    -fx-text-fill: #444444;
+}
+
+.secondary-button:hover {
+    -fx-background-color: #c8c8c8;
+}
+
+.secondary-button:pressed {
+    -fx-background-color: #b8b8b8;
+}
+
+/* Success button (green) for confirmations */
+.success-button {
+    -fx-background-color: #5ba55b;
+}
+
+.success-button:hover {
+    -fx-background-color: #4f944f;
+}
+
+.success-button:pressed {
+    -fx-background-color: #438443;
+}
+
+/* Warning button (red) for dangerous actions */
+.warning-button {
+    -fx-background-color: #d9534f;
+}
+
+.warning-button:hover {
+    -fx-background-color: #c9433f;
+}
+
+.warning-button:pressed {
+    -fx-background-color: #b8332f;
+}
+
+/* Specific adjustments for buttons with longer text */
+.wide-button {
+    -fx-min-width: 180px;
+    -fx-max-width: 180px;
+}
+
+/* Small button style for menu items */
+.small-button {
+    -fx-min-width: 90px;
+    -fx-max-width: 90px;
+    -fx-min-height: 24px;
+    -fx-max-height: 24px;
+    -fx-padding: 4px 8px;
+    -fx-font-size: 11px;
+}
+
+/* Cart button style */
+#cartButton {
+    -fx-min-width: 60px;
+    -fx-max-width: 60px;
+    -fx-min-height: 32px;
+    -fx-max-height: 32px;
+    -fx-background-color: #5271c0;
+    -fx-background-radius: 50%;
+    -fx-padding: 5px;
+} 

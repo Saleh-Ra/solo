@@ -7,16 +7,17 @@
 <VBox xmlns="http://javafx.com/javafx/23.0.1"
       xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="il.cshaifasweng.OCSFMediatorExample.client.boundary.SignInController"
-      spacing="15" alignment="CENTER" style="-fx-padding: 30; -fx-background-color: #f4f4f4;">
+      spacing="15" alignment="CENTER" style="-fx-padding: 30; -fx-background-color: #f4f4f4;"
+      stylesheets="@modern-style.css">
 
     <Label text="🔐 Sign In to Your Account" style="-fx-font-size: 20px; -fx-font-weight: bold;" />
 
     <TextField fx:id="usernameField" promptText="Username" />
     <PasswordField fx:id="passwordField" promptText="Password" />
 
-    <Button text="Sign In" onAction="#handleSignIn" prefWidth="150" />
-    <Button text="Don't have an account? Sign Up" onAction="#handleGoToSignUp" />
-    <Button text="Back" onAction="#handleBack" />
+    <Button text="Sign In" onAction="#handleSignIn" />
+    <Button text="Don't have an account? Sign Up" onAction="#handleGoToSignUp" styleClass="secondary-button, wide-button" />
+    <Button text="Back" onAction="#handleBack" styleClass="secondary-button" />
 
     <Label fx:id="statusLabel" style="-fx-text-fill: red;" />
 </VBox>

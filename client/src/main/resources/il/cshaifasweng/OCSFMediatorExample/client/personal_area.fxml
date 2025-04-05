@@ -6,7 +6,8 @@
 <BorderPane xmlns="http://javafx.com/javafx/23.0.1"
             xmlns:fx="http://javafx.com/fxml/1"
             fx:controller="il.cshaifasweng.OCSFMediatorExample.client.boundary.PersonalAreaController"
-            style="-fx-background-color: #f4f4f4;">
+            style="-fx-background-color: #f4f4f4;"
+            stylesheets="@modern-style.css">
 
     <top>
         <Label text="👤 Personal Area"
@@ -39,13 +40,10 @@
     <bottom>
         <HBox spacing="10" alignment="CENTER_RIGHT" style="-fx-padding: 10;">
             <Button text="Contact Us"
-                    onAction="#handleContactUs"
-                    style="-fx-background-color: #3498db; -fx-text-fill: white;
-                           -fx-font-weight: bold; -fx-background-radius: 10;" />
+                    onAction="#handleContactUs" />
             <Button text="Log Out"
                     onAction="#handleLogout"
-                    style="-fx-background-color: #e74c3c; -fx-text-fill: white;
-                           -fx-font-weight: bold; -fx-background-radius: 10;" />
+                    styleClass="warning-button" />
         </HBox>
     </bottom>
 </BorderPane>
