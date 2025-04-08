@@ -37,7 +37,7 @@ public class Database {
             configuration.setProperty("hibernate.connection.password", password);
             configuration.setProperty("hibernate.dialect", "org.hibernate.dialect.MySQL8Dialect");
             configuration.setProperty("hibernate.connection.driver_class", "com.mysql.cj.jdbc.Driver");
-            configuration.setProperty("hibernate.hbm2ddl.auto", "create"); // Changed from update to create
+            configuration.setProperty("hibernate.hbm2ddl.auto", "update"); // Changed back to update from create-drop
             configuration.setProperty("hibernate.show_sql", "true");
             configuration.setProperty("hibernate.format_sql", "true");
             configuration.setProperty("hibernate.use_sql_comments", "true");

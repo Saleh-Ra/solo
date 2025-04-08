@@ -47,8 +47,28 @@ public class UserMenuController {
         menuDisplayVBox.getChildren().clear();
         List<MenuItem> items = SimpleClient.getMenuItems();
 
+        System.out.println("Loading menu with " + items.size() + " items");
+        
+        // Debug: Print all menu items to check if branch information is available
         for (MenuItem item : items) {
-            Label nameLabel = new Label(item.getName() + " - $" + String.format("%.2f", item.getPrice()));
+            System.out.println("Menu item: " + item.getName() + 
+                             ", ID: " + item.getId() + 
+                             ", Branch: " + (item.getBranch() != null ? item.getBranch().getId() : "Default"));
+        }
+
+        for (MenuItem item : items) {
+            // Check if this is a branch-specific item
+            boolean isSpecialItem = item.getBranch() != null;
+            
+            // Create label with appropriate styling
+            Label nameLabel;
+            if (isSpecialItem) {
+                nameLabel = new Label("★ SPECIAL: " + item.getName() + " (" + item.getCategory() + ") - $" + String.format("%.2f", item.getPrice()));
+                nameLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #3f87a6;");
+            } else {
+                nameLabel = new Label(item.getName() + " (" + item.getCategory() + ") - $" + String.format("%.2f", item.getPrice()));
+            }
+            
             Button addButton = new Button("Add to Cart");
             addButton.getStyleClass().add("small-button");
 
@@ -58,6 +78,12 @@ public class UserMenuController {
             });
 
             HBox row = new HBox(10, nameLabel, addButton);
+            
+            // Add special background for branch-specific items
+            if (isSpecialItem) {
+                row.setStyle("-fx-background-color: rgba(63, 135, 166, 0.1); -fx-padding: 5; -fx-background-radius: 5;");
+            }
+            
             menuDisplayVBox.getChildren().add(row);
         }
     }

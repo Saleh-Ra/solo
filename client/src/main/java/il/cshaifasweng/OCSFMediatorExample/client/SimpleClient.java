@@ -19,6 +19,8 @@ public class SimpleClient extends AbstractClient {
 	private static final Cart cart = new Cart();
 	private static List<MenuItem> cachedMenuItems = new ArrayList<>();
 	private static String currentUserPhone;
+	private static String currentUserRole;
+	private static String branchName;
 	private MenuUpdateListener menuUpdateListener;
 
 	private SimpleClient(String host, int port) {
@@ -50,6 +52,24 @@ public class SimpleClient extends AbstractClient {
 		System.out.println("Set current user phone to: " + phoneNumber);
 	}
 
+	public static String getCurrentUserRole() {
+		return currentUserRole;
+	}
+
+	public static void setCurrentUserRole(String role) {
+		currentUserRole = role;
+		System.out.println("Set current user role to: " + role);
+	}
+
+	public static String getBranchName() {
+		return branchName;
+	}
+
+	public static void setBranchName(String name) {
+		branchName = name;
+		System.out.println("Set branch name to: " + name);
+	}
+
 	@Override
 	protected void handleMessageFromServer(Object msg) {
 		System.out.println("Received message from server: " + msg);
@@ -62,14 +82,37 @@ public class SimpleClient extends AbstractClient {
 			// Handle login responses
 			if (message.startsWith("LOGIN_SUCCESS")) {
 				try {
-					// Extract phone number from login success message
+					// Extract phone number, role, and branch name from login success message
 					String[] parts = message.split(";");
-					if (parts.length > 1) {
+					if (parts.length > 2) {
 						String phoneNumber = parts[1];
+						String role = parts[2];
 						setCurrentUserPhone(phoneNumber);
-						System.out.println("Logged in user with phone: " + phoneNumber);
+						setCurrentUserRole(role);
+						
+						// Extract branch name if available (for managers)
+						if (parts.length > 3) {
+							String branch = parts[3];
+							setBranchName(branch);
+							System.out.println("Logged in user with phone: " + phoneNumber + ", role: " + role + ", branch: " + branch);
+						} else {
+							setBranchName(null);
+							System.out.println("Logged in user with phone: " + phoneNumber + " and role: " + role);
+						}
+						
+						// Redirect based on role
+						switch (role.toLowerCase()) {
+							case "manager":
+							case "chain_manager":
+							case "customer_support":
+							case "nutritionist":
+								App.setRoot("secondary2");
+								break;
+							default: // client
+								App.setRoot("personal_area");
+								break;
+						}
 					}
-					App.setRoot("personal_area");
 				} catch (IOException e) {
 					e.printStackTrace();
 				}

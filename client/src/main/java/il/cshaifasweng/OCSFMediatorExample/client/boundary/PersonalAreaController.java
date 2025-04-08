@@ -228,10 +228,10 @@ public class PersonalAreaController {
     @FXML
     private void handleContactUs() {
         try {
-            App.setRoot("contact_options"); // this FXML will be created next
+            App.setRoot("contact_us"); // Updated to use our new contact_us page
         } catch (IOException e) {
             Alert alert = new Alert(Alert.AlertType.ERROR);
-            alert.setContentText("Failed to load contact options.");
+            alert.setContentText("Failed to load contact page.");
             alert.showAndWait();
         }
     }

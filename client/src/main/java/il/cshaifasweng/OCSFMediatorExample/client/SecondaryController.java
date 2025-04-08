@@ -41,10 +41,63 @@ public class SecondaryController implements MenuUpdateListener {
     private TextField newItemPriceField;
 
     @FXML
+    private Label branchNameLabel;
+
+    @FXML
     private void initialize() {
         SimpleClient.getClient().setMenuUpdateListener(this);
         mealComboBox.setValue(null);
-        statusLabel.setText("");
+        
+        // Display welcome message and branch name for each role
+        String role = SimpleClient.getCurrentUserRole();
+        if (role != null) {
+            String branchName = SimpleClient.getClient().getBranchName();
+            
+            switch (role.toLowerCase()) {
+                case "manager":
+                    if (branchName != null && !branchName.isEmpty()) {
+                        branchNameLabel.setText(" - " + branchName);
+                        statusLabel.setText("Welcome Branch Manager! You can update menu items and prices.");
+                    } else {
+                        branchNameLabel.setText(" - Unknown Branch");
+                        statusLabel.setText("Branch information not available.");
+                    }
+                    break;
+                    
+                case "chain_manager":
+                    branchNameLabel.setText(" - Chain Manager");
+                    statusLabel.setText("Welcome Chain Manager! You have access to all restaurant branches.");
+                    break;
+                    
+                case "customer_support":
+                    if (branchName != null && !branchName.isEmpty()) {
+                        branchNameLabel.setText(" - " + branchName);
+                        statusLabel.setText("Welcome Customer Support! You can handle customer inquiries for this branch.");
+                    } else {
+                        branchNameLabel.setText(" - Support Staff");
+                        statusLabel.setText("Branch information not available.");
+                    }
+                    break;
+                    
+                case "nutritionist":
+                    if (branchName != null && !branchName.isEmpty()) {
+                        branchNameLabel.setText(" - " + branchName);
+                        statusLabel.setText("Welcome Nutritionist! You can manage dietary information for this branch.");
+                    } else {
+                        branchNameLabel.setText(" - Nutritionist");
+                        statusLabel.setText("Branch information not available.");
+                    }
+                    break;
+                    
+                default:
+                    branchNameLabel.setText("");
+                    statusLabel.setText("");
+                    break;
+            }
+        } else {
+            branchNameLabel.setText("");
+            statusLabel.setText("");
+        }
 
         if (switchToPrimaryButton != null) {
             switchToPrimaryButton.setOnAction(event -> {
@@ -102,27 +155,81 @@ public class SecondaryController implements MenuUpdateListener {
 
     @FXML
     private void addNewItem() {
-        String name = newItemNameField.getText();
-        String ingredients = newItemIngredientsField.getText();
-        String preferences = newItemPreferencesField.getText();
-        String priceText = newItemPriceField.getText();
-
-        if (name.isEmpty() || priceText.isEmpty()) {
-            statusLabel.setText("Name and Price are required fields.");
-            return;
-        }
-
         try {
+            String name = newItemNameField.getText();
+            String ingredients = newItemIngredientsField.getText();
+            String preferences = newItemPreferencesField.getText();
+            String priceText = newItemPriceField.getText();
+
+            if (name.isEmpty() || priceText.isEmpty()) {
+                statusLabel.setText("Name and Price are required fields.");
+                return;
+            }
+
             double price = Double.parseDouble(priceText);
             if (price <= 0) {
                 statusLabel.setText("Price must be a positive value.");
                 return;
             }
 
-            String request = String.format("ADD_ITEM;%s;%s;%s;%.2f", name, ingredients, preferences, price);
+            // Get the manager's branch ID
+            Integer branchId = null;
+            String role = SimpleClient.getCurrentUserRole();
+            if ("manager".equalsIgnoreCase(role)) {
+                if (SimpleClient.getClient().getBranchName() != null) {
+                    // Get branch ID from the branch name
+                    try {
+                        // This is a simple approach - you might need to query the server for the actual branch ID
+                        // Tel-Aviv -> 1, Haifa -> 2, Jerusalem -> 3, Beer-Sheva -> 4
+                        String branchName = SimpleClient.getClient().getBranchName();
+                        switch (branchName) {
+                            case "Tel-Aviv":
+                                branchId = 1;
+                                break;
+                            case "Haifa":
+                                branchId = 2;
+                                break;
+                            case "Jerusalem":
+                                branchId = 3;
+                                break;
+                            case "Beer-Sheva":
+                                branchId = 4;
+                                break;
+                            default:
+                                // Try to extract a number if the branch name contains one
+                                String[] parts = branchName.split("\\D+");
+                                for (String part : parts) {
+                                    if (!part.isEmpty()) {
+                                        try {
+                                            branchId = Integer.parseInt(part);
+                                            break;
+                                        } catch (NumberFormatException e) {
+                                            // Continue trying other parts
+                                        }
+                                    }
+                                }
+                                // If still null, default to 1
+                                if (branchId == null) {
+                                    branchId = 1;
+                                }
+                        }
+                    } catch (Exception e) {
+                        statusLabel.setText("Could not determine branch ID. Item not added.");
+                        return;
+                    }
+                }
+            }
+
+            if (branchId == null) {
+                statusLabel.setText("Branch ID is required for adding items. Please contact support.");
+                return;
+            }
+
+            String request = String.format("ADD_ITEM;%s;%s;%s;%.2f;%d", name, ingredients, preferences, price, branchId);
+            System.out.println("Sending add item request: " + request);
             SimpleClient.getClient().sendToServer(request);
 
-            statusLabel.setText("New menu item added: " + name);
+            statusLabel.setText("New menu item added: " + name + " for branch ID: " + branchId);
             newItemNameField.clear();
             newItemIngredientsField.clear();
             newItemPreferencesField.clear();
@@ -142,11 +249,50 @@ public class SecondaryController implements MenuUpdateListener {
 
             for (MenuItem item : menuItems) {
                 mealComboBox.getItems().add(item.getName());
-                Label menuItemLabel = new Label(
-                        String.format("Name: %s | Ingredients: %s | Preferences: %s | Price: %.2f",
-                                item.getName(), item.getIngredients(), item.getPreferences(), item.getPrice())
+                
+                // Create a styled menu item display
+                VBox itemBox = new VBox(5);
+                itemBox.setStyle("-fx-background-color: white; -fx-padding: 10; -fx-border-color: #dddddd; " +
+                                "-fx-border-radius: 5; -fx-background-radius: 5;");
+                
+                Label nameLabel = new Label(item.getName());
+                nameLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+                
+                Label detailsLabel = new Label(
+                    String.format("Ingredients: %s", item.getIngredients())
                 );
-                menuDisplayVBox.getChildren().add(menuItemLabel);
+                detailsLabel.setStyle("-fx-font-size: 14px;");
+                
+                Label prefsLabel = new Label(
+                    String.format("Preferences: %s", item.getPreferences())
+                );
+                prefsLabel.setStyle("-fx-font-size: 14px;");
+                
+                Label categoryLabel = new Label(
+                    String.format("Category: %s", item.getCategory())
+                );
+                categoryLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #228B22;");
+                
+                Label priceLabel = new Label(
+                    String.format("Price: $%.2f", item.getPrice())
+                );
+                priceLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #3f87a6;");
+                
+                itemBox.getChildren().addAll(nameLabel, detailsLabel, prefsLabel, categoryLabel, priceLabel);
+                menuDisplayVBox.getChildren().add(itemBox);
+            }
+            
+            // Update the status message to show item count
+            if (!menuItems.isEmpty()) {
+                String role = SimpleClient.getCurrentUserRole();
+                if ("manager".equalsIgnoreCase(role)) {
+                    String branchName = SimpleClient.getClient().getBranchName();
+                    if (branchName != null && !branchName.isEmpty()) {
+                        statusLabel.setText(String.format("Showing %d menu items - You can manage all items", menuItems.size()));
+                    } else {
+                        statusLabel.setText(String.format("Showing %d menu items - You have chain-wide access", menuItems.size()));
+                    }
+                }
             }
         });
     }
