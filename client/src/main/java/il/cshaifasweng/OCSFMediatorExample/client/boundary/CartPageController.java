@@ -17,6 +17,12 @@ public class CartPageController {
     private ListView<HBox> cartListView;
 
     @FXML
+    private Label subtotalLabel;
+
+    @FXML
+    private Label deliveryFeeLabel;
+
+    @FXML
     private Label totalLabel;
 
     @FXML
@@ -83,6 +89,14 @@ public class CartPageController {
             cartListView.getItems().add(row);
         }
 
+        subtotalLabel.setText("Subtotal: $" + String.format("%.2f", cart.getSubtotal()));
+        
+        if (cart.getItems().isEmpty()) {
+            deliveryFeeLabel.setText("Delivery Fee: $0.00");
+        } else {
+            deliveryFeeLabel.setText("Delivery Fee: $" + String.format("%.2f", cart.getDeliveryFee()));
+        }
+        
         totalLabel.setText("Total: $" + String.format("%.2f", cart.calculateTotal()));
     }
 

@@ -63,10 +63,10 @@ public class UserMenuController {
             // Create label with appropriate styling
             Label nameLabel;
             if (isSpecialItem) {
-                nameLabel = new Label("★ SPECIAL: " + item.getName() + " - $" + String.format("%.2f", item.getPrice()));
+                nameLabel = new Label("★ SPECIAL: " + item.getName() + " (" + item.getCategory() + ") - $" + String.format("%.2f", item.getPrice()));
                 nameLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #3f87a6;");
             } else {
-                nameLabel = new Label(item.getName() + " - $" + String.format("%.2f", item.getPrice()));
+                nameLabel = new Label(item.getName() + " (" + item.getCategory() + ") - $" + String.format("%.2f", item.getPrice()));
             }
             
             Button addButton = new Button("Add to Cart");

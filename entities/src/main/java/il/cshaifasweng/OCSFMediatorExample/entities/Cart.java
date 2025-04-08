@@ -5,11 +5,13 @@ import java.util.Map;
 
 public class Cart {
 
+    public static final double DELIVERY_FEE = 20.0;
     private static int cartCounter = 0;
     private int id;
     private Map<MenuItem, Integer> items;
     private Map<MenuItem, String> notes;
     private double totalCost;
+    private boolean includeDeliveryFee = true;
 
     public Cart() {
         this.id = ++cartCounter;
@@ -60,8 +62,24 @@ public class Cart {
         totalCost = 0;
     }
 
-    public double calculateTotal() {
+    public double getSubtotal() {
         return totalCost;
+    }
+
+    public double getDeliveryFee() {
+        return !items.isEmpty() && includeDeliveryFee ? DELIVERY_FEE : 0;
+    }
+
+    public double calculateTotal() {
+        return getSubtotal() + getDeliveryFee();
+    }
+
+    public void setIncludeDeliveryFee(boolean include) {
+        this.includeDeliveryFee = include;
+    }
+
+    public boolean isIncludeDeliveryFee() {
+        return includeDeliveryFee;
     }
 
     public int getId() {

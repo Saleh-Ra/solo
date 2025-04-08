@@ -23,25 +23,29 @@ public class MenuItem implements Serializable {
     @Column(nullable = false)
     private double price;
 
+    @Column(nullable = false)
+    private String category;
+
     @ManyToOne(optional = true)
     @JoinColumn(name = "branch_id", nullable = true)
     private Branch branch;
 
     //private String catagory;
 
-    public MenuItem(String name, String ingredients, String preferences, double price){//,String catagory) {
+    public MenuItem(String name, String ingredients, String preferences, double price, String category) {
         this.name = name;
         this.ingredients = ingredients;
         this.preferences = preferences;
         this.price = price;
-        //this.catagory = catagory;
+        this.category = category;
     }
     
-    public MenuItem(String name, String ingredients, String preferences, double price, Branch branch) {
+    public MenuItem(String name, String ingredients, String preferences, double price, String category, Branch branch) {
         this.name = name;
         this.ingredients = ingredients;
         this.preferences = preferences;
         this.price = price;
+        this.category = category;
         this.branch = branch;
     }
 
@@ -95,6 +99,14 @@ public class MenuItem implements Serializable {
 
     public void setPrice(double price) {
         this.price = price;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
     }
 
     /*public String getCatagory() {

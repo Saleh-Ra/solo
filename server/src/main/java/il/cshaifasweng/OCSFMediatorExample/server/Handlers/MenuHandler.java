@@ -20,7 +20,7 @@ public class MenuHandler {
 
     public static void handleAddItemRequest(String msgString, ConnectionToClient client) {
         String[] parts = msgString.split(";");
-        if (parts.length < 6) {
+        if (parts.length < 7) {
             SimpleServer.sendFailureResponse(client, "ADD_ITEM_FAILURE", "Invalid format");
             return;
         }
@@ -28,9 +28,10 @@ public class MenuHandler {
         String name = parts[1];
         String ingredients = parts[2];
         String preferences = parts[3];
+        String category = parts[4];
         double price;
         try {
-            price = Double.parseDouble(parts[4]);
+            price = Double.parseDouble(parts[5]);
         } catch (NumberFormatException e) {
             SimpleServer.sendFailureResponse(client, "ADD_ITEM_FAILURE", "Invalid price format");
             return;
@@ -39,14 +40,14 @@ public class MenuHandler {
         // Get the branch ID from the request
         Integer branchId = null;
         try {
-            branchId = Integer.parseInt(parts[5]);
+            branchId = Integer.parseInt(parts[6]);
         } catch (NumberFormatException e) {
             SimpleServer.sendFailureResponse(client, "ADD_ITEM_FAILURE", "Invalid branch ID");
             return;
         }
         
         // Add item to branch-specific menu
-        boolean success = addItemToBranch(name, ingredients, preferences, price, branchId);
+        boolean success = addItemToBranch(name, ingredients, preferences, price, category, branchId);
         
         if (success) {
             System.out.println("Added new item to branch: " + name + " for branch ID: " + branchId);
@@ -149,7 +150,9 @@ public class MenuHandler {
             
             System.out.println("Fetched " + items.size() + " default menu items using direct SQL");
             for (MenuItem item : items) {
-                System.out.println("  - Default Item: " + item.getName() + " (ID: " + item.getId() + ")");
+                System.out.println("  - Default Item: " + item.getName() + 
+                                  " (ID: " + item.getId() + 
+                                  ", Category: " + item.getCategory() + ")");
             }
             return items;
         } catch (Exception e) {
@@ -216,7 +219,7 @@ public class MenuHandler {
     /**
      * Add a new menu item to a specific branch
      */
-    private static boolean addItemToBranch(String name, String ingredients, String preferences, double price, Integer branchId) {
+    private static boolean addItemToBranch(String name, String ingredients, String preferences, double price, String category, Integer branchId) {
         SessionFactory factory = Database.getSessionFactoryInstance();
         try (Session session = factory.openSession()) {
             session.beginTransaction();
@@ -228,8 +231,7 @@ public class MenuHandler {
             }
             
             // Create new menu item and directly associate it with the branch entity
-            MenuItem newItem = new MenuItem(name, ingredients, preferences, price);
-            newItem.setBranch(branch);
+            MenuItem newItem = new MenuItem(name, ingredients, preferences, price, category, branch);
             session.save(newItem);
             
             session.getTransaction().commit();

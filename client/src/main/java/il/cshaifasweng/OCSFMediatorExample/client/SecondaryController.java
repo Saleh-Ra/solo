@@ -268,12 +268,17 @@ public class SecondaryController implements MenuUpdateListener {
                 );
                 prefsLabel.setStyle("-fx-font-size: 14px;");
                 
+                Label categoryLabel = new Label(
+                    String.format("Category: %s", item.getCategory())
+                );
+                categoryLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #228B22;");
+                
                 Label priceLabel = new Label(
                     String.format("Price: $%.2f", item.getPrice())
                 );
                 priceLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #3f87a6;");
                 
-                itemBox.getChildren().addAll(nameLabel, detailsLabel, prefsLabel, priceLabel);
+                itemBox.getChildren().addAll(nameLabel, detailsLabel, prefsLabel, categoryLabel, priceLabel);
                 menuDisplayVBox.getChildren().add(itemBox);
             }
             

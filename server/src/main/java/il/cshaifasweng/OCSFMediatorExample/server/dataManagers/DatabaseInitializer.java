@@ -14,6 +14,15 @@ public class DatabaseInitializer {
 
     public static final SessionFactory factory = Database.getSessionFactoryInstance();
     
+    private static final String[] CATEGORIES = {
+        "First meal",
+        "Drinks",
+        "Main course",
+        "Appetizer",
+        "Desert",
+        "Beverages"
+    };
+    
     public static void initializeAll() {
         try {
             System.out.println("\n=== Starting database initialization ===\n");
@@ -179,18 +188,25 @@ public class DatabaseInitializer {
             if (existingItems.isEmpty()) {
                 System.out.println("Creating menu items...");
 
-                // Create menu items with more descriptive logging
+                // Create menu items with categories
                 MenuItem[] menuItems = {
-                    new MenuItem("Pizza", "Cheese, Tomato, Onions, Mushroom", "Vegetarian", 500.00),
-                    new MenuItem("Hamburger", "Beef, Lettuce, Tomato", "No Cheese", 65.00),
-                    new MenuItem("Vegan Hamburger", "Vegan patty, Tomato, Pickles, Lettuce", "Vegan", 60.00),
-                    new MenuItem("SOUR CREAM SPINACH PASTA", "Sour cream, Garlic, Spinach", "Gluten-Free", 55.00),
-                    new MenuItem("CEASAR SALAD", "Lettuce, Chicken breast, Parmesan cheese, Onions", "Keto-Friendly", 60.00)
+                    new MenuItem("Pizza", "Cheese, Tomato, Onions, Mushroom", "Vegetarian", 500.00, "Main course"),
+                    new MenuItem("Hamburger", "Beef, Lettuce, Tomato", "No Cheese", 65.00, "Main course"),
+                    new MenuItem("Vegan Hamburger", "Vegan patty, Tomato, Pickles, Lettuce", "Vegan", 60.00, "Main course"),
+                    new MenuItem("SOUR CREAM SPINACH PASTA", "Sour cream, Garlic, Spinach", "Gluten-Free", 55.00, "Main course"),
+                    new MenuItem("CEASAR SALAD", "Lettuce, Chicken breast, Parmesan cheese, Onions", "Keto-Friendly", 60.00, "First meal"),
+                    new MenuItem("Coca Cola", "Carbonated drink", "Regular", 12.00, "Beverages"),
+                    new MenuItem("Ice Tea", "Black tea, Ice", "Sugar-free available", 10.00, "Beverages"),
+                    new MenuItem("Garlic Bread", "Fresh bread, Garlic butter", "Vegetarian", 25.00, "Appetizer"),
+                    new MenuItem("Chocolate Cake", "Dark chocolate, Cream", "Contains dairy", 35.00, "Desert"),
+                    new MenuItem("Fresh Orange Juice", "Fresh oranges", "No sugar added", 15.00, "Drinks"),
+                    new MenuItem("Greek Salad", "Cucumber, Tomatoes, Olives, Feta", "Vegetarian", 45.00, "First meal"),
+                    new MenuItem("Tiramisu", "Coffee, Mascarpone, Ladyfingers", "Contains alcohol", 40.00, "Desert")
                 };
 
                 for (MenuItem item : menuItems) {
                     try {
-                        System.out.println("Saving menu item: " + item.getName());
+                        System.out.println("Saving menu item: " + item.getName() + " (Category: " + item.getCategory() + ")");
                         session.save(item);
                         System.out.println("Successfully saved menu item: " + item.getName());
                     } catch (Exception e) {
@@ -199,7 +215,7 @@ public class DatabaseInitializer {
                     }
                 }
 
-                session.flush(); // Force the session to flush changes to the database
+                session.flush();
             }
 
             session.getTransaction().commit();
@@ -208,7 +224,7 @@ public class DatabaseInitializer {
             List<MenuItem> savedItems = session.createQuery("from MenuItem", MenuItem.class).getResultList();
             System.out.println("Menu initialization completed. Total items in database: " + savedItems.size());
             for (MenuItem item : savedItems) {
-                System.out.println("Saved item: " + item.getName() + " (ID: " + item.getId() + ")");
+                System.out.println("Saved item: " + item.getName() + " (ID: " + item.getId() + ", Category: " + item.getCategory() + ")");
             }
         } catch (Exception e) {
             System.err.println("Failed to initialize the menu: " + e.getMessage());
@@ -647,71 +663,37 @@ public class DatabaseInitializer {
     public static void initializeBranchMenus() {
         try (Session session = factory.openSession()) {
             session.beginTransaction();
-            
+
             // Get all branches
             List<Branch> branches = session.createQuery("from Branch", Branch.class).getResultList();
-            if (branches.isEmpty()) {
-                System.out.println("No branches found for menu creation");
-                session.getTransaction().commit();
-                return;
-            }
             
-            // The special items for each branch (one unique item per branch)
-            String[][] specialMenuItems = {
-                // Tel-Aviv special - format: name, ingredients, preferences, price
-                {"Tel-Aviv Fusion Plate", "Local fish, Mediterranean herbs, Tahini sauce", "Chef's special", "85.00"},
-                
-                // Haifa special
-                {"Haifa Seafood Platter", "Fresh catch of the day, garlic butter, lemon", "Locally sourced", "95.00"},
-                
-                // Jerusalem special
-                {"Jerusalem Mixed Grill", "Chicken hearts, livers, and spices", "Traditional recipe", "78.00"},
-                
-                // Beer-Sheva special
-                {"Negev Desert Lamb", "Slow-cooked lamb, date honey, pine nuts", "Bedouin-inspired", "89.00"}
-            };
-            
-            // Create a special item for each branch
-            for (int i = 0; i < Math.min(branches.size(), specialMenuItems.length); i++) {
-                Branch branch = branches.get(i);
-                String[] specialItemData = specialMenuItems[i];
-                
-                // Check if this item already exists for this branch to avoid duplicates
-                List<MenuItem> existingItems = session.createQuery(
-                    "FROM MenuItem WHERE name = :name AND branch = :branch",
-                    MenuItem.class
-                )
-                .setParameter("name", specialItemData[0])
-                .setParameter("branch", branch)
-                .getResultList();
-                
-                if (!existingItems.isEmpty()) {
-                    System.out.println("Special item '" + specialItemData[0] + "' already exists for branch " + branch.getLocation());
-                    continue;
+            for (Branch branch : branches) {
+                // Create special items for each branch
+                MenuItem[] branchItems = {
+                    new MenuItem("Special " + branch.getLocation() + " Pizza", 
+                               "Premium cheese, Fresh basil, Cherry tomatoes", 
+                               "House special", 75.00, 
+                               "Main course", branch),
+                    new MenuItem("House " + branch.getLocation() + " Salad", 
+                               "Mixed greens, Nuts, House dressing", 
+                               "Vegetarian", 45.00, 
+                               "First meal", branch),
+                    new MenuItem(branch.getLocation() + " Special Dessert", 
+                               "Chef's special creation", 
+                               "Daily special", 40.00, 
+                               "Desert", branch)
+                };
+
+                for (MenuItem item : branchItems) {
+                    session.save(item);
+                    System.out.println("Added special item: " + item.getName() + " to branch: " + branch.getLocation());
                 }
-                
-                // Create the branch's special item with direct branch association
-                MenuItem specialItem = new MenuItem(
-                    specialItemData[0],
-                    specialItemData[1], 
-                    specialItemData[2],
-                    Double.parseDouble(specialItemData[3])
-                );
-                
-                // Set the branch directly to ensure proper association
-                specialItem.setBranch(branch);
-                session.save(specialItem);
-                
-                System.out.println("Created special menu item for " + branch.getLocation() + ": " + specialItemData[0]);
             }
-            
+
             session.getTransaction().commit();
-            System.out.println("Branch-specific menu initialization completed");
-            
-            // Debug the menu state after initialization
-            debugMenuState();
+            System.out.println("Branch menus initialization completed");
         } catch (Exception e) {
-            System.err.println("Failed to initialize branch-specific menus: " + e.getMessage());
+            System.err.println("Failed to initialize branch menus: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -737,17 +719,17 @@ public class DatabaseInitializer {
             
             // The special items for each branch (one unique item per branch)
             String[][] specialMenuItems = {
-                // Tel-Aviv special - format: name, ingredients, preferences, price
-                {"Tel-Aviv Fusion Plate", "Local fish, Mediterranean herbs, Tahini sauce", "Chef's special", "85.00"},
+                // Tel-Aviv special - format: name, ingredients, preferences, price, category
+                {"Tel-Aviv Fusion Plate", "Local fish, Mediterranean herbs, Tahini sauce", "Chef's special", "85.00", "First meal"},
                 
                 // Haifa special
-                {"Haifa Seafood Platter", "Fresh catch of the day, garlic butter, lemon", "Locally sourced", "95.00"},
+                {"Haifa Seafood Platter", "Fresh catch of the day, garlic butter, lemon", "Locally sourced", "95.00", "Main course"},
                 
                 // Jerusalem special
-                {"Jerusalem Mixed Grill", "Chicken hearts, livers, and spices", "Traditional recipe", "78.00"},
+                {"Jerusalem Mixed Grill", "Chicken hearts, livers, and spices", "Traditional recipe", "78.00", "Appetizer"},
                 
                 // Beer-Sheva special
-                {"Negev Desert Lamb", "Slow-cooked lamb, date honey, pine nuts", "Bedouin-inspired", "89.00"}
+                {"Negev Desert Lamb", "Slow-cooked lamb, date honey, pine nuts", "Bedouin-inspired", "89.00", "Desert"}
             };
             
             // Check each branch and create special menu item if needed
@@ -772,7 +754,9 @@ public class DatabaseInitializer {
                         specialItemData[0],
                         specialItemData[1], 
                         specialItemData[2],
-                        Double.parseDouble(specialItemData[3])
+                        Double.parseDouble(specialItemData[3]),
+                        specialItemData[4],  // Use the proper category
+                        branch
                     );
                     
                     // Set the branch directly to ensure proper association
@@ -813,7 +797,8 @@ public class DatabaseInitializer {
             ).getResultList();
             System.out.println("\nDefault menu has " + defaultItems.size() + " items:");
             for (MenuItem item : defaultItems) {
-                System.out.println("  - " + item.getName() + " (ID: " + item.getId() + ")");
+                System.out.println("  - " + item.getName() + " (ID: " + item.getId() + 
+                                 ", Category: " + item.getCategory() + ")");
             }
             
             // Find branch-specific menu items
@@ -830,7 +815,8 @@ public class DatabaseInitializer {
                 System.out.println("Branch: " + branch.getLocation() + " (ID: " + branch.getId() + 
                                   ") has " + branchItems.size() + " special menu items:");
                 for (MenuItem item : branchItems) {
-                    System.out.println("  - " + item.getName() + " (ID: " + item.getId() + ")");
+                    System.out.println("  - " + item.getName() + " (ID: " + item.getId() + 
+                                     ", Category: " + item.getCategory() + ")");
                 }
             }
             
