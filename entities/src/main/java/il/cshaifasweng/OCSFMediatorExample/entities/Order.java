@@ -52,7 +52,7 @@ public class Order implements Serializable {
         return branchId;
     }
 
-    public void setBranchId(int id) {
+    public void setBranchId(int branchId) {
         this.branchId = branchId;
     }
 
