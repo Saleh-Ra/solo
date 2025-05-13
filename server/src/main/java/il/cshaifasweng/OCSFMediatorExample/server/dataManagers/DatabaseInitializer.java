@@ -2,12 +2,14 @@ package il.cshaifasweng.OCSFMediatorExample.server.dataManagers;
 import il.cshaifasweng.OCSFMediatorExample.entities.*;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
+import org.hibernate.Transaction;
 
 import javax.persistence.criteria.CriteriaBuilder;
 import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.Root;
 import java.util.ArrayList;
 import java.util.List;
+import java.time.LocalDateTime;
 
 
 public class DatabaseInitializer {
@@ -29,31 +31,47 @@ public class DatabaseInitializer {
             
             // Check if database has already been initialized
             boolean databaseInitialized = isDatabaseInitialized();
+            System.out.println("Database initialized check: " + databaseInitialized);
             
             if (!databaseInitialized) {
                 System.out.println("Database is empty. Starting fresh initialization...");
                 
                 // Initialize in the correct order to avoid circular dependencies
-                initializeRestaurantTable();  // First tables
-                System.out.println("\n✓ Restaurant tables initialized\n");
+                System.out.println("\n1. Initializing restaurant tables...");
+                initializeRestaurantTable();
+                System.out.println("✓ Restaurant tables initialized\n");
                 
-                initializeMenu();             // Then menu items (global default menu)
-                System.out.println("\n✓ Default menu initialized\n");
+                System.out.println("2. Initializing default menu...");
+                initializeMenu();
+                System.out.println("✓ Default menu initialized\n");
                 
-                initializeRestaurantChain();  // Then restaurant chain
-                System.out.println("\n✓ Restaurant chain initialized\n");
+                System.out.println("3. Initializing restaurant chain...");
+                initializeRestaurantChain();
+                System.out.println("✓ Restaurant chain initialized\n");
                 
-                initializeBranches();         // Then branches (which need chain and tables)
-                System.out.println("\n✓ Branches initialized\n");
+                System.out.println("4. Initializing branches...");
+                initializeBranches();
+                System.out.println("✓ Branches initialized\n");
                 
-                initializeBranchMenus();      // Then branch-specific menus
-                System.out.println("\n✓ Branch menus initialized\n");
+                System.out.println("5. Initializing branch menus...");
+                initializeBranchMenus();
+                System.out.println("✓ Branch menus initialized\n");
                 
-                initializeClientsAndAccounts();  // Then clients and their accounts
-                System.out.println("\n✓ Clients initialized\n");
+                System.out.println("6. Initializing clients and accounts...");
+                initializeClientsAndAccounts();
+                System.out.println("✓ Clients initialized\n");
                 
-                initializeManagers();            // Then branch managers
-                System.out.println("\n✓ Managers initialized\n");
+                System.out.println("7. Initializing managers...");
+                initializeManagers();
+                System.out.println("✓ Managers initialized\n");
+
+                System.out.println("8. Initializing reservations...");
+                initializeReservations();
+                System.out.println("✓ Reservations initialized\n");
+                
+                System.out.println("9. Initializing orders...");
+                initializeOrders();
+                System.out.println("✓ Orders initialized\n");
             } else {
                 System.out.println("Database already contains basic data. Checking for new roles and branch menus...");
                 
@@ -64,36 +82,73 @@ public class DatabaseInitializer {
             // Always initialize new roles regardless of whether database is initialized
             // Check if we have any chain managers
             if (!roleExists("chain_manager")) {
-                initializeChainManagers();       // Chain managers (new role)
-                System.out.println("\n✓ Chain managers initialized\n");
+                System.out.println("\nInitializing chain managers...");
+                initializeChainManagers();
+                System.out.println("✓ Chain managers initialized\n");
             } else {
                 System.out.println("\n✓ Chain managers already exist\n");
             }
             
             // Check if we have any customer support
             if (!roleExists("customer_support")) {
-                initializeCustomerSupport();     // Customer support staff (new role)
-                System.out.println("\n✓ Customer support initialized\n");
+                System.out.println("Initializing customer support...");
+                initializeCustomerSupport();
+                System.out.println("✓ Customer support initialized\n");
             } else {
-                System.out.println("\n✓ Customer support already exists\n");
+                System.out.println("✓ Customer support already exists\n");
             }
             
             // Check if we have any nutritionists
             if (!roleExists("nutritionist")) {
-                initializeNutritionists();       // Nutritionists (new role)
-                System.out.println("\n✓ Nutritionists initialized\n");
+                System.out.println("Initializing nutritionists...");
+                initializeNutritionists();
+                System.out.println("✓ Nutritionists initialized\n");
             } else {
-                System.out.println("\n✓ Nutritionists already exist\n");
+                System.out.println("✓ Nutritionists already exist\n");
             }
             
             System.out.println("\n=== Database initialization completed successfully! ===\n");
             
-            // Verify final state
+            // Verify final state with more detailed logging
             try (Session session = factory.openSession()) {
-                long menuItems = session.createQuery("select count(*) from MenuItem", Long.class).getSingleResult();
-                long users = session.createQuery("select count(*) from UserAccount", Long.class).getSingleResult();
-                long menus = session.createQuery("select count(*) from Menu", Long.class).getSingleResult();
-                System.out.println("Final database state - Menu Items: " + menuItems + ", Users: " + users + ", Menus: " + menus);
+                System.out.println("\nVerifying database state:");
+                
+                // Check menu items
+                List<MenuItem> menuItems = session.createQuery("from MenuItem", MenuItem.class).getResultList();
+                System.out.println("Menu Items: " + menuItems.size());
+                for (MenuItem item : menuItems) {
+                    System.out.println("  - " + item.getName() + " (ID: " + item.getId() + ", Category: " + item.getCategory() + ")");
+                }
+                
+                // Check users
+                List<UserAccount> users = session.createQuery("from UserAccount", UserAccount.class).getResultList();
+                System.out.println("\nUsers: " + users.size());
+                for (UserAccount user : users) {
+                    System.out.println("  - " + user.getName() + " (ID: " + user.getId() + ", Role: " + user.getRole() + ")");
+                }
+                
+                // Check branches
+                List<Branch> branches = session.createQuery("from Branch", Branch.class).getResultList();
+                System.out.println("\nBranches: " + branches.size());
+                for (Branch branch : branches) {
+                    System.out.println("  - " + branch.getLocation() + " (ID: " + branch.getId() + ")");
+                }
+                
+                // Check tables
+                List<RestaurantTable> tables = session.createQuery("from RestaurantTable", RestaurantTable.class).getResultList();
+                System.out.println("\nTables: " + tables.size());
+                for (RestaurantTable table : tables) {
+                    System.out.println("  - " + table.getLabel() + " (ID: " + table.getid() + ", Location: " + table.getLocation() + ")");
+                }
+                
+                // Check reservations
+                List<Reservation> reservations = session.createQuery("from Reservation", Reservation.class).getResultList();
+                System.out.println("\nReservations: " + reservations.size());
+                for (Reservation reservation : reservations) {
+                    System.out.println("  - ID: " + reservation.getId() + 
+                                     ", Branch: " + reservation.getBranch().getLocation() +
+                                     ", Time: " + reservation.getReservationTime());
+                }
             }
         } catch (Exception e) {
             System.err.println("Error during database initialization: " + e.getMessage());
@@ -106,24 +161,24 @@ public class DatabaseInitializer {
      */
     private static boolean isDatabaseInitialized() {
         try (Session session = factory.openSession()) {
+            // Check for menu items
             CriteriaBuilder builder = session.getCriteriaBuilder();
+            CriteriaQuery<Long> menuQuery = builder.createQuery(Long.class);
+            menuQuery.select(builder.count(menuQuery.from(MenuItem.class)));
+            Long menuCount = session.createQuery(menuQuery).getSingleResult();
             
-            // Check if menu items exist
-            CriteriaQuery<Long> menuCount = builder.createQuery(Long.class);
-            menuCount.select(builder.count(menuCount.from(MenuItem.class)));
-            long menuItems = session.createQuery(menuCount).getSingleResult();
+            // Check for user accounts
+            CriteriaQuery<Long> userQuery = builder.createQuery(Long.class);
+            userQuery.select(builder.count(userQuery.from(UserAccount.class)));
+            Long userCount = session.createQuery(userQuery).getSingleResult();
             
-            // Check if users exist
-            CriteriaQuery<Long> userCount = builder.createQuery(Long.class);
-            userCount.select(builder.count(userCount.from(UserAccount.class)));
-            long users = session.createQuery(userCount).getSingleResult();
-            
-            System.out.println("Database check - Menu Items: " + menuItems + ", Users: " + users);
-            
-            // Only consider database initialized if both menu items and users exist
-            return menuItems > 0 && users > 0;
+            // The database is considered initialized if it has both menu items and user accounts
+            boolean isInitialized = menuCount > 0 && userCount > 0;
+            System.out.println("Database check: Found " + menuCount + " menu items and " + 
+                             userCount + " user accounts. Database initialized: " + isInitialized);
+            return isInitialized;
         } catch (Exception e) {
-            System.err.println("Error checking if database is initialized: " + e.getMessage());
+            System.err.println("Error checking database initialization status: " + e.getMessage());
             e.printStackTrace();
             return false;
         }
@@ -325,34 +380,63 @@ public class DatabaseInitializer {
             if (existingTables.isEmpty()) {
                 System.out.println("Creating restaurant tables...");
                 
-                // Create tables for different areas
-                for (int i = 1; i <= 12; i++) {
-                    session.save(new RestaurantTable(3 + (i % 2), 0, "Main", 
-                        (i % 3 == 0) ? "near bar" : (i % 3 == 1) ? "center" : "near kitchen", 
-                        "Table " + i, new boolean[720]));
+                // Get all branches
+                List<Branch> branches = session.createQuery("from Branch", Branch.class).getResultList();
+                if (branches.isEmpty()) {
+                    System.out.println("No branches found. Please initialize branches first.");
+                    return;
                 }
-                
-                for (int i = 13; i <= 18; i++) {
-                    session.save(new RestaurantTable(2 + (i % 3), 0, "Bar", 
-                        (i % 3 == 0) ? "quiet" : (i % 3 == 1) ? "window" : "center", 
-                        "Table " + i, new boolean[720]));
-                }
-                
-                for (int i = 19; i <= 24; i++) {
-                    session.save(new RestaurantTable(2 + (i % 3), 0, "Out", 
-                        (i % 3 == 0) ? "cozy" : (i % 3 == 1) ? "window" : "quiet", 
-                        "Table " + i, new boolean[720]));
-                }
-                
-                for (int i = 25; i <= 30; i++) {
-                    session.save(new RestaurantTable(2 + (i % 3), 0, "Inside", 
-                        (i % 4 == 0) ? "center" : (i % 4 == 1) ? "quiet" : (i % 4 == 2) ? "window" : "near kitchen", 
-                        "Table " + i, new boolean[720]));
-                }
-            }
 
-            session.getTransaction().commit();
-            System.out.println("Restaurant table initialization completed with " + (existingTables.isEmpty() ? "new tables" : "existing tables"));
+                // Create tables for each branch
+                for (Branch branch : branches) {
+                    String location = branch.getLocation();
+                    System.out.println("Creating tables for branch: " + location);
+                    
+                    // Create tables for different areas
+                    for (int i = 1; i <= 8; i++) {
+                        RestaurantTable table = new RestaurantTable(
+                            3 + (i % 2),  // 3-4 seats
+                            0,  // status
+                            "Main",  // area
+                            (i % 3 == 0) ? "near bar" : (i % 3 == 1) ? "center" : "near kitchen",  // location
+                            "Table " + i,  // label
+                            new boolean[720]  // time slots
+                        );
+                        table.setLocation(location);  // Set the branch location
+                        
+                        // Link table to branch
+                        List<RestaurantTable> branchTables = branch.getTables();
+                        if (branchTables == null) {
+                            branchTables = new ArrayList<>();
+                        }
+                        branchTables.add(table);
+                        branch.setTables(branchTables);
+                        
+                        // Save the table first
+                        session.save(table);
+                        System.out.println("Created table " + i + " for " + location);
+                    }
+                    
+                    // Update the branch with its tables
+                    session.update(branch);
+                }
+                
+                // Flush and commit the transaction
+                session.flush();
+                session.getTransaction().commit();
+                
+                // Verify the tables were created and linked
+                try (Session verifySession = factory.openSession()) {
+                    List<Branch> updatedBranches = verifySession.createQuery("from Branch", Branch.class).getResultList();
+                    for (Branch branch : updatedBranches) {
+                        System.out.println("Branch " + branch.getLocation() + " has " + 
+                                         (branch.getTables() != null ? branch.getTables().size() : 0) + " tables");
+                    }
+                }
+            } else {
+                session.getTransaction().commit();
+                System.out.println("Restaurant tables already exist");
+            }
         } catch (Exception e) {
             System.err.println("Failed to initialize restaurant tables: " + e.getMessage());
             e.printStackTrace();
@@ -823,6 +907,238 @@ public class DatabaseInitializer {
             System.out.println("=== END DEBUG ===\n");
         } catch (Exception e) {
             System.err.println("Error in debug menu state: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    public static void initializeReservations() {
+        try (Session session = factory.openSession()) {
+            session.beginTransaction();
+
+            // Get all branches and tables
+            List<Branch> branches = session.createQuery("from Branch", Branch.class).getResultList();
+            List<RestaurantTable> tables = session.createQuery("from RestaurantTable", RestaurantTable.class).getResultList();
+
+            System.out.println("Found " + branches.size() + " branches and " + tables.size() + " tables");
+
+            if (!branches.isEmpty() && !tables.isEmpty()) {
+                System.out.println("Creating dummy reservations...");
+
+                // Client data
+                String[][] clientData = {
+                    {"John Doe", "0501234567", "password123"},
+                    {"Jane Smith", "0507654321", "password123"},
+                    {"Bob Johnson", "0509876543", "password123"}
+                };
+
+                // Create or get existing clients
+                List<Client> clients = new ArrayList<>();
+                
+                for (String[] data : clientData) {
+                    // Check if user account exists
+                    UserAccount existingAccount = null;
+                    
+                    try {
+                        List<UserAccount> accounts = session.createQuery(
+                            "FROM UserAccount WHERE phoneNumber = :phone", 
+                            UserAccount.class)
+                            .setParameter("phone", data[1])
+                            .getResultList();
+                        
+                        if (!accounts.isEmpty()) {
+                            existingAccount = accounts.get(0);
+                            System.out.println("Found existing account for " + data[0] + " with phone " + data[1]);
+                        }
+                    } catch (Exception e) {
+                        System.err.println("Error checking for existing account: " + e.getMessage());
+                    }
+                    
+                    Client client;
+                    
+                    if (existingAccount != null) {
+                        // Try to find the client associated with this account
+                        List<Client> existingClients = session.createQuery(
+                            "FROM Client WHERE account.id = :accountId", 
+                            Client.class)
+                            .setParameter("accountId", existingAccount.getId())
+                            .getResultList();
+                        
+                        if (!existingClients.isEmpty()) {
+                            client = existingClients.get(0);
+                            System.out.println("Using existing client: " + client.getName());
+                        } else {
+                            // Create a new client with the existing account
+                            client = new Client(data[0], existingAccount);
+                            session.save(client);
+                            System.out.println("Created new client for existing account: " + data[0]);
+                        }
+                    } else {
+                        // Create a new account and client
+                        UserAccount newAccount = new UserAccount(data[0], data[1], "client", data[2]);
+                        session.save(newAccount);
+                        
+                        client = new Client(data[0], newAccount);
+                        session.save(client);
+                        System.out.println("Created new client with new account: " + data[0]);
+                    }
+                    
+                    clients.add(client);
+                }
+
+                // Create reservations for each branch
+                for (Branch branch : branches) {
+                    System.out.println("Processing branch: " + branch.getLocation());
+                    
+                    // Get tables for this branch
+                    List<RestaurantTable> branchTables = new ArrayList<>();
+                    for (RestaurantTable table : tables) {
+                        if (table.getLocation().equals(branch.getLocation())) {
+                            branchTables.add(table);
+                        }
+                    }
+                    
+                    System.out.println("Found " + branchTables.size() + " tables for branch " + branch.getLocation());
+
+                    if (!branchTables.isEmpty()) {
+                        // Create 2-3 reservations per branch
+                        for (int i = 0; i < 3; i++) {
+                            // Create a reservation for today at different times
+                            LocalDateTime reservationTime = LocalDateTime.now()
+                                .withHour(12 + i * 2)  // 12:00, 14:00, 16:00
+                                .withMinute(0)
+                                .withSecond(0)
+                                .withNano(0);
+
+                            // Select 1-2 tables for this reservation
+                            List<RestaurantTable> selectedTables = new ArrayList<>();
+                            selectedTables.add(branchTables.get(i % branchTables.size()));
+                            if (branchTables.size() > 1) {
+                                selectedTables.add(branchTables.get((i + 1) % branchTables.size()));
+                            }
+
+                            // Get the client for this reservation
+                            Client reservationClient = clients.get(i % clients.size());
+
+                            // Create the reservation
+                            Reservation reservation = new Reservation(
+                                reservationTime,
+                                2 + i,  // 2, 3, 4 guests
+                                reservationClient.getAccount().getPhoneNumber(),
+                                branch,
+                                selectedTables
+                            );
+
+                            // Set the client
+                            reservation.setClient(reservationClient);
+
+                            // Save the reservation
+                            session.save(reservation);
+                            System.out.println("Created reservation for " + branch.getLocation() + 
+                                             " at " + reservationTime + 
+                                             " with " + selectedTables.size() + " tables" +
+                                             " for client " + reservationClient.getName());
+
+                            // Mark tables as reserved
+                            for (RestaurantTable table : selectedTables) {
+                                int startIndex = reservationTime.getHour() * 60 + reservationTime.getMinute();
+                                boolean[] timeSlots = table.getMinutes();
+                                // Ensure we don't exceed array bounds
+                                int endIndex = Math.min(startIndex + Reservation.DEFAULT_DURATION_MINUTES, timeSlots.length);
+                                for (int j = startIndex; j < endIndex; j++) {
+                                    timeSlots[j] = true;
+                                }
+                                table.setMinutes(timeSlots);
+                                session.update(table);
+                            }
+                        }
+                    }
+                }
+            }
+
+            session.getTransaction().commit();
+            System.out.println("Reservations initialization completed");
+            
+            // Verify the reservations were created
+            try (Session verifySession = factory.openSession()) {
+                List<Reservation> reservations = verifySession.createQuery("from Reservation", Reservation.class).getResultList();
+                System.out.println("Total reservations created: " + reservations.size());
+                for (Reservation reservation : reservations) {
+                    System.out.println("Reservation ID: " + reservation.getId() + 
+                                     ", Branch: " + reservation.getBranch().getLocation() +
+                                     ", Time: " + reservation.getReservationTime() +
+                                     ", Tables: " + reservation.getTables().size() +
+                                     ", Client: " + reservation.getClient().getName());
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to initialize reservations: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    private static void initializeOrders() {
+        try (Session session = Database.getSessionFactoryInstance().openSession()) {
+            Transaction transaction = session.beginTransaction();
+            
+            // Check if orders already exist
+            CriteriaBuilder builder = session.getCriteriaBuilder();
+            CriteriaQuery<Long> countQuery = builder.createQuery(Long.class);
+            countQuery.select(builder.count(countQuery.from(Order.class)));
+            Long count = session.createQuery(countQuery).getSingleResult();
+            
+            if (count > 0) {
+                System.out.println("Orders already exist in the database. Skipping initialization.");
+                transaction.commit();
+                return;
+            }
+            
+            System.out.println("Creating test orders...");
+            
+            // Create sample orders
+            LocalDateTime now = LocalDateTime.now();
+            
+            // Order 1: Regular delivery order
+            Order order1 = new Order(1, 150.00, now, null);
+            order1.setStatus("Pending");
+            order1.setCustomerName("John Doe");
+            order1.setPhoneNumber("0544347642");
+            order1.setDeliveryDate("2025-04-09");
+            order1.setDeliveryTime("12:40");
+            order1.setDeliveryLocation("123 Main St, Tel Aviv");
+            order1.setPaymentMethod("Credit Card");
+            session.save(order1);
+            
+            // Order 2: Takeout order
+            Order order2 = new Order(2, 85.50, now.plusHours(1), null);
+            order2.setStatus("Completed");
+            order2.setCustomerName("Jane Smith");
+            order2.setPhoneNumber("0521234567");
+            order2.setDeliveryDate("2025-04-09");
+            order2.setDeliveryTime("13:30");
+            order2.setDeliveryLocation("Takeout");
+            order2.setPaymentMethod("Cash");
+            session.save(order2);
+            
+            // Order 3: Large group order
+            Order order3 = new Order(1, 450.75, now.plusHours(2), null);
+            order3.setStatus("Pending");
+            order3.setCustomerName("Mike Johnson");
+            order3.setPhoneNumber("0539876543");
+            order3.setDeliveryDate("2025-04-09");
+            order3.setDeliveryTime("14:00");
+            order3.setDeliveryLocation("456 Park Ave, Jerusalem");
+            order3.setPaymentMethod("Credit Card");
+            session.save(order3);
+            
+            transaction.commit();
+            System.out.println("Created 3 test orders successfully");
+            
+            // Verify orders were created
+            List<Order> orders = session.createQuery("FROM Order", Order.class).list();
+            System.out.println("Total orders in database: " + orders.size());
+            
+        } catch (Exception e) {
+            System.err.println("Error initializing orders: " + e.getMessage());
             e.printStackTrace();
         }
     }

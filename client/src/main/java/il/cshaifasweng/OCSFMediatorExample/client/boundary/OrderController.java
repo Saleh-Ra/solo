@@ -17,7 +17,7 @@ import javafx.scene.control.PasswordField;
 public class OrderController {
 
     @FXML private TextField nameField;
-    @FXML private TextField idField;
+    @FXML private TextField idField; // This field is used for phone number input
     @FXML private TextField addressField;
     @FXML private DatePicker datePicker;
     @FXML private TextField timeField;
@@ -31,18 +31,23 @@ public class OrderController {
     @FXML
     public void initialize() {
         paymentMethodComboBox.getItems().addAll("Credit Card", "Cash", "PayPal");
+        
+        // Use the current user's phone number if available
+        if (SimpleClient.getCurrentUserPhone() != null && !SimpleClient.getCurrentUserPhone().isEmpty()) {
+            idField.setText(SimpleClient.getCurrentUserPhone());
+        }
     }
 
     @FXML
     private void handleConfirm() {
         String name = nameField.getText().trim();
-        String id = idField.getText().trim();
+        String phone = idField.getText().trim();
         String address = addressField.getText().trim();
         LocalDate date = datePicker.getValue();
         String time = timeField.getText().trim();
         String method = paymentMethodComboBox.getValue();
 
-        if (name.isEmpty() || id.isEmpty() || address.isEmpty() || date == null || time.isEmpty() || method == null) {
+        if (name.isEmpty() || phone.isEmpty() || address.isEmpty() || date == null || time.isEmpty() || method == null) {
             statusLabel.setText("❌ Please fill out all fields.");
             return;
         }
@@ -101,15 +106,15 @@ public class OrderController {
             System.out.println("💳 Card Info: " + result.get()[0] + " | Exp: " + result.get()[1] + " | CVV: " + result.get()[2]);
         }
 
-        System.out.println("Customer: " + name + " | ID: " + id);
+        System.out.println("Customer: " + name + " | Phone: " + phone);
         System.out.println("Delivery: " + date + " at " + time + " to " + address);
         System.out.println("Payment: " + method + " | Total: $" + cart.calculateTotal());
 
         // Send order to server
         try {
-            // Format the order message
+            // Format the order message matching server expectations
             String orderMsg = String.format("CREATE_ORDER;%s;%s;%s;%s;%s;%s;%.2f", 
-                name, id, date.toString(), time, address, method, cart.calculateTotal());
+                name, phone, date.toString(), time, address, method, cart.calculateTotal());
             
             // Send to server
             SimpleClient.getClient().sendToServer(orderMsg);

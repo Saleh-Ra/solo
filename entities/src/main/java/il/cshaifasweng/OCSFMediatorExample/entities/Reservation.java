@@ -6,59 +6,70 @@ import java.util.List;
 import java.io.Serializable;
 
 @Entity
-@javax.persistence.Table(name = "reservation")
+@Table(name = "reservation")
 public class Reservation implements Serializable {
-    public static final int DEFAULT_DURATION_MINUTES = 90;
-
+    public static final int DEFAULT_DURATION_MINUTES = 90; // 1.5 hours
+    
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
 
-    private LocalDateTime reservationTime;
+    @Column(nullable = false)
+    private LocalDateTime reservationTime; // Start time
+    
+    @Column(nullable = false)
+    private LocalDateTime endTime; // End time (1.5 hours after start by default)
+
     private int numberOfGuests;
     private String phoneNumber;
+    
+    // Specific table ID for this reservation
+    private int tableId;
 
-    // ✅ One-to-One Association: A Client can have only ONE active Reservation at a time.
+    // ✅ Many-to-One Association: Many reservations belong to one branch.
     @ManyToOne
-    @JoinColumn(name = "client_id", nullable = false)
-    private Client client;
-
-    // ✅ Many Reservations belong to ONE Branch.
-    @ManyToOne
-    @JoinColumn(name = "branch_id", nullable = false)
+    @JoinColumn(name = "branch_id")
     private Branch branch;
 
-    // ✅ Many Reservations can include multiple Tables.
+    // ✅ Many-to-One Association: Many reservations can belong to one client.
+    @ManyToOne
+    @JoinColumn(name = "client_id")
+    private Client client;
+
+    // ✅ Many-to-Many Association: Many reservations can include many tables.
     @ManyToMany
-    @JoinTable(
-            name = "reservation_table",
+    @JoinTable(name = "reservation_tables",
             joinColumns = @JoinColumn(name = "reservation_id"),
-            inverseJoinColumns = @JoinColumn(name = "table_id")
-    )
+            inverseJoinColumns = @JoinColumn(name = "table_id"))
     private List<RestaurantTable> tables;
 
-    public Reservation() {}
-
-    public Reservation(LocalDateTime reservationDate, int numberOfGuests, Client client, Branch branch, List<RestaurantTable> tables) {
-        this.reservationTime = reservationDate;
-        this.numberOfGuests = numberOfGuests;
-        this.client = client;
-        this.branch = branch;
-        this.tables = tables;
-        this.phoneNumber = client.getAccount().getPhoneNumber();
+    public Reservation() {
     }
 
-    // Alternative constructor that takes a phone number instead of a client
-    public Reservation(LocalDateTime reservationDate, int numberOfGuests, String phoneNumber, Branch branch, List<RestaurantTable> tables) {
-        this.reservationTime = reservationDate;
+    public Reservation(LocalDateTime reservationTime, int numberOfGuests, String phoneNumber, Branch branch, List<RestaurantTable> tables) {
+        this.reservationTime = reservationTime;
+        this.endTime = reservationTime.plusMinutes(DEFAULT_DURATION_MINUTES);
         this.numberOfGuests = numberOfGuests;
-        this.branch = branch;
-        this.tables = tables;
         this.phoneNumber = phoneNumber;
-        // client will be set separately
+        this.branch = branch;
+        this.tables = tables;
+        
+        // If we have a specific table assigned, store its ID
+        if (tables != null && !tables.isEmpty()) {
+            this.tableId = tables.get(0).getid();
+        }
+    }
+    
+    public Reservation(LocalDateTime reservationTime, LocalDateTime endTime, int numberOfGuests, 
+                      String phoneNumber, Branch branch, int tableId) {
+        this.reservationTime = reservationTime;
+        this.endTime = endTime;
+        this.numberOfGuests = numberOfGuests;
+        this.phoneNumber = phoneNumber;
+        this.branch = branch;
+        this.tableId = tableId;
     }
 
-    // ✅ Getters and Setters
     public int getId() {
         return id;
     }
@@ -74,6 +85,14 @@ public class Reservation implements Serializable {
     public void setReservationTime(LocalDateTime reservationTime) {
         this.reservationTime = reservationTime;
     }
+    
+    public LocalDateTime getEndTime() {
+        return endTime;
+    }
+    
+    public void setEndTime(LocalDateTime endTime) {
+        this.endTime = endTime;
+    }
 
     public int getNumberOfGuests() {
         return numberOfGuests;
@@ -82,13 +101,13 @@ public class Reservation implements Serializable {
     public void setNumberOfGuests(int numberOfGuests) {
         this.numberOfGuests = numberOfGuests;
     }
-    
-    public Client getClient() {
-        return client;
+
+    public String getPhoneNumber() {
+        return phoneNumber;
     }
 
-    public void setClient(Client client) {
-        this.client = client;
+    public void setPhoneNumber(String phoneNumber) {
+        this.phoneNumber = phoneNumber;
     }
 
     public Branch getBranch() {
@@ -99,23 +118,43 @@ public class Reservation implements Serializable {
         this.branch = branch;
     }
 
+    public Client getClient() {
+        return client;
+    }
+
+    public void setClient(Client client) {
+        this.client = client;
+    }
+
     public List<RestaurantTable> getTables() {
         return tables;
     }
 
     public void setTables(List<RestaurantTable> tables) {
         this.tables = tables;
+        
+        // If we have a specific table assigned, store its ID
+        if (tables != null && !tables.isEmpty()) {
+            this.tableId = tables.get(0).getid();
+        }
     }
-
-    public int getDurationMinutes() {
-        return DEFAULT_DURATION_MINUTES;
+    
+    public int getTableId() {
+        return tableId;
     }
-
-    public String getPhoneNumber() {
-        return phoneNumber;
+    
+    public void setTableId(int tableId) {
+        this.tableId = tableId;
     }
-
-    public void setPhoneNumber(String phoneNumber) {
-        this.phoneNumber = phoneNumber;
+    
+    /**
+     * Checks if this reservation overlaps with the given time window
+     * @param startTime The start time to check
+     * @param endTime The end time to check
+     * @return true if there is an overlap, false otherwise
+     */
+    public boolean overlaps(LocalDateTime startTime, LocalDateTime endTime) {
+        // Reservations overlap if one starts before the other ends and ends after the other starts
+        return this.reservationTime.isBefore(endTime) && this.endTime.isAfter(startTime);
     }
 }

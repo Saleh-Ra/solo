@@ -14,7 +14,10 @@ il/cshaifasweng/OCSFMediatorExample/client/PrimaryController.class
 il/cshaifasweng/OCSFMediatorExample/client/boundary/SignInController.class
 il/cshaifasweng/OCSFMediatorExample/client/boundary/ReservationController.class
 il/cshaifasweng/OCSFMediatorExample/client/MenuUpdateListener.class
+il/cshaifasweng/OCSFMediatorExample/client/boundary/TableDiagramController.class
+il/cshaifasweng/OCSFMediatorExample/client/boundary/TableDiagramController$1.class
 il/cshaifasweng/OCSFMediatorExample/client/boundary/CartController.class
+il/cshaifasweng/OCSFMediatorExample/client/boundary/TableDiagramController$TablePane.class
 il/cshaifasweng/OCSFMediatorExample/client/ocsf/ObservableClient.class
 il/cshaifasweng/OCSFMediatorExample/client/boundary/PersonalAreaController.class
 il/cshaifasweng/OCSFMediatorExample/client/App.class
