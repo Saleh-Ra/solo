@@ -28,6 +28,16 @@ public class PrimaryController {
 	}
 
 	@FXML
+	void handleTableDiagram() {
+		try {
+			App.setRoot("table_diagram");
+		} catch (IOException e) {
+			showError("Failed to load table diagram screen.");
+			e.printStackTrace();
+		}
+	}
+
+	@FXML
 	void handlePersonalArea() {
 		try {
 			App.setRoot("sign_in");

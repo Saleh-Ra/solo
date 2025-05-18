@@ -37,8 +37,9 @@ public class ReservationHandler {
         System.out.println("Received reservation request: " + msgString);
         String[] parts = msgString.split(";");
 
-        if (parts.length < 7) {
-            System.out.println("Invalid format: Expected at least 7 parts, got " + parts.length);
+        // Format: RESERVE_TABLE;branchId;guestCount;tableId;seatingPref;startDateTime;endDateTime;phoneNumber;location
+        if (parts.length < 9) {
+            System.out.println("Invalid format: Expected at least 9 parts, got " + parts.length);
             SimpleServer.sendFailureResponse(client, "RESERVATION_FAILURE", "Invalid format");
             return;
         }
@@ -46,14 +47,18 @@ public class ReservationHandler {
         try {
             int branchId = Integer.parseInt(parts[1]);
             int guestCount = Integer.parseInt(parts[2]);
-            String seatingPref = parts[3];
-            LocalDateTime arrival = LocalDateTime.parse(parts[4], DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
-            String phoneNumber = parts[5];
-            String location = parts[6];
+            int tableId = Integer.parseInt(parts[3]);
+            String seatingPref = parts[4];
+            LocalDateTime startTime = LocalDateTime.parse(parts[5], DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+            LocalDateTime endTime = LocalDateTime.parse(parts[6], DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+            String phoneNumber = parts[7];
+            String location = parts[8];
 
             System.out.println("Processing reservation - Branch: " + branchId + 
                     ", Guests: " + guestCount + 
-                    ", Arrival: " + arrival + 
+                    ", Table ID: " + tableId +
+                    ", Start: " + startTime + 
+                    ", End: " + endTime +
                     ", Phone: " + phoneNumber + 
                     ", Location: " + location);
 
@@ -92,6 +97,30 @@ public class ReservationHandler {
                 return;
             }
             
+            // Find the specific table by ID
+            RestaurantTable targetTable = null;
+            for (RestaurantTable table : tables) {
+                if (table.getid() == tableId) {
+                    targetTable = table;
+                    break;
+                }
+            }
+            
+            if (targetTable == null) {
+                System.out.println("Table not found with ID: " + tableId);
+                SimpleServer.sendFailureResponse(client, "RESERVATION_FAILURE", "Table not found");
+                return;
+            }
+            
+            // Check if the table is already reserved during this time
+            boolean isTableReserved = checkIfTableIsReserved(branchId, tableId, startTime, endTime);
+            
+            if (isTableReserved) {
+                System.out.println("Table " + tableId + " is already reserved during this time");
+                SimpleServer.sendFailureResponse(client, "RESERVATION_FAILURE", "Table is already reserved during this time");
+                return;
+            }
+            
             List<UserAccount> userAccounts = DataManager.fetchUserAccountsByPhoneNumber(phoneNumber);
             
             UserAccount userAccount;
@@ -102,114 +131,71 @@ public class ReservationHandler {
                 // Branch fields remain null by default for client accounts
                 DataManager.add(userAccount);
                 System.out.println("Created new user account with ID: " + userAccount.getId());
-                
-                // Send empty reservations list for new account
-                client.sendToClient(new ArrayList<Reservation>()); 
-                return;
             } else {
                 userAccount = userAccounts.get(0);
                 System.out.println("Found user account: " + userAccount.getName() + " with ID: " + userAccount.getId());
             }
 
-            LocalDateTime departure = arrival.plusMinutes(Reservation.DEFAULT_DURATION_MINUTES);
-
-            System.out.println("Found branch: " + branch.getLocation());
-
-            // Use the tables list loaded earlier
-            if (tables.isEmpty()) {
-                System.out.println("No tables found in branch: " + branch.getLocation() + " - will create reservation anyway");
-                // Continuing without tables - will create empty reservation
+            // Get or create a Client for this UserAccount
+            List<Client> clients = DataManager.fetchClientsByPhoneNumber(phoneNumber);
+            Client customer;
+            
+            if (clients.isEmpty()) {
+                customer = new Client(userAccount.getName(), userAccount);
+                if (customer.getReservations() == null) {
+                    customer.setReservation(new ArrayList<>());
+                }
+                DataManager.add(customer);
             } else {
-                System.out.println("Found " + tables.size() + " tables in branch");
+                customer = clients.get(0);
+                if (customer.getReservations() == null) {
+                    customer.setReservation(new ArrayList<>());
+                }
             }
-
-            //if the client added a location where they wanna sit then we will change the 'tables' list
-            if(!location.isEmpty()) {
-                List<RestaurantTable> availableTables = returnRequiredTables(tables, location);
-                tables = availableTables;
-                System.out.println("Filtered to " + tables.size() + " tables in location: " + location);
-            }
-
-            //here we have enough info to proceed, next step is to see if we can make it work
-            //meaning we need enough tables, we need to pass the number of visitors and check the space
+            
+            // Create tables list with just this table
             List<RestaurantTable> tablesToAdd = new ArrayList<>();
+            tablesToAdd.add(targetTable);
             
-            // REMOVING TABLE AVAILABILITY CHECK - always proceed with reservation
-            boolean reservation = true;
+            // Create and save reservation in a single transaction
+            Reservation newReservation = new Reservation(startTime, endTime, guestCount, phoneNumber, branch, tableId);
+            newReservation.setClient(customer);
+            newReservation.setTables(tablesToAdd);
             
-            // Add at least one table to the reservation (if any exists)
-            if (!tables.isEmpty()) {
-                tablesToAdd.add(tables.get(0));
-            }
-            
-            System.out.println("Bypassing reservation check - proceeding with reservation");
-            
-            if (reservation) {
-                // Get or create a Client for this UserAccount
-                List<Client> clients = DataManager.fetchClientsByPhoneNumber(phoneNumber);
-                Client customer;
+            // Save both reservation and update client in a single transaction
+            Session saveSession = Database.getSessionFactoryInstance().openSession();
+            try {
+                saveSession.beginTransaction();
                 
-                if (clients.isEmpty()) {
-                    customer = new Client(userAccount.getName(), userAccount);
-                    if (customer.getReservations() == null) {
-                        customer.setReservation(new ArrayList<>());
-                    }
-                    DataManager.add(customer);
-                } else {
-                    customer = clients.get(0);
-                    if (customer.getReservations() == null) {
-                        customer.setReservation(new ArrayList<>());
-                    }
-                }
+                // First, reload the client to get fresh data
+                Client freshClient = saveSession.get(Client.class, customer.getId());
                 
-                // Create and save reservation in a single transaction
-                Reservation newReservation = new Reservation(arrival, guestCount, phoneNumber, branch, tablesToAdd);
-                newReservation.setClient(customer);
-                
-                // If tables exist, mark them as reserved
-                if (!tablesToAdd.isEmpty()) {
-                    reserveTables(tablesToAdd, toIndex(arrival));
-                }
-                
-                // Save both reservation and update client in a single transaction
-                Session saveSession = Database.getSessionFactoryInstance().openSession();
-                try {
-                    saveSession.beginTransaction();
-                    
-                    // First, reload the client to get fresh data
-                    Client freshClient = saveSession.get(Client.class, customer.getId());
-                    
-                    // Save the reservation
-                    saveSession.save(newReservation);
-                    System.out.println("Reservation saved with ID: " + newReservation.getId());
+                // Save the reservation
+                saveSession.save(newReservation);
+                System.out.println("Reservation saved with ID: " + newReservation.getId());
 
-                    // Add reservation to client's list in the same session
-                    if (freshClient.getReservations() == null) {
-                        freshClient.setReservation(new ArrayList<>());
-                    }
-                    freshClient.getReservations().add(newReservation);
-                    
-                    saveSession.getTransaction().commit();
-                    System.out.println("Reservation and client updated in the same transaction");
-                } catch (Exception e) {
-                    System.err.println("Error saving reservation: " + e.getMessage());
-                    e.printStackTrace();
-                    if (saveSession.getTransaction() != null && saveSession.getTransaction().isActive()) {
-                        saveSession.getTransaction().rollback();
-                    }
-                    SimpleServer.sendFailureResponse(client, "RESERVATION_FAILURE", "Error saving reservation: " + e.getMessage());
-                    return;
-                } finally {
-                    saveSession.close();
+                // Add reservation to client's list in the same session
+                if (freshClient.getReservations() == null) {
+                    freshClient.setReservation(new ArrayList<>());
                 }
+                freshClient.getReservations().add(newReservation);
                 
-                System.out.println("Reservation successfully created for phone: " + phoneNumber + " at " + branch.getLocation());
-                SimpleServer.sendSuccessResponse(client, "RESERVATION_SUCCESS", "Table reserved successfully");
+                saveSession.getTransaction().commit();
+                System.out.println("Reservation and client updated in the same transaction");
+            } catch (Exception e) {
+                System.err.println("Error saving reservation: " + e.getMessage());
+                e.printStackTrace();
+                if (saveSession.getTransaction() != null && saveSession.getTransaction().isActive()) {
+                    saveSession.getTransaction().rollback();
+                }
+                SimpleServer.sendFailureResponse(client, "RESERVATION_FAILURE", "Error saving reservation: " + e.getMessage());
+                return;
+            } finally {
+                saveSession.close();
             }
-            else {
-                System.out.println("No suitable tables available for reservation");
-                SimpleServer.sendFailureResponse(client, "RESERVATION_FAILURE", "No suitable table(s) available");
-            }
+            
+            System.out.println("Reservation successfully created for phone: " + phoneNumber + " at " + branch.getLocation());
+            SimpleServer.sendSuccessResponse(client, "RESERVATION_SUCCESS", "Table reserved successfully");
 
         } catch (Exception e) {
             System.err.println("Error processing reservation: " + e.getMessage());
@@ -217,62 +203,40 @@ public class ReservationHandler {
             SimpleServer.sendFailureResponse(client, "RESERVATION_FAILURE", "Server error: " + e.getMessage());
         }
     }
-    private static List<RestaurantTable> returnRequiredTables(List<RestaurantTable> tables,String location)
-    {
-        List<RestaurantTable> newlist=new ArrayList<>();
-        for(RestaurantTable table:tables)
-        {
-            if(table.getLocation().equals(location)){newlist.add(table);}
-        }
-
-        return newlist;
-    }
-
-    private static boolean CheckReservation(List<RestaurantTable> tablesList,int guestCount,LocalDateTime arrival, List<RestaurantTable> tablesToAdd)
-    {
-        int guestsWeCanAbsorb = 0;
-        int start=toIndex(arrival);
-        for(RestaurantTable t:tablesList){
-            if(isAvailable(t,start,tablesToAdd)){
-                guestsWeCanAbsorb+=t.getSeatingCapacity();
+    
+    /**
+     * Checks if a table is already reserved during the specified time window.
+     */
+    private static boolean checkIfTableIsReserved(int branchId, int tableId, LocalDateTime startTime, LocalDateTime endTime) {
+        try (Session session = Database.getSessionFactoryInstance().openSession()) {
+            // Find all reservations for this table
+            String hql = "FROM Reservation r WHERE r.tableId = :tableId AND r.branch.id = :branchId";
+            List<Reservation> reservations = session.createQuery(hql, Reservation.class)
+                    .setParameter("tableId", tableId)
+                    .setParameter("branchId", branchId)
+                    .list();
+            
+            // Check if any reservation overlaps with the requested time window
+            for (Reservation reservation : reservations) {
+                if (reservation.overlaps(startTime, endTime)) {
+                    return true;
+                }
             }
-            if(guestsWeCanAbsorb>=guestCount){return true;}
-        }
-        return false;
-    }
-
-    private static int toIndex(LocalDateTime arrival) {
-        return arrival.getHour()*60+arrival.getMinute();
-    }
-
-    private static boolean isAvailable(RestaurantTable table,int start,List<RestaurantTable> tablesToAdd) {
-        boolean[] timeSlots=table.getMinutes();
-        for (int i = start; i < start + Reservation.DEFAULT_DURATION_MINUTES; i++) {
-            if (timeSlots[i]) return false;
-        }
-        tablesToAdd.add(table);
-        return true;
-    }
-
-    private static void reserveTables(List<RestaurantTable> tables, int arrival) {
-        for (RestaurantTable table : tables) {
-            boolean[] time=table.getMinutes();
-            for(int i=arrival;i<arrival+ Reservation.DEFAULT_DURATION_MINUTES;i++) {
-                time[i]=true;
-            }
+            
+            return false;
+        } catch (Exception e) {
+            System.err.println("Error checking if table is reserved: " + e.getMessage());
+            e.printStackTrace();
+            return true; // Assume reserved if there's an error
         }
     }
-
-
 
     public static void handleCancelReservation(String msgString, ConnectionToClient client) {
-        // TODO: Cancel reservation by ID or table/client
-        //this method can't be activated unless a reservation was made before
-        //the client press on the "cancel" button, then we can activate the method on a reservation that for sure in the database
         String[] parts = msgString.split(";");
         //the message has to be {command;reservation id}
         if (parts.length < 2) {
             SimpleServer.sendFailureResponse(client, "CANCELLING_RESERVATION_FAILURE", "Invalid format");
+            return;
         }
 
         try {
@@ -285,10 +249,10 @@ public class ReservationHandler {
             }
 
             Reservation reservation = reservations.get(0);
-            LocalDateTime arrival = reservation.getReservationTime();
+            LocalDateTime startTime = reservation.getReservationTime();
             LocalDateTime now = LocalDateTime.now();
 
-            Duration diff = Duration.between(now, arrival);
+            Duration diff = Duration.between(now, startTime);
             long minutesBefore = diff.toMinutes();
 
             double refundPercentage;
@@ -299,25 +263,36 @@ public class ReservationHandler {
             } else {
                 refundPercentage = 0.0; // No refund
             }
-            Client customer=reservation.getClient();
-            customer.getReservations().remove(reservation);
-            int start = arrival.getHour() * 60 + arrival.getMinute();
-
-            // Free the occupied minutes
-            for (RestaurantTable table : reservation.getTables()) {
-                boolean[] minutes = table.getMinutes();
-                for (int i = start; i < start + Reservation.DEFAULT_DURATION_MINUTES; i++) {
-                    minutes[i] = false;
+            
+            // Remove the reservation from the client's list
+            Client customer = reservation.getClient();
+            if (customer != null && customer.getReservations() != null) {
+                customer.getReservations().remove(reservation);
+                // Update the customer in the database using a session
+                Session updateSession = Database.getSessionFactoryInstance().openSession();
+                try {
+                    updateSession.beginTransaction();
+                    updateSession.update(customer);
+                    updateSession.getTransaction().commit();
+                } catch (Exception e) {
+                    if (updateSession.getTransaction() != null) {
+                        updateSession.getTransaction().rollback();
+                    }
+                    System.err.println("Error updating client: " + e.getMessage());
+                } finally {
+                    updateSession.close();
                 }
             }
-
+            
+            // Delete the reservation
             DataManager.delete(reservation);
 
             // TODO: Process refund (optional, maybe just a print for now)
             System.out.println("Refund for client: " + (refundPercentage * 100) + "%");
 
-            SimpleServer.sendSuccessResponse(client, "CANCELLING_RESERVATION_SUCCESS", "Reservation cancelled");
-            System.out.println("Received cancel reservation request: " + msgString);
+            SimpleServer.sendSuccessResponse(client, "CANCELLING_RESERVATION_SUCCESS", 
+                    "Reservation cancelled. Refund: " + (int)(refundPercentage * 100) + "%");
+            System.out.println("Reservation cancelled successfully: " + reservationId);
 
         } catch (Exception e) {
             e.printStackTrace();
