@@ -14,4 +14,11 @@ public class SubscribedClient {
     public void setClient(ConnectionToClient client) {
         this.client = client;
     }
+    private String phoneNumber;
+    public Object getPhoneNumber() {
+        return phoneNumber;
+    }
+    public void setPhoneNumber(String number){
+        this.phoneNumber=number;
+    }
 }

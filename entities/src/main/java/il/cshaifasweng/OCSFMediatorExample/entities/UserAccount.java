@@ -66,6 +66,7 @@ public class UserAccount implements Serializable {
     }
 
     public boolean isManager() {
+        if (role == null) {return false;}
         return "manager".equalsIgnoreCase(role);
     }
 

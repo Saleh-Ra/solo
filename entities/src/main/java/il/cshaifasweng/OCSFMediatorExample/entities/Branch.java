@@ -1,6 +1,7 @@
 package il.cshaifasweng.OCSFMediatorExample.entities;
 
 import javax.persistence.*;
+import java.util.ArrayList;
 import java.util.List;
 import java.io.Serializable;
 
@@ -20,6 +21,10 @@ public class Branch implements Serializable {
     
     @OneToMany(mappedBy = "branch", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private List<MenuItem> menuItems;
+    private int monthlyVisitCount = 0;
+
+    @Transient
+    private List<Order> monthlyOrders = new ArrayList<>();
 
     // Many branches belong to one restaurant chain (Aggregation)
     @ManyToOne
@@ -82,5 +87,32 @@ public class Branch implements Serializable {
     
     public void setMenuItems(List<MenuItem> menuItems) {
         this.menuItems = menuItems;
+    }
+
+    public void removeMonthlyOrder(Order order) {
+        monthlyOrders.remove(order);
+    }
+    public void addMonthlyVisits(int num) {
+        monthlyVisitCount+=num;
+    }
+    public void removeMonthlyVisits(int num) {
+        monthlyVisitCount-=num;
+    }
+
+    public void addMonthlyOrder(Order order) {
+        monthlyOrders.add(order);
+    }
+
+    public void resetMonthlyStats() {
+        monthlyVisitCount = 0;
+        monthlyOrders.clear();
+    }
+
+    public int getMonthlyVisitCount() {
+        return monthlyVisitCount;
+    }
+
+    public List<Order> getMonthlyOrders() {
+        return monthlyOrders;
     }
 }

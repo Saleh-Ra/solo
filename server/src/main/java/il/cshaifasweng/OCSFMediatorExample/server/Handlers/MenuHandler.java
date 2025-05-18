@@ -16,6 +16,8 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
+import static il.cshaifasweng.OCSFMediatorExample.server.SimpleServer.SubscribersList;
+
 public class MenuHandler {
 
     public static void handleAddItemRequest(String msgString, ConnectionToClient client) {
@@ -290,4 +292,12 @@ public class MenuHandler {
             SimpleServer.sendFailureResponse(client, "UPDATE_PRICE_FAILURE", "Item not found");
         }
     }
+    /*public static ConnectionToClient getClientByPhone(String phone) {
+        for (SubscribedClient sc : SubscribersList) {
+            if (sc.getClient() != null && sc.getPhoneNumber().equals(phone)) {
+                return sc.getClient();
+            }
+        }
+        return null; // Not connected
+    }*/
 }

@@ -1,6 +1,7 @@
 package il.cshaifasweng.OCSFMediatorExample.server.dataManagers;
 
 import il.cshaifasweng.OCSFMediatorExample.entities.Client;
+import il.cshaifasweng.OCSFMediatorExample.entities.Order;
 import il.cshaifasweng.OCSFMediatorExample.entities.UserAccount;
 import il.cshaifasweng.OCSFMediatorExample.server.dataManagers.Database;
 import org.hibernate.Session;
@@ -81,6 +82,24 @@ public class DataManager {
 
         return results;
     }
+
+    public static List<Order> fetchOrdersByPhoneNumber(String phoneNumber) {
+        System.out.println("Fetching orderss by phone number: " + phoneNumber);
+        Session session = factory.openSession();
+        session.beginTransaction();
+
+        String hql = "FROM Order c WHERE c.phoneNumber = :phoneNumber";
+        List<Order> results = session.createQuery(hql, Order.class)
+                .setParameter("phoneNumber", phoneNumber)
+                .getResultList();
+
+        session.getTransaction().commit();
+        session.close();
+
+        System.out.println("Found " + results.size() + " orderss with phone number: " + phoneNumber);
+        return results;
+    }
+
 
     // Special method for fetching clients by phone number
     public static List<Client> fetchClientsByPhoneNumber(String phoneNumber) {

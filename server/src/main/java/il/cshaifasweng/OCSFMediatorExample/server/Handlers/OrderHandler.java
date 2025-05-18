@@ -5,14 +5,31 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
 import il.cshaifasweng.OCSFMediatorExample.entities.Client;
+import il.cshaifasweng.OCSFMediatorExample.entities.MenuItem;
 import il.cshaifasweng.OCSFMediatorExample.entities.Order;
 import il.cshaifasweng.OCSFMediatorExample.server.SimpleServer;
 import il.cshaifasweng.OCSFMediatorExample.server.dataManagers.DataManager;
 import il.cshaifasweng.OCSFMediatorExample.server.ocsf.ConnectionToClient;
+import il.cshaifasweng.OCSFMediatorExample.server.ocsf.SubscribedClient;
 
 import java.util.List;
 import java.util.ArrayList;
 
+/* to be added
+public static String serializeOrders(List<Order> orders) {
+    StringBuilder sb = new StringBuilder();
+    for (Order order : orders) {
+        sb.append(order.getId()).append(",")
+          .append(order.getCustomerName()).append(",")
+          .append(order.getStatus()).append(",")
+          .append(order.getTotalCost()).append(",")
+          .append(order.getDeliveryDate()).append(",")
+          .append(order.getDeliveryTime()).append(",")
+          .append(order.getDeliveryLocation()).append("|"); // Use '|' between orders
+    }
+    return sb.toString();
+}
+ */
 public class OrderHandler {
     //this method here will be called only after the customer finds a good time, otherwise this should not be called
     //the reason to that is that this method will only add to the database, it will not check any details
@@ -59,7 +76,8 @@ public class OrderHandler {
             System.out.println("Saving order to database...");
             DataManager.add(order);
             System.out.println("Order saved with ID: " + order.getId());
-            
+            //now change the client's order list
+            SimpleServer.sendUpdatedOrdersToClient(phone, client);
             // Send success response
             SimpleServer.sendSuccessResponse(client, "CREATE_ORDER_SUCCESS", "Order created successfully with ID: " + order.getId());
         } catch (NumberFormatException e) {
@@ -71,7 +89,6 @@ public class OrderHandler {
             SimpleServer.sendFailureResponse(client, "CREATE_ORDER_FAILURE", "Failed to create order: " + e.getMessage());
         }
     }
-
 
     public static void handleCancelOrder(String msgString, ConnectionToClient client) {
         //the message
