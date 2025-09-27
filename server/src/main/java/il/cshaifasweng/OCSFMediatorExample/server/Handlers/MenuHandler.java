@@ -38,7 +38,7 @@ public class MenuHandler {
             SimpleServer.sendFailureResponse(client, "ADD_ITEM_FAILURE", "Invalid price format");
             return;
         }
-        
+
         // Get the branch ID from the request
         Integer branchId = null;
         try {
@@ -47,10 +47,10 @@ public class MenuHandler {
             SimpleServer.sendFailureResponse(client, "ADD_ITEM_FAILURE", "Invalid branch ID");
             return;
         }
-        
+
         // Add item to branch-specific menu
         boolean success = addItemToBranch(name, ingredients, preferences, price, category, branchId);
-        
+
         if (success) {
             System.out.println("Added new item to branch: " + name + " for branch ID: " + branchId);
             SimpleServer.sendSuccessResponse(client, "ADD_ITEM_SUCCESS", name);
@@ -63,76 +63,79 @@ public class MenuHandler {
     /**
      * Sends menu items to client, combining default menu with branch-specific items
      */
-    public static void sendMenuToClient(ConnectionToClient client) {
+    public static void sendMenuToClient(String msgString, ConnectionToClient client) {
         try {
             SessionFactory factory = Database.getSessionFactoryInstance();
             Session session = factory.openSession();
-            List<MenuItem> menuItems = new ArrayList<>();
-            
-            Object clientInfo = client.getInfo("user");
-            System.out.println("Client info: " + (clientInfo == null ? "NULL" : clientInfo.getClass().getName()));
-            
-            if (clientInfo != null && clientInfo instanceof UserAccount) {
-                UserAccount user = (UserAccount) clientInfo;
-                System.out.println("User info: name=" + user.getName() + 
-                                  ", role=" + user.getRole() + 
-                                  ", branchId=" + user.getBranchId() + 
-                                  ", branchName=" + user.getBranchName());
-                
-                if (user.getRole().equals("chain_manager")) {
-                    // Chain managers see everything
-                    menuItems = session.createNativeQuery("SELECT * FROM MenuItem", MenuItem.class).getResultList();
-                    System.out.println("Sending all menu items to chain manager");
-                    
-                } else if (user.getBranchId() != null) {
-                    // Branch managers/staff see default items + their branch's items
-                    System.out.println("Executing SQL for branch ID: " + user.getBranchId());
-                    menuItems = session.createNativeQuery(
-                        "SELECT * FROM MenuItem WHERE branch_id IS NULL OR branch_id = :branchId", 
-                        MenuItem.class)
-                        .setParameter("branchId", user.getBranchId())
-                        .getResultList();
-                    System.out.println("SQL executed successfully");
-                    System.out.println("Sending default + branch-specific items for branch ID: " + user.getBranchId());
-                    
-                } else {
-                    // Regular users just see default items
-                    menuItems = session.createNativeQuery(
-                        "SELECT * FROM MenuItem WHERE branch_id IS NULL", 
-                        MenuItem.class)
-                        .getResultList();
-                    System.out.println("Sending default menu to user (no branch ID)");
-                }
-            } else {
-                // Try to find the user account from the database based on current connection
-                System.out.println("No user info in client, attempting to retrieve from database...");
+
+            Integer branchId = null;
+            if (msgString != null && msgString.contains(";")) {
                 try {
-                    // Get connected clients by IP - this is a guess at how you might identify them
-                    String clientAddress = client.getInetAddress().getHostAddress();
-                    System.out.println("Client address: " + clientAddress);
-                    
-                    // Try using any other login information you might have stored about this client
-                    // For demonstration - use the default menu for now
-                    menuItems = session.createNativeQuery(
-                        "SELECT * FROM MenuItem WHERE branch_id IS NULL", 
-                        MenuItem.class)
-                        .getResultList();
-                    System.out.println("Sending default menu to client (user info missing)");
-                } catch (Exception e) {
-                    System.err.println("Error trying to identify client: " + e.getMessage());
-                    // Default to just showing default menu
-                    menuItems = session.createNativeQuery(
-                        "SELECT * FROM MenuItem WHERE branch_id IS NULL", 
-                        MenuItem.class)
-                        .getResultList();
-                    System.out.println("Sending default menu as fallback");
+                    branchId = Integer.parseInt(msgString.split(";", 2)[1].trim());
+                } catch (NumberFormatException ignored) {
                 }
             }
-            
+
+            List<MenuItem> menuItems;
+            if (branchId == null) {
+                System.out.println("Sending ONLY universal menu items (branch_id IS NULL) to client");
+                menuItems = session.createNativeQuery(
+                    "SELECT * FROM MenuItem WHERE branch_id IS NULL",
+                    MenuItem.class
+                ).getResultList();
+            } else {
+                System.out.println("Sending universal items + branch specials for branch ID: " + branchId);
+                menuItems = session.createNativeQuery(
+                    "SELECT * FROM MenuItem WHERE branch_id IS NULL OR branch_id = :branchId",
+                    MenuItem.class
+                ).setParameter("branchId", branchId).getResultList();
+            }
+
             System.out.println("Total menu items being sent: " + menuItems.size());
             client.sendToClient(menuItems);
             session.close();
-            
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void sendMenuByCategoryToClient(String msgString, ConnectionToClient client) {
+        try {
+            String[] parts = msgString.split(";");
+            if (parts.length < 2) {
+                SimpleServer.sendFailureResponse(client, "GET_MENU_BY_CATEGORY_FAILURE", "Missing category");
+                return;
+            }
+            String category = parts[1];
+            Integer branchId = null;
+            if (parts.length >= 3) {
+                try {
+                    branchId = Integer.parseInt(parts[2].trim());
+                } catch (NumberFormatException ignored) {
+                }
+            }
+
+            SessionFactory factory = Database.getSessionFactoryInstance();
+            Session session = factory.openSession();
+
+            List<MenuItem> items;
+            if (branchId == null) {
+                // Only universal items of this category
+                items = session.createNativeQuery(
+                    "SELECT * FROM MenuItem WHERE branch_id IS NULL AND category = :cat",
+                    MenuItem.class
+                ).setParameter("cat", category).getResultList();
+            } else {
+                // Universal + this branch's specials for this category
+                items = session.createNativeQuery(
+                    "SELECT * FROM MenuItem WHERE category = :cat AND (branch_id IS NULL OR branch_id = :branchId)",
+                    MenuItem.class
+                ).setParameter("cat", category).setParameter("branchId", branchId).getResultList();
+            }
+
+            client.sendToClient(items);
+            session.close();
         } catch (IOException e) {
             e.printStackTrace();
         }
@@ -246,7 +249,7 @@ public class MenuHandler {
         }
     }
 
-    protected static void handleDeleteItemRequest(String msgString, ConnectionToClient client) {
+    public static void handleDeleteItemRequest(String msgString, ConnectionToClient client) {
         String[] parts = msgString.split(";");
         if (parts.length < 2) {
             SimpleServer.sendFailureResponse(client, "DELETE_ITEM_FAILURE", "Invalid format");
@@ -290,6 +293,75 @@ public class MenuHandler {
             SimpleServer.sendUpdatedMenuToAllClients(); // Notify all clients about the updated menu
         } else {
             SimpleServer.sendFailureResponse(client, "UPDATE_PRICE_FAILURE", "Item not found");
+        }
+    }
+
+    public static void handleToggleItemScope(String msgString, ConnectionToClient client) {
+        String[] parts = msgString.split(";");
+        if (parts.length < 3) {
+            SimpleServer.sendFailureResponse(client, "TOGGLE_ITEM_SCOPE_FAILURE", "Invalid format");
+            return;
+        }
+        String name = parts[1].trim();
+        Integer branchId;
+        try {
+            branchId = Integer.parseInt(parts[2].trim());
+        } catch (NumberFormatException e) {
+            SimpleServer.sendFailureResponse(client, "TOGGLE_ITEM_SCOPE_FAILURE", "Invalid branch id");
+            return;
+        }
+
+        SessionFactory factory = Database.getSessionFactoryInstance();
+        try (Session session = factory.openSession()) {
+            session.beginTransaction();
+
+            List<MenuItem> items = session.createNativeQuery(
+                "SELECT * FROM MenuItem WHERE name = :name",
+                MenuItem.class
+            ).setParameter("name", name).getResultList();
+            if (items.isEmpty()) {
+                session.getTransaction().commit();
+                SimpleServer.sendFailureResponse(client, "TOGGLE_ITEM_SCOPE_FAILURE", "Item not found");
+                return;
+            }
+
+            MenuItem item = items.get(0);
+            if (item.getBranch() == null) {
+                // Make it special for this branch
+                Branch branch = session.get(Branch.class, branchId);
+                if (branch == null) {
+                    session.getTransaction().commit();
+                    SimpleServer.sendFailureResponse(client, "TOGGLE_ITEM_SCOPE_FAILURE", "Branch not found");
+                    return;
+                }
+                item.setBranch(branch);
+            } else {
+                // Make it universal
+                item.setBranch(null);
+            }
+
+            session.update(item);
+            session.getTransaction().commit();
+            SimpleServer.sendSuccessResponse(client, "TOGGLE_ITEM_SCOPE_SUCCESS", name);
+            SimpleServer.sendUpdatedMenuToAllClients();
+        }
+    }
+
+    public static void handleUpdateIngredients(String msgString, ConnectionToClient client) {
+        String[] parts = msgString.split(";", 3);
+        if (parts.length < 3) {
+            SimpleServer.sendFailureResponse(client, "UPDATE_INGREDIENTS_FAILURE", "Invalid format");
+            return;
+        }
+        String name = parts[1].trim();
+        String newIngredients = parts[2].trim();
+
+        int updated = DataManager.updateFieldByCondition(MenuItem.class, "ingredients", newIngredients, "name", name);
+        if (updated > 0) {
+            SimpleServer.sendSuccessResponse(client, "UPDATE_INGREDIENTS_SUCCESS", name);
+            SimpleServer.sendUpdatedMenuToAllClients();
+        } else {
+            SimpleServer.sendFailureResponse(client, "UPDATE_INGREDIENTS_FAILURE", "Item not found");
         }
     }
     /*public static ConnectionToClient getClientByPhone(String phone) {

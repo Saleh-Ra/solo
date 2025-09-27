@@ -94,4 +94,31 @@
     -fx-background-color: #3f87a6;
     -fx-background-radius: 50%;
     -fx-padding: 6px;
+}
+
+/* Branch selection button style */
+.branch-button {
+    -fx-background-color: #ff9800;
+    -fx-text-fill: white;
+    -fx-background-radius: 8px;
+    -fx-padding: 15px 20px;
+    -fx-font-size: 16px;
+    -fx-font-weight: bold;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 4, 0, 0, 3);
+    -fx-cursor: hand;
+    -fx-min-width: 250px;
+    -fx-min-height: 50px;
+}
+
+.branch-button:hover {
+    -fx-background-color: #f57c00;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.4), 5, 0, 0, 4);
+    -fx-translate-y: -2px;
+    -fx-transition: all 0.2s ease;
+}
+
+.branch-button:pressed {
+    -fx-background-color: #ef6c00;
+    -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.2), 2, 0, 0, 2);
+    -fx-translate-y: 0px;
 } 

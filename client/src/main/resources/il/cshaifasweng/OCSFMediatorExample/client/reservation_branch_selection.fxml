@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+
+<VBox xmlns="http://javafx.com/javafx/23.0.1"
+      xmlns:fx="http://javafx.com/fxml/1"
+      fx:controller="il.cshaifasweng.OCSFMediatorExample.client.boundary.ReservationBranchSelectionController"
+      spacing="20" alignment="CENTER" style="-fx-padding: 40; -fx-background-color: #f8f9fa;"
+      stylesheets="@modern-style.css">
+
+    <Label text="🍽️ Choose Your Branch for Table Reservation" style="-fx-font-size: 28px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;" />
+    
+    <Label text="Select the branch where you'd like to reserve a table:" style="-fx-font-size: 16px; -fx-text-fill: #7f8c8d;" />
+
+    <VBox spacing="15" alignment="CENTER" maxWidth="400">
+        <Button text="📍 Tel-Aviv Branch" onAction="#handleTelAvivBranch" styleClass="branch-button, wide-button" />
+        <Button text="📍 Haifa Branch" onAction="#handleHaifaBranch" styleClass="branch-button, wide-button" />
+        <Button text="📍 Jerusalem Branch" onAction="#handleJerusalemBranch" styleClass="branch-button, wide-button" />
+        <Button text="📍 Beer-Sheva Branch" onAction="#handleBeerShevaBranch" styleClass="branch-button, wide-button" />
+    </VBox>
+
+    <HBox spacing="15" alignment="CENTER">
+        <Button text="Back to Main Menu" onAction="#handleBackToMain" styleClass="secondary-button" />
+    </HBox>
+
+</VBox>

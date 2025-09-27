@@ -39,6 +39,11 @@
 
     <bottom>
         <HBox spacing="10" alignment="CENTER_RIGHT" style="-fx-padding: 10;">
+            <Button fx:id="reportsButton" 
+                    text="📊 View Reports"
+                    onAction="#handleViewReports"
+                    styleClass="primary-button"
+                    visible="false" />
             <Button text="Contact Us"
                     onAction="#handleContactUs" />
             <Button text="Log Out"

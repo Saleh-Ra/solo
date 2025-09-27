@@ -5,16 +5,22 @@ import javafx.fxml.FXML;
 import javafx.scene.control.Button;
 import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.TextField;
 import javafx.scene.layout.VBox;
+import javafx.scene.layout.HBox;
 import java.io.IOException;
 import java.util.List;
 import il.cshaifasweng.OCSFMediatorExample.entities.MenuItem;
+import javafx.scene.control.Alert;
 
 public class SecondaryController implements MenuUpdateListener {
 
     @FXML
     private ComboBox<String> mealComboBox;
+
+    @FXML
+    private ComboBox<String> deleteMealComboBox;
 
     @FXML
     private TextField newPriceField;
@@ -42,6 +48,9 @@ public class SecondaryController implements MenuUpdateListener {
 
     @FXML
     private Label branchNameLabel;
+
+    @FXML
+    private Button reportsButton;
 
     @FXML
     private void initialize() {
@@ -110,10 +119,53 @@ public class SecondaryController implements MenuUpdateListener {
             });
         }
 
-        try {
-            SimpleClient.getClient().sendToServer("GET_MENU");
-        } catch (IOException e) {
-            statusLabel.setText("Failed to fetch menu from server.");
+        // Only fetch menu if user is a manager (not chain manager)
+        String userRole = SimpleClient.getCurrentUserRole();
+        if ("manager".equalsIgnoreCase(userRole)) {
+            try {
+                // Prefer stored selectedBranchId; if absent, derive from manager's branch name
+                Integer selectedBranchId = SimpleClient.getSelectedBranchId();
+                if (selectedBranchId == null) {
+                    String managerBranchName = SimpleClient.getBranchName();
+                    if (managerBranchName != null) {
+                        switch (managerBranchName) {
+                            case "Tel-Aviv":
+                                selectedBranchId = 1; break;
+                            case "Haifa":
+                                selectedBranchId = 2; break;
+                            case "Jerusalem":
+                                selectedBranchId = 3; break;
+                            case "Beer-Sheva":
+                                selectedBranchId = 4; break;
+                            default: {
+                                String[] parts = managerBranchName.split("\\D+");
+                                for (String part : parts) {
+                                    if (!part.isEmpty()) {
+                                        try {
+                                            selectedBranchId = Integer.parseInt(part);
+                                            break;
+                                        } catch (NumberFormatException ignored) {}
+                                    }
+                                }
+                            }
+                        }
+                        if (selectedBranchId != null) {
+                            SimpleClient.setSelectedBranchId(selectedBranchId);
+                        }
+                    }
+                }
+
+                if (selectedBranchId != null) {
+                    SimpleClient.getClient().sendToServer("GET_MENU;" + selectedBranchId);
+                    System.out.println("SecondaryController: Requesting menu for branch ID: " + selectedBranchId);
+                } else {
+                    // Fallback: universal only
+                    SimpleClient.getClient().sendToServer("GET_MENU");
+                    System.out.println("SecondaryController: No branch resolved, requesting universal menu only");
+                }
+            } catch (IOException e) {
+                statusLabel.setText("Failed to fetch menu from server.");
+            }
         }
     }
 
@@ -241,14 +293,29 @@ public class SecondaryController implements MenuUpdateListener {
         }
     }
 
+    @FXML
+    private void handleViewReports() {
+        try {
+            App.setRoot("reports_view");
+        } catch (IOException e) {
+            showError("Error opening reports: " + e.getMessage());
+        }
+    }
+
     @Override
     public void onMenuUpdate(List<MenuItem> menuItems) {
         Platform.runLater(() -> {
             mealComboBox.getItems().clear();
+            if (deleteMealComboBox != null) {
+                deleteMealComboBox.getItems().clear();
+            }
             menuDisplayVBox.getChildren().clear();
 
             for (MenuItem item : menuItems) {
                 mealComboBox.getItems().add(item.getName());
+                if (deleteMealComboBox != null) {
+                    deleteMealComboBox.getItems().add(item.getName());
+                }
                 
                 // Create a styled menu item display
                 VBox itemBox = new VBox(5);
@@ -277,8 +344,19 @@ public class SecondaryController implements MenuUpdateListener {
                     String.format("Price: $%.2f", item.getPrice())
                 );
                 priceLabel.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #3f87a6;");
-                
-                itemBox.getChildren().addAll(nameLabel, detailsLabel, prefsLabel, categoryLabel, priceLabel);
+
+                // Manager-only action buttons: toggle scope and edit ingredients
+                Button toggleScopeBtn = new Button("Toggle Scope");
+                toggleScopeBtn.setStyle("-fx-font-size: 12px; -fx-background-color: #795548; -fx-text-fill: white;");
+                toggleScopeBtn.setOnAction(e -> toggleItemScope(item));
+
+                Button editIngredientsBtn = new Button("Edit Ingredients");
+                editIngredientsBtn.setStyle("-fx-font-size: 12px; -fx-background-color: #607D8B; -fx-text-fill: white;");
+                editIngredientsBtn.setOnAction(e -> editItemIngredients(item));
+
+                HBox actionsRow = new HBox(8, toggleScopeBtn, editIngredientsBtn);
+
+                itemBox.getChildren().addAll(nameLabel, detailsLabel, prefsLabel, categoryLabel, priceLabel, actionsRow);
                 menuDisplayVBox.getChildren().add(itemBox);
             }
             
@@ -295,5 +373,65 @@ public class SecondaryController implements MenuUpdateListener {
                 }
             }
         });
+    }
+
+    private void toggleItemScope(MenuItem item) {
+        try {
+            Integer branchId = SimpleClient.getSelectedBranchId();
+            if (branchId == null) {
+                statusLabel.setText("Cannot toggle scope: branch not resolved.");
+                return;
+            }
+            String request = String.format("TOGGLE_ITEM_SCOPE;%s;%d", item.getName(), branchId);
+            SimpleClient.getClient().sendToServer(request);
+            statusLabel.setText("Toggle scope request sent for " + item.getName());
+        } catch (IOException ex) {
+            statusLabel.setText("Failed to connect to the server.");
+        }
+    }
+
+    private void editItemIngredients(MenuItem item) {
+        TextInputDialog dialog = new TextInputDialog(item.getIngredients());
+        dialog.setTitle("Edit Ingredients");
+        dialog.setHeaderText(null);
+        dialog.setContentText("Enter new ingredients:");
+        dialog.showAndWait().ifPresent(newIngredients -> {
+            if (newIngredients == null || newIngredients.trim().isEmpty()) {
+                statusLabel.setText("Ingredients cannot be empty.");
+                return;
+            }
+            try {
+                String request = String.format("UPDATE_INGREDIENTS;%s;%s", item.getName(), newIngredients.trim());
+                SimpleClient.getClient().sendToServer(request);
+                statusLabel.setText("Update ingredients request sent for " + item.getName());
+            } catch (IOException e) {
+                statusLabel.setText("Failed to connect to the server.");
+            }
+        });
+    }
+
+    @FXML
+    private void deleteSelectedItem() {
+        String selectedMeal = deleteMealComboBox != null ? deleteMealComboBox.getValue() : null;
+        if (selectedMeal == null || selectedMeal.isEmpty()) {
+            statusLabel.setText("Please select a meal to delete.");
+            return;
+        }
+
+        try {
+            String request = "DELETE_ITEM;" + selectedMeal;
+            SimpleClient.getClient().sendToServer(request);
+            statusLabel.setText("Delete request sent for " + selectedMeal + ".");
+        } catch (IOException e) {
+            statusLabel.setText("Failed to connect to the server.");
+        }
+    }
+
+    private void showError(String message) {
+        Alert alert = new Alert(Alert.AlertType.ERROR);
+        alert.setTitle("Error");
+        alert.setHeaderText(null);
+        alert.setContentText(message);
+        alert.showAndWait();
     }
 }

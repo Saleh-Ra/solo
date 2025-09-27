@@ -13,6 +13,7 @@ il\cshaifasweng\OCSFMediatorExample\server\ocsf\AbstractServer.class
 il\cshaifasweng\OCSFMediatorExample\server\Handlers\MenuHandler.class
 il\cshaifasweng\OCSFMediatorExample\server\ocsf\AbstractConnectionFactory.class
 il\cshaifasweng\OCSFMediatorExample\server\ocsf\ObservableServer.class
+il\cshaifasweng\OCSFMediatorExample\server\Handlers\ReportHandler.class
 il\cshaifasweng\OCSFMediatorExample\server\ocsf\AdaptableServer.class
 il\cshaifasweng\OCSFMediatorExample\server\ocsf\AbstractServer$1.class
 il\cshaifasweng\OCSFMediatorExample\server\SimpleServer.class

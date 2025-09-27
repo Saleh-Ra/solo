@@ -52,12 +52,20 @@ public class SimpleServer extends AbstractServer {
 		String msgString = msg.toString();
 		System.out.println("Received message from client: " + msgString);
 
-		if (msgString.startsWith("GET_MENU")) {
-			MenuHandler.sendMenuToClient(client);
+        if (msgString.startsWith("GET_MENU_BY_CATEGORY")) {
+            MenuHandler.sendMenuByCategoryToClient(msgString, client);
+        } else if (msgString.startsWith("GET_MENU")) {
+            MenuHandler.sendMenuToClient(msgString, client);
 		} else if (msgString.startsWith("UPDATE_PRICE")) {
 			MenuHandler.handleUpdatePriceRequest(msgString, client);
 		} else if (msgString.startsWith("ADD_ITEM")) {
 			MenuHandler.handleAddItemRequest(msgString, client);
+		} else if (msgString.startsWith("DELETE_ITEM")) {
+			MenuHandler.handleDeleteItemRequest(msgString, client);
+        } else if (msgString.startsWith("TOGGLE_ITEM_SCOPE")) {
+            MenuHandler.handleToggleItemScope(msgString, client);
+        } else if (msgString.startsWith("UPDATE_INGREDIENTS")) {
+            MenuHandler.handleUpdateIngredients(msgString, client);
 		}
 		//reservation
 		else if (msgString.startsWith("RESERVE_TABLE")) {
@@ -66,8 +74,14 @@ public class SimpleServer extends AbstractServer {
 			ReservationHandler.handleCancelReservation(msgString, client);
 		} else if (msgString.startsWith("GET_AVAILABLE_TABLES")) {
 			ReservationHandler.handleGetAvailableTables(msgString,client);
+		} else if (msgString.startsWith("GET_BRANCH_TABLES")) {
+			ReservationHandler.handleGetBranchTables(msgString, client);
+		} else if (msgString.startsWith("GET_BRANCH_TABLES_WITH_AVAILABILITY")) {
+			ReservationHandler.handleGetBranchTablesWithAvailability(msgString, client);
 		} else if (msgString.startsWith("GET_USER_RESERVATIONS")) {
 			ReservationHandler.handleGetUserReservations(msgString, client);
+		} else if (msgString.startsWith("GET_ALL_BRANCHES")) {
+			ReservationHandler.handleGetAllBranches(client);
 		}
 		//order
 		else if (msgString.startsWith("CREATE_ORDER")) {
@@ -78,6 +92,12 @@ public class SimpleServer extends AbstractServer {
 			OrderHandler.handleGetAllOrders(client);
 		} else if (msgString.startsWith("GET_USER_ORDERS")) {
 			OrderHandler.handleGetOrdersByPhoneNumber(msgString, client);
+		} else if (msgString.startsWith("GET_REPORTS")) {
+			ReportHandler.handleGetReports(client);
+		} else if (msgString.startsWith("GENERATE_REPORT")) {
+			ReportHandler.handleGenerateReport(msgString, client);
+		} else if (msgString.startsWith("EXPORT_REPORT")) {
+			ReportHandler.handleExportReport(msgString, client);
 		}
 		//client
 		else if (msgString.startsWith("SIGNUP")) {

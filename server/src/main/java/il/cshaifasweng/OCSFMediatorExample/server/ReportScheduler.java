@@ -36,26 +36,39 @@ public class ReportScheduler {
         RestaurantChainManager ChainManager=DataManager.fetchAll(RestaurantChainManager.class).get(0);
         List<BranchManager> managers=DataManager.fetchAll(BranchManager.class);
         int totalVisitors=0;
-        List<Order> orders=DataManager.fetchAll(Order.class);
+        List<Order> allOrders=DataManager.fetchAll(Order.class);
+        
         for(BranchManager manager:managers){
             Branch branch=manager.getBranch();
-            String summary = "Total guests this month: " + branch.getMonthlyVisitCount()+
-                    "Total orders this month: "+ branch.getMonthlyOrders();
+            
+            // Count orders for this branch from the database
+            int branchOrderCount = 0;
+            for (Order order : allOrders) {
+                if (order.getBranchId() == branch.getId()) {
+                    branchOrderCount++;
+                }
+            }
+            
+            String summary = "Total guests this month: " + branch.getMonthlyVisitCount() +
+                    "\nTotal orders this month: " + branchOrderCount;
             totalVisitors+=branch.getMonthlyVisitCount();
-            orders.addAll(branch.getMonthlyOrders());
+            
             ConnectionToClient client = SimpleServer.getClientByPhone(
                     manager.getManager().getPhoneNumber()
             );
             try{
-                client.sendToClient("monthly summary: "+ summary);
+                client.sendToClient("monthly summary: " + summary);
             }catch (IOException e) {
                 e.printStackTrace();
             }
-            //send to manager
         }
-        //send to chain manager
-
-        // Send results using sendToManagers("monthly_report;" + summary);
+        
         System.out.println("Monthly report sent to managers.");
+    }
+    
+    // Method to manually generate reports for testing
+    public static void generateReportsNow() {
+        System.out.println("Manually generating reports...");
+        generateAndSendReports();
     }
 }

@@ -1,10 +1,13 @@
 package il.cshaifasweng.OCSFMediatorExample.client;
 
 import il.cshaifasweng.OCSFMediatorExample.client.ocsf.AbstractClient;
+import il.cshaifasweng.OCSFMediatorExample.entities.Branch;
 import il.cshaifasweng.OCSFMediatorExample.entities.Cart;
 import il.cshaifasweng.OCSFMediatorExample.entities.MenuItem;
 import il.cshaifasweng.OCSFMediatorExample.entities.Order;
 import il.cshaifasweng.OCSFMediatorExample.entities.Reservation;
+import il.cshaifasweng.OCSFMediatorExample.entities.RestaurantTable;
+import il.cshaifasweng.OCSFMediatorExample.entities.TableAvailabilityInfo;
 import il.cshaifasweng.OCSFMediatorExample.entities.Warning;
 import org.greenrobot.eventbus.EventBus;
 
@@ -12,6 +15,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import javafx.application.Platform;
 
 public class SimpleClient extends AbstractClient {
 
@@ -21,6 +25,8 @@ public class SimpleClient extends AbstractClient {
 	private static String currentUserPhone;
 	private static String currentUserRole;
 	private static String branchName;
+	private static int selectedBranchId;
+	private static String selectedBranchName;
 	private MenuUpdateListener menuUpdateListener;
 
 	private SimpleClient(String host, int port) {
@@ -70,6 +76,24 @@ public class SimpleClient extends AbstractClient {
 		System.out.println("Set branch name to: " + name);
 	}
 
+	public static int getSelectedBranchId() {
+		return selectedBranchId;
+	}
+
+	public static void setSelectedBranchId(int branchId) {
+		selectedBranchId = branchId;
+		System.out.println("Set selected branch ID to: " + branchId);
+	}
+
+	public static String getSelectedBranchName() {
+		return selectedBranchName;
+	}
+
+	public static void setSelectedBranchName(String branchName) {
+		selectedBranchName = branchName;
+		System.out.println("Set selected branch name to: " + branchName);
+	}
+
 	@Override
 	protected void handleMessageFromServer(Object msg) {
 		System.out.println("Received message from server: " + msg);
@@ -90,12 +114,42 @@ public class SimpleClient extends AbstractClient {
 						setCurrentUserPhone(phoneNumber);
 						setCurrentUserRole(role);
 						
-						// Extract branch name if available (for managers)
-						if (parts.length > 3) {
-							String branch = parts[3];
-							setBranchName(branch);
-							System.out.println("Logged in user with phone: " + phoneNumber + ", role: " + role + ", branch: " + branch);
-						} else {
+                        // Extract branch name if available (for managers)
+                        if (parts.length > 3) {
+                            String branch = parts[3];
+                            setBranchName(branch);
+                            // Derive branch id from branch name and store it for unified menu requests
+                            try {
+                                Integer branchId = null;
+                                if (branch != null) {
+                                    switch (branch) {
+                                        case "Tel-Aviv":
+                                            branchId = 1; break;
+                                        case "Haifa":
+                                            branchId = 2; break;
+                                        case "Jerusalem":
+                                            branchId = 3; break;
+                                        case "Beer-Sheva":
+                                            branchId = 4; break;
+                                        default: {
+                                            String[] partsNum = branch.split("\\D+");
+                                            for (String p : partsNum) {
+                                                if (!p.isEmpty()) {
+                                                    try {
+                                                        branchId = Integer.parseInt(p);
+                                                        break;
+                                                    } catch (NumberFormatException ignored) {}
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                if (branchId != null) {
+                                    setSelectedBranchId(branchId);
+                                }
+                            } catch (Exception ignored) {}
+                            System.out.println("Logged in user with phone: " + phoneNumber + ", role: " + role + ", branch: " + branch);
+                        } else {
 							setBranchName(null);
 							System.out.println("Logged in user with phone: " + phoneNumber + " and role: " + role);
 						}
@@ -143,7 +197,29 @@ public class SimpleClient extends AbstractClient {
 				System.out.println("Received " + reservations.size() + " reservations from server");
 				EventBus.getDefault().post(new ReservationsReceivedEvent(reservations));
 			}
-			// Or it's an empty list - check the instance type from generic signature
+			            // Check if it's a list of restaurant tables
+            else if (!((List<?>) msg).isEmpty() && ((List<?>) msg).get(0) instanceof RestaurantTable) {
+                List<RestaurantTable> tables = (List<RestaurantTable>) msg;
+                System.out.println("🟡 SimpleClient: Received " + tables.size() + " restaurant tables from server");
+                System.out.println("🟡 SimpleClient: Posting TablesReceivedEvent with " + tables.size() + " tables");
+                EventBus.getDefault().post(new TablesReceivedEvent(tables));
+                System.out.println("🟡 SimpleClient: TablesReceivedEvent posted to EventBus");
+            }
+                        // Check if it's a list of table availability info
+            else if (!((List<?>) msg).isEmpty() && ((List<?>) msg).get(0) instanceof TableAvailabilityInfo) {
+                List<TableAvailabilityInfo> tableAvailabilityList = (List<TableAvailabilityInfo>) msg;
+                System.out.println("🟡 SimpleClient: Received " + tableAvailabilityList.size() + " table availability info from server");
+                EventBus.getDefault().post(tableAvailabilityList);
+                System.out.println("🟡 SimpleClient: TableAvailabilityInfo posted to EventBus");
+            }
+            // Check if it's a list of branches
+            else if (!((List<?>) msg).isEmpty() && ((List<?>) msg).get(0) instanceof Branch) {
+                List<Branch> branches = (List<Branch>) msg;
+                System.out.println("🟡 SimpleClient: Received " + branches.size() + " branches from server");
+                EventBus.getDefault().post(new BranchesReceivedEvent(branches));
+                System.out.println("🟡 SimpleClient: BranchesReceivedEvent posted to EventBus");
+            }
+            // Or it's an empty list - check the instance type from generic signature
 			else if (((List<?>) msg).isEmpty()) {
 				// Since we can't tell what type of empty list it is, post both empty events
 				// The controller will handle whichever is relevant
@@ -159,6 +235,33 @@ public class SimpleClient extends AbstractClient {
 					menuUpdateListener.onMenuUpdate(cachedMenuItems);
 				}
 			}
+		} else if (msg instanceof String) {
+			// Handle string messages (reports, etc.)
+			String message = (String) msg;
+			System.out.println("Received string message: " + message);
+			
+			if (message.startsWith("REPORTS_DATA;")) {
+				String reportData = message.substring("REPORTS_DATA;".length());
+				EventBus.getDefault().post(new ReportReceivedEvent(reportData));
+			} else if (message.startsWith("REPORT_GENERATED;")) {
+				String reportData = message.substring("REPORT_GENERATED;".length());
+				EventBus.getDefault().post(new ReportReceivedEvent(reportData));
+			} else if (message.startsWith("REPORT_ERROR;")) {
+				String errorMsg = message.substring("REPORT_ERROR;".length());
+				EventBus.getDefault().post(new ReportErrorEvent(errorMsg));
+			            } else if (message.startsWith("REPORT_EXPORTED;")) {
+                String exportMsg = message.substring("REPORT_EXPORTED;".length());
+                EventBus.getDefault().post(new ReportExportEvent(exportMsg));
+            } else if (message.equals("NAVIGATE_TO_MAIN")) {
+                System.out.println("🟡 SimpleClient: Received NAVIGATE_TO_MAIN command");
+                Platform.runLater(() -> {
+                    try {
+                        App.setRoot("primary1");
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                });
+            }
 		} else {
 			System.out.println("Unhandled message type: " + msg.getClass());
 		}
@@ -236,6 +339,71 @@ public class SimpleClient extends AbstractClient {
 		
 		public List<Reservation> getReservations() {
 			return reservations;
+		}
+	}
+	
+	// Event class for reports received
+	public static class ReportReceivedEvent {
+		private final String reportData;
+		
+		public ReportReceivedEvent(String reportData) {
+			this.reportData = reportData;
+		}
+		
+		public String getReportData() {
+			return reportData;
+		}
+	}
+	
+	// Event class for restaurant tables received
+	public static class TablesReceivedEvent {
+		private final List<RestaurantTable> tables;
+		
+		public TablesReceivedEvent(List<RestaurantTable> tables) {
+			this.tables = tables;
+		}
+		
+		public List<RestaurantTable> getTables() {
+			return tables;
+		}
+	}
+	
+	// Event class for report errors
+	public static class ReportErrorEvent {
+		private final String errorMessage;
+		
+		public ReportErrorEvent(String errorMessage) {
+			this.errorMessage = errorMessage;
+		}
+		
+		public String getErrorMessage() {
+			return errorMessage;
+		}
+	}
+	
+	// Event class for report exports
+	public static class ReportExportEvent {
+		private final String exportMessage;
+		
+		public ReportExportEvent(String exportMessage) {
+			this.exportMessage = exportMessage;
+		}
+		
+		public String getExportMessage() {
+			return exportMessage;
+		}
+	}
+	
+	// Event class for branches received
+	public static class BranchesReceivedEvent {
+		private final List<Branch> branches;
+		
+		public BranchesReceivedEvent(List<Branch> branches) {
+			this.branches = branches;
+		}
+		
+		public List<Branch> getBranches() {
+			return branches;
 		}
 	}
 }

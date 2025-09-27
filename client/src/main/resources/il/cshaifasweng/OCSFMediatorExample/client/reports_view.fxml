@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.scene.control.*?>
+<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+
+<BorderPane xmlns="http://javafx.com/javafx/23.0.1"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="il.cshaifasweng.OCSFMediatorExample.client.boundary.ReportsViewController"
+            style="-fx-background-color: #f4f4f4;">
+
+    <!-- Header -->
+    <top>
+        <VBox spacing="5" style="-fx-background-color: #3f87a6; -fx-padding: 15px;">
+            <HBox alignment="CENTER" spacing="10">
+                <Label text="Reports Dashboard" style="-fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: white;" />
+                <Label fx:id="branchLabel" style="-fx-font-size: 26px; -fx-font-weight: bold; -fx-text-fill: white;" />
+            </HBox>
+            <Label fx:id="statusLabel" style="-fx-font-size: 14px; -fx-text-fill: #e0f7fa;" />
+        </VBox>
+    </top>
+
+    <!-- Main Content -->
+    <center>
+        <VBox spacing="20" style="-fx-padding: 20;">
+            <!-- Report Generation Section -->
+            <TitledPane text="Generate New Report" expanded="true">
+                <VBox spacing="10">
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <ComboBox fx:id="reportTypeComboBox" promptText="Select Report Type" />
+                        <DatePicker fx:id="startDatePicker" promptText="Start Date" />
+                        <DatePicker fx:id="endDatePicker" promptText="End Date" />
+                        <Button text="Generate Report" onAction="#handleGenerateReport" 
+                                style="-fx-background-color: #2ecc71; -fx-text-fill: white;" />
+                    </HBox>
+                </VBox>
+            </TitledPane>
+
+            <!-- Reports Display Section -->
+            <TitledPane text="Branch Report" expanded="true">
+                <VBox spacing="10">
+                    <TextArea fx:id="reportsTextArea" VBox.vgrow="ALWAYS" prefHeight="300" 
+                              promptText="Click 'Load Reports' to view your branch statistics..." />
+                    <HBox spacing="10" alignment="CENTER_LEFT">
+                        <Button text="Load Reports" onAction="#handleLoadReports" 
+                                style="-fx-background-color: #9b59b6; -fx-text-fill: white;" />
+                        <Button text="Refresh" onAction="#handleRefresh" 
+                                style="-fx-background-color: #f39c12; -fx-text-fill: white;" />
+                    </HBox>
+                </VBox>
+            </TitledPane>
+        </VBox>
+    </center>
+
+    <!-- Footer -->
+    <bottom>
+        <HBox spacing="10" alignment="CENTER_RIGHT" style="-fx-padding: 10;">
+            <Button text="Back to Dashboard" onAction="#handleBack"
+                    style="-fx-background-color: #3498db; -fx-text-fill: white;" />
+            <Button text="Export Selected" onAction="#handleExport"
+                    style="-fx-background-color: #2c3e50; -fx-text-fill: white;" />
+        </HBox>
+    </bottom>
+</BorderPane> 

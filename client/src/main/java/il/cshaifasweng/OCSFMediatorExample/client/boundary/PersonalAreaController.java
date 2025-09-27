@@ -30,6 +30,9 @@ public class PersonalAreaController {
     private Label statusLabel;
 
     @FXML
+    private Button reportsButton;
+
+    @FXML
     public void initialize() {
         // Register with EventBus to receive order updates
         EventBus.getDefault().register(this);
@@ -40,6 +43,10 @@ public class PersonalAreaController {
         
         // Show loading message
         statusLabel.setText("Loading your data...");
+        
+        // Show reports button only for managers
+        String userRole = SimpleClient.getCurrentUserRole();
+        reportsButton.setVisible("manager".equalsIgnoreCase(userRole));
         
         // Request orders and reservations from server
         try {
@@ -233,6 +240,15 @@ public class PersonalAreaController {
             Alert alert = new Alert(Alert.AlertType.ERROR);
             alert.setContentText("Failed to load contact page.");
             alert.showAndWait();
+        }
+    }
+
+    @FXML
+    private void handleViewReports() {
+        try {
+            App.setRoot("reports_view");
+        } catch (IOException e) {
+            showError("Error opening reports: " + e.getMessage());
         }
     }
 }

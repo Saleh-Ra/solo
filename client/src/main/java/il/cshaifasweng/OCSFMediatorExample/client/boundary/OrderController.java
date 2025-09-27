@@ -112,9 +112,14 @@ public class OrderController {
 
         // Send order to server
         try {
+            // Get the selected branch ID from SimpleClient
+            int selectedBranchId = SimpleClient.getSelectedBranchId();
+            System.out.println("Creating order for branch ID: " + selectedBranchId);
+            
             // Format the order message matching server expectations
-            String orderMsg = String.format("CREATE_ORDER;%s;%s;%s;%s;%s;%s;%.2f", 
-                name, phone, date.toString(), time, address, method, cart.calculateTotal());
+            // Format: CREATE_ORDER;customerName;phone;deliveryDate;deliveryTime;deliveryLocation;paymentMethod;totalCost;branchId
+            String orderMsg = String.format("CREATE_ORDER;%s;%s;%s;%s;%s;%s;%.2f;%d", 
+                name, phone, date.toString(), time, address, method, cart.calculateTotal(), selectedBranchId);
             
             // Send to server
             SimpleClient.getClient().sendToServer(orderMsg);

@@ -21,10 +21,9 @@
             <Label text="👨‍🍳 Table Reservation" style="-fx-font-size: 26px; -fx-font-weight: bold;"/>
             <Label text="Select your preferred table and time" style="-fx-font-size: 16px;"/>
 
+            <Label fx:id="branchLabel" text="📍 Branch" style="-fx-font-size: 18px; -fx-font-weight: bold; -fx-text-fill: #2c3e50;" />
+            
             <HBox spacing="15" alignment="CENTER">
-                <Label text="Branch:" />
-                <ComboBox fx:id="branchComboBox" prefWidth="150" />
-                
                 <Label text="Date:" />
                 <DatePicker fx:id="datePicker" />
                 

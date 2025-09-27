@@ -25,7 +25,7 @@ public class ReservationController {
     @FXML private Label statusLabel;
     
     // Maps for branch IDs (we'll use position as ID for simplicity)
-    private final String[] branchNames = {"Downtown", "Beachside", "Mountain View"};
+    private final String[] branchNames = {"Tel-Aviv", "Haifa", "Jerusalem", "Beer-Sheva"};
 
     @FXML
     public void initialize() {
@@ -109,15 +109,21 @@ public class ReservationController {
         // Convert date and time to LocalDateTime for the reservation
         LocalDateTime dateTime = LocalDateTime.of(date, time);
         
+        // Calculate end time (1.5 hours after start time, as per Reservation entity)
+        LocalDateTime endDateTime = dateTime.plusMinutes(90);
+        
         // Get branch ID (position + 1 as simple mapping)
         int branchId = getBranchId(branchName);
         
-        // Format: RESERVE_TABLE;branchId;guestCount;seatingPref;dateTime;phoneNumber;location
-        String reservationMessage = String.format("RESERVE_TABLE;%d;%d;%s;%s;%s;%s",
+        // Format: RESERVE_TABLE;branchId;guestCount;tableId;seatingPref;startDateTime;endDateTime;phoneNumber;location
+        // Note: We'll use 0 as tableId since this is a simple reservation (server will assign table)
+        String reservationMessage = String.format("RESERVE_TABLE;%d;%d;%d;%s;%s;%s;%s;%s",
                 branchId,
                 guests,
+                0, // tableId - 0 means server will assign
                 area,
                 dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
+                endDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
                 phone,
                 area); // Using area as location for simplicity
                 

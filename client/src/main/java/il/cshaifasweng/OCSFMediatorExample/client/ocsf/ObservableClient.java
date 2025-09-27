@@ -4,6 +4,7 @@
 
 package il.cshaifasweng.OCSFMediatorExample.client.ocsf;
 
+import il.cshaifasweng.OCSFMediatorExample.client.SimpleClient;
 import java.util.*;
 import java.io.*;
 import java.net.*;
@@ -138,7 +139,15 @@ public class ObservableClient extends Observable
    * Sends a request to the server to fetch the current menu.
    */
   public void requestMenu() throws IOException {
-    sendToServer("GET_MENU");
+    // Get the selected branch ID and send it with the menu request
+    Integer selectedBranchId = SimpleClient.getSelectedBranchId();
+    if (selectedBranchId != null) {
+      sendToServer("GET_MENU;" + selectedBranchId);
+      System.out.println("ObservableClient: Requesting menu for branch ID: " + selectedBranchId);
+    } else {
+      sendToServer("GET_MENU");
+      System.out.println("ObservableClient: No branch selected, requesting default menu only");
+    }
   }
 
   /**

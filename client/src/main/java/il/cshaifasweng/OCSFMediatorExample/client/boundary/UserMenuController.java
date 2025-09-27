@@ -24,6 +24,9 @@ public class UserMenuController {
     @FXML
     private Button cartButton;
 
+    @FXML
+    private ComboBox<String> categoryFilterCombo;
+
     private Cart cart;
 
     @FXML
@@ -31,16 +34,65 @@ public class UserMenuController {
         cart = SimpleClient.getCart();
 
         try {
-            SimpleClient.getClient().sendToServer("GET_MENU");
+            // Get the selected branch ID and send it with the menu request
+            Integer selectedBranchId = SimpleClient.getSelectedBranchId();
+            if (selectedBranchId != null) {
+                SimpleClient.getClient().sendToServer("GET_MENU;" + selectedBranchId);
+                System.out.println("Requesting menu for branch ID: " + selectedBranchId);
+            } else {
+                SimpleClient.getClient().sendToServer("GET_MENU");
+                System.out.println("No branch selected, requesting default menu only");
+            }
         } catch (IOException e) {
             e.printStackTrace();
         }
 
         SimpleClient.getClient().setMenuUpdateListener(menuItems ->
-                Platform.runLater(this::loadMenu)
+                Platform.runLater(() -> {
+                    // Populate category filter once we have items
+                    if (categoryFilterCombo != null && categoryFilterCombo.getItems().isEmpty()) {
+                        categoryFilterCombo.getItems().clear();
+                        categoryFilterCombo.getItems().add("All");
+                        for (MenuItem item : SimpleClient.getMenuItems()) {
+                            String cat = item.getCategory();
+                            if (cat != null && !categoryFilterCombo.getItems().contains(cat)) {
+                                categoryFilterCombo.getItems().add(cat);
+                            }
+                        }
+                        categoryFilterCombo.getSelectionModel().selectFirst();
+                    }
+                    loadMenu();
+                })
         );
         
         updateCartCount();
+    }
+
+    @FXML
+    private void handleCategoryChanged() {
+        if (categoryFilterCombo == null) {
+            return;
+        }
+        String selected = categoryFilterCombo.getValue();
+        try {
+            Integer selectedBranchId = SimpleClient.getSelectedBranchId();
+            if (selected == null || selected.isEmpty() || "All".equalsIgnoreCase(selected)) {
+                if (selectedBranchId != null) {
+                    SimpleClient.getClient().sendToServer("GET_MENU;" + selectedBranchId);
+                } else {
+                    SimpleClient.getClient().sendToServer("GET_MENU");
+                }
+            } else {
+                // Filter by category on the server, include branch if available
+                if (selectedBranchId != null) {
+                    SimpleClient.getClient().sendToServer("GET_MENU_BY_CATEGORY;" + selected + ";" + selectedBranchId);
+                } else {
+                    SimpleClient.getClient().sendToServer("GET_MENU_BY_CATEGORY;" + selected);
+                }
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private void loadMenu() {

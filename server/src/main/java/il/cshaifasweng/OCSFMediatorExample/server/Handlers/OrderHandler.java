@@ -7,6 +7,7 @@ import java.time.format.DateTimeFormatter;
 import il.cshaifasweng.OCSFMediatorExample.entities.Client;
 import il.cshaifasweng.OCSFMediatorExample.entities.MenuItem;
 import il.cshaifasweng.OCSFMediatorExample.entities.Order;
+import il.cshaifasweng.OCSFMediatorExample.entities.UserAccount;
 import il.cshaifasweng.OCSFMediatorExample.server.SimpleServer;
 import il.cshaifasweng.OCSFMediatorExample.server.dataManagers.DataManager;
 import il.cshaifasweng.OCSFMediatorExample.server.ocsf.ConnectionToClient;
@@ -37,11 +38,11 @@ public class OrderHandler {
         System.out.println("Received order request: " + msgString);
         LocalDateTime now = LocalDateTime.now();
         
-        // Format: CREATE_ORDER;customerName;phone;deliveryDate;deliveryTime;deliveryLocation;paymentMethod;totalCost
+        // Format: CREATE_ORDER;customerName;phone;deliveryDate;deliveryTime;deliveryLocation;paymentMethod;totalCost;branchId
         String[] parts = msgString.split(";");
-        if (parts.length < 8) {
+        if (parts.length < 9) {
             System.out.println("Invalid order format: " + msgString);
-            SimpleServer.sendFailureResponse(client, "CREATE_ORDER_FAILURE", "Invalid format. Expected 8 parts, got " + parts.length);
+            SimpleServer.sendFailureResponse(client, "CREATE_ORDER_FAILURE", "Invalid format. Expected 9 parts, got " + parts.length);
             return;
         }
 
@@ -53,15 +54,24 @@ public class OrderHandler {
             String deliveryLocation = parts[5];
             String paymentMethod = parts[6];
             double totalCost = Double.parseDouble(parts[7]);
+            int branchId = Integer.parseInt(parts[8]);
+            
+            // Validate branch ID
+            if (branchId < 1 || branchId > 4) {
+                System.out.println("Invalid branch ID: " + branchId);
+                SimpleServer.sendFailureResponse(client, "CREATE_ORDER_FAILURE", "Invalid branch ID: " + branchId);
+                return;
+            }
             
             System.out.println("Creating order for customer: " + customerName);
             System.out.println("Phone: " + phone);
             System.out.println("Delivery: " + deliveryDate + " at " + deliveryTime + " to " + deliveryLocation);
             System.out.println("Payment method: " + paymentMethod);
             System.out.println("Total cost: $" + totalCost);
+            System.out.println("Branch ID: " + branchId);
             
-            // Create order object
-            Order order = new Order(1, totalCost, now, null);
+            // Create order object with the selected branch ID
+            Order order = new Order(branchId, totalCost, now, null);
             
             // Set additional details
             order.setStatus("Pending");
@@ -76,6 +86,11 @@ public class OrderHandler {
             System.out.println("Saving order to database...");
             DataManager.add(order);
             System.out.println("Order saved with ID: " + order.getId());
+            
+            // Note: Branch monthly orders are transient fields, so we don't need to update them here
+            // The order is already linked to the branch via branchId field
+            System.out.println("Order linked to branch ID: " + branchId);
+            
             //now change the client's order list
             SimpleServer.sendUpdatedOrdersToClient(phone, client);
             // Send success response
@@ -109,16 +124,15 @@ public class OrderHandler {
         long minutesBefore = diff.toMinutes();
 
         double refundPercentage;
-        if (minutesBefore >= 60) {
+        if (minutesBefore >= 180) {
             refundPercentage = 1.0; // Full refund
-        } else if (minutesBefore >= 15) {
+        } else if (minutesBefore >= 60) {
             refundPercentage = 0.5; // Half refund
         } else {
             refundPercentage = 0.0; // No refund
         }
 
-        // TODO: Process refund (optional, maybe just a print for now)
-        //System.out.println("Refund for client: " + (refundPercentage * 100) + "%");
+        System.out.println("Refund for client: " + (refundPercentage * 100) + "%");
         Client customer=order.getClient();
         customer.getOrders().remove(order);
         DataManager.delete(order);
@@ -153,12 +167,39 @@ public class OrderHandler {
             // Get all orders
             List<Order> allOrders = DataManager.fetchAll(Order.class);
             
-            // Filter orders by phone number
+            // Check if this is a manager by looking at their role
+            Object clientInfo = client.getInfo("user");
             List<Order> userOrders = new ArrayList<>();
-            for (Order order : allOrders) {
-                if (phoneNumber.equals(order.getPhoneNumber())) {
-                    userOrders.add(order);
-                    System.out.println("Found order: " + order.getId() + " for phone: " + phoneNumber);
+            
+            if (clientInfo != null && clientInfo instanceof UserAccount) {
+                UserAccount user = (UserAccount) clientInfo;
+                if ("manager".equalsIgnoreCase(user.getRole()) && user.getBranchId() != null) {
+                    // Manager: show orders for their branch
+                    int branchId = user.getBranchId();
+                    System.out.println("Manager requesting orders for branch ID: " + branchId);
+                    
+                    for (Order order : allOrders) {
+                        if (order.getBranchId() == branchId) {
+                            userOrders.add(order);
+                            System.out.println("Found branch order: " + order.getId() + " for branch: " + branchId);
+                        }
+                    }
+                } else {
+                    // Regular user: show their own orders
+                    for (Order order : allOrders) {
+                        if (phoneNumber.equals(order.getPhoneNumber())) {
+                            userOrders.add(order);
+                            System.out.println("Found user order: " + order.getId() + " for phone: " + phoneNumber);
+                        }
+                    }
+                }
+            } else {
+                // Fallback: show user's own orders
+                for (Order order : allOrders) {
+                    if (phoneNumber.equals(order.getPhoneNumber())) {
+                        userOrders.add(order);
+                        System.out.println("Found user order: " + order.getId() + " for phone: " + phoneNumber);
+                    }
                 }
             }
             

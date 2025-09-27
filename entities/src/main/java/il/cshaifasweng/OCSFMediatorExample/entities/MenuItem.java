@@ -30,8 +30,6 @@ public class MenuItem implements Serializable {
     @JoinColumn(name = "branch_id", nullable = true)
     private Branch branch;
 
-    //private String catagory;
-
     public MenuItem(String name, String ingredients, String preferences, double price, String category) {
         this.name = name;
         this.ingredients = ingredients;
@@ -108,12 +106,4 @@ public class MenuItem implements Serializable {
     public void setCategory(String category) {
         this.category = category;
     }
-
-    /*public String getCatagory() {
-        return catagory;
-    }
-
-    public void setCatagory(String catagory) {
-        this.catagory = catagory;
-    }*/
 }

@@ -2,6 +2,7 @@ package il.cshaifasweng.OCSFMediatorExample.client.boundary;
 
 import il.cshaifasweng.OCSFMediatorExample.client.App;
 import il.cshaifasweng.OCSFMediatorExample.client.SimpleClient;
+import il.cshaifasweng.OCSFMediatorExample.client.SimpleClient.TablesReceivedEvent;
 import il.cshaifasweng.OCSFMediatorExample.client.WarningEvent;
 import il.cshaifasweng.OCSFMediatorExample.entities.RestaurantTable;
 import javafx.application.Platform;
@@ -10,7 +11,9 @@ import javafx.fxml.FXML;
 import javafx.geometry.Pos;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
+import javafx.scene.layout.Pane;
 import javafx.scene.layout.StackPane;
+import javafx.scene.layout.VBox;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.text.Text;
@@ -24,10 +27,10 @@ import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import javafx.geometry.Insets;
 
 public class TableDiagramController {
 
-    @FXML private ComboBox<String> branchComboBox;
     @FXML private DatePicker datePicker;
     @FXML private ComboBox<LocalTime> timeComboBox;
     @FXML private Spinner<Integer> guestsSpinner;
@@ -35,30 +38,48 @@ public class TableDiagramController {
     @FXML private Button reserveButton;
     @FXML private Label statusLabel;
     @FXML private Label selectedTableLabel;
+    @FXML private Label branchLabel; // New label to show selected branch
     
     @FXML private GridPane barAreaGrid;
     @FXML private GridPane insideAreaGrid;
     @FXML private GridPane outsideAreaGrid;
     
-    // Maps branch names to their IDs
-    private final Map<String, Integer> branchIdMap = new HashMap<>();
     // Store the currently selected table reference
     private TablePane selectedTable = null;
     
-    // Branch names (matched with IDs in database)
-    private final String[] branchNames = {"Tel-Aviv", "Haifa", "Jerusalem"};
+    // Branch information from previous selection
+    private int selectedBranchId;
+    private String selectedBranchName;
     
     @FXML
     public void initialize() {
+        System.out.println("🔵 TableDiagramController: initialize() called");
+        
         // Register with EventBus
         EventBus.getDefault().register(this);
+        System.out.println("🔵 TableDiagramController: Registered with EventBus");
         
-        // Initialize branch combo box
-        branchComboBox.getItems().addAll(branchNames);
-        for (int i = 0; i < branchNames.length; i++) {
-            branchIdMap.put(branchNames[i], i + 1); // Branch IDs are 1-based
+        // Get the branch selected from the previous step
+        selectedBranchId = SimpleClient.getSelectedBranchId();
+        selectedBranchName = SimpleClient.getSelectedBranchName();
+        
+        System.out.println("🔵 TableDiagramController: Selected branch ID: " + selectedBranchId + ", Name: " + selectedBranchName);
+        
+        if (selectedBranchId == 0 || selectedBranchName == null) {
+            // No branch selected, go back to main menu
+            System.out.println("❌ TableDiagramController: No branch selected, redirecting to main menu");
+            try {
+                App.setRoot("primary1");
+                return;
+            } catch (IOException e) {
+                e.printStackTrace();
+                return;
+            }
         }
-        branchComboBox.getSelectionModel().selectFirst();
+        
+        // Display the selected branch
+        branchLabel.setText("📍 " + selectedBranchName + " Branch");
+        System.out.println("🔵 TableDiagramController: Branch label set to: " + selectedBranchName);
         
         // Initialize date picker to today
         datePicker.setValue(LocalDate.now());
@@ -117,26 +138,19 @@ public class TableDiagramController {
         // Load initial tables to show at startup for better UX
         // Using default values (first branch, today, noon)
         Platform.runLater(() -> {
-            String branchName = branchComboBox.getValue();
-            int branchId = branchIdMap.get(branchName);
+            String branchName = selectedBranchName;
+            int branchId = selectedBranchId;
             LocalDate date = datePicker.getValue();
             LocalTime time = timeComboBox.getValue();
             
-            System.out.println("Initializing tables for branch: " + branchName);
-            createSampleTables(branchId, date, time);
+            System.out.println("🔵 TableDiagramController: Initializing tables for branch: " + branchName + " (ID: " + branchId + ")");
+            System.out.println("🔵 TableDiagramController: Date: " + date + ", Time: " + time);
+            createRealTables(branchId, date, time);
             statusLabel.setText("Select a table to make a reservation or adjust filters above");
         });
     }
     
     private void setupRealTimeUpdates() {
-        // Listen for branch changes
-        branchComboBox.valueProperty().addListener((observable, oldValue, newValue) -> {
-            if (newValue != null && !newValue.equals(oldValue)) {
-                System.out.println("Branch changed to: " + newValue);
-                updateTables();
-            }
-        });
-        
         // Listen for date changes
         datePicker.valueProperty().addListener((observable, oldValue, newValue) -> {
             if (newValue != null && !newValue.equals(oldValue)) {
@@ -172,7 +186,7 @@ public class TableDiagramController {
         reserveButton.setDisable(true);
         
         // Get current values
-        String branchName = branchComboBox.getValue();
+        String branchName = selectedBranchName;
         LocalDate date = datePicker.getValue();
         LocalTime time = timeComboBox.getValue();
         
@@ -184,11 +198,11 @@ public class TableDiagramController {
         // Clear and recreate tables
         clearTableGrids();
         
-        int branchId = branchIdMap.get(branchName);
+        int branchId = selectedBranchId;
         System.out.println("Real-time update - Creating tables for: " + branchName + 
                           " on " + date + " at " + time);
         
-        createSampleTables(branchId, date, time);
+        createRealTables(branchId, date, time);
     }
     
     private void clearTableGrids() {
@@ -197,117 +211,165 @@ public class TableDiagramController {
         outsideAreaGrid.getChildren().clear();
     }
     
-    private void createSampleTables(int branchId, LocalDate date, LocalTime time) {
+    private void createRealTables(int branchId, LocalDate date, LocalTime time) {
         int guestCount = guestsSpinner.getValue();
         
-        System.out.println("Creating tables for " + guestCount + " guests on " + date + " at " + time);
-        
-        // In a real implementation, we would fetch actual table data from the server
-        // along with any reservations for the selected date and time
+        System.out.println("🔵 TableDiagramController: Fetching real tables for " + guestCount + " guests on " + date + " at " + time);
+        System.out.println("🔵 TableDiagramController: Branch ID: " + branchId);
         
         // Calculate the reservation end time (1.5 hours after selected time)
         LocalTime endTime = time.plusMinutes(90);
         LocalDateTime startDateTime = LocalDateTime.of(date, time);
         LocalDateTime endDateTime = LocalDateTime.of(date, endTime);
         
-        System.out.println("Reservation window: " + startDateTime + " to " + endDateTime);
+        System.out.println("🔵 TableDiagramController: Reservation window: " + startDateTime + " to " + endDateTime);
         
-        System.out.println("Creating bar area tables...");
-        // Bar area (smaller tables, 2-4 seats)
-        for (int i = 0; i < 4; i++) {
-            int capacity = 2 + (i % 3);
-            int tableId = i + 1;
+        try {
+            // Fetch tables from server for this branch
+            String message = "GET_BRANCH_TABLES;" + branchId;
+            System.out.println("🔵 TableDiagramController: Sending message to server: " + message);
+            SimpleClient.getClient().sendToServer(message);
+            System.out.println("🔵 TableDiagramController: Message sent to server successfully");
             
-            // In a real implementation, we would check if this table has any reservations
-            // that overlap with the selected time window
-            boolean isReserved = isTableReserved(branchId, tableId, startDateTime, endDateTime);
-            
-            // Table is available if it has enough seats and isn't already reserved
-            boolean isAvailable = capacity >= guestCount && !isReserved;
-            
-            TablePane tablePane = new TablePane("Bar " + (i+1), capacity, "Bar", isAvailable, tableId);
-            
-            // Add click event handler for table selection
-            final int finalTableId = tableId;
-            tablePane.setOnMouseClicked(event -> handleTableSelection(tablePane, finalTableId, branchId));
-            
-            barAreaGrid.add(tablePane, i % 2, i / 2);
-            System.out.println("Added Bar table " + (i+1) + " (capacity: " + capacity + ") at position (" + 
-                              (i % 2) + "," + (i / 2) + "), available: " + isAvailable + ", id: " + tableId);
+        } catch (Exception e) {
+            System.err.println("❌ TableDiagramController: Error requesting tables from server: " + e.getMessage());
+            e.printStackTrace();
+            statusLabel.setText("❌ Error connecting to server");
         }
-        
-        System.out.println("Creating inside area tables...");
-        // Inside area (medium tables, 4-6 seats)
-        for (int i = 0; i < 12; i++) {
-            int capacity = 4 + (i % 3);
-            int tableId = i + 5; // Continuing the IDs
-            
-            // Check if table is reserved at the selected time
-            boolean isReserved = isTableReserved(branchId, tableId, startDateTime, endDateTime);
-            
-            // Table is available if it has enough seats and isn't already reserved
-            boolean isAvailable = capacity >= guestCount && !isReserved;
-            
-            TablePane tablePane = new TablePane("Inside " + (i+1), capacity, "Inside", isAvailable, tableId);
-            
-            final int finalTableId = tableId;
-            tablePane.setOnMouseClicked(event -> handleTableSelection(tablePane, finalTableId, branchId));
-            
-            insideAreaGrid.add(tablePane, i % 4, i / 4);
-            System.out.println("Added Inside table " + (i+1) + " (capacity: " + capacity + ") at position (" + 
-                              (i % 4) + "," + (i / 4) + "), available: " + isAvailable + ", id: " + tableId);
-        }
-        
-        System.out.println("Creating outside area tables...");
-        // Outside area (varied tables, 2-8 seats)
-        for (int i = 0; i < 8; i++) {
-            int capacity = 2 + (i % 7);
-            int tableId = i + 17; // Continuing the IDs
-            
-            // Check if table is reserved at the selected time
-            boolean isReserved = isTableReserved(branchId, tableId, startDateTime, endDateTime);
-            
-            // Table is available if it has enough seats and isn't already reserved
-            boolean isAvailable = capacity >= guestCount && !isReserved;
-            
-            TablePane tablePane = new TablePane("Outside " + (i+1), capacity, "Outside", isAvailable, tableId);
-            
-            final int finalTableId = tableId;
-            tablePane.setOnMouseClicked(event -> handleTableSelection(tablePane, finalTableId, branchId));
-            
-            outsideAreaGrid.add(tablePane, i % 3, i / 3);
-            System.out.println("Added Outside table " + (i+1) + " (capacity: " + capacity + ") at position (" + 
-                              (i % 3) + "," + (i / 3) + "), available: " + isAvailable + ", id: " + tableId);
-        }
-        
-        System.out.println("Table creation complete. Bar: 4, Inside: 12, Outside: 8 tables");
-        statusLabel.setText("✅ Table availability updated. Select an available table.");
     }
     
     /**
-     * Check if a table is reserved during the specified time window.
-     * In a real implementation, this would query the database.
-     * For now, we'll use a simple deterministic algorithm for demo purposes.
+     * Handle the response from server with real table data
+     * This method will be called when we receive table data from the server
      */
-    private boolean isTableReserved(int branchId, int tableId, LocalDateTime start, LocalDateTime end) {
-        // For demo purposes: predictable "reservations" based on deterministic factors
-        // In a real implementation, this would query the server for actual reservations
+    public void handleTablesResponse(List<RestaurantTable> tables) {
+        System.out.println("Received " + tables.size() + " tables from server");
         
-        // Tables with even IDs are reserved on even dates, odd IDs on odd dates
-        if (tableId % 2 == 0 && start.getDayOfMonth() % 2 == 0) {
-            // Reserved between 11 AM and 2 PM, and 6 PM and 9 PM
-            LocalTime tableTime = start.toLocalTime();
-            return (tableTime.isAfter(LocalTime.of(11, 0)) && tableTime.isBefore(LocalTime.of(14, 0))) ||
-                   (tableTime.isAfter(LocalTime.of(18, 0)) && tableTime.isBefore(LocalTime.of(21, 0)));
-        } else if (tableId % 2 == 1 && start.getDayOfMonth() % 2 == 1) {
-            // Reserved between 12 PM and 3 PM, and 7 PM and 10 PM
-            LocalTime tableTime = start.toLocalTime();
-            return (tableTime.isAfter(LocalTime.of(12, 0)) && tableTime.isBefore(LocalTime.of(15, 0))) ||
-                   (tableTime.isAfter(LocalTime.of(19, 0)) && tableTime.isBefore(LocalTime.of(22, 0)));
+        // Clear existing table displays
+        clearTableDisplays();
+        
+        if (tables.isEmpty()) {
+            statusLabel.setText("❌ No tables found for this branch");
+            return;
         }
         
-        // Most tables are available by default
-        return false;
+        // Create simple table buttons instead of complex map
+        createSimpleTableButtons(tables);
+        
+        statusLabel.setText("✅ Loaded " + tables.size() + " tables from database");
+    }
+    
+    /**
+     * Create table buttons positioned in the proper GridPane layout
+     */
+    private void createSimpleTableButtons(List<RestaurantTable> tables) {
+        System.out.println("Creating " + tables.size() + " table buttons in GridPane layout...");
+        
+        // Show the GridPanes and clear them
+        barAreaGrid.setVisible(true);
+        insideAreaGrid.setVisible(true);
+        outsideAreaGrid.setVisible(true);
+        
+        barAreaGrid.getChildren().clear();
+        insideAreaGrid.getChildren().clear();
+        outsideAreaGrid.getChildren().clear();
+        
+        // Position tables in the appropriate areas
+        int insideRow = 0, insideCol = 0;
+        int outsideRow = 0, outsideCol = 0;
+        
+        for (int i = 0; i < Math.min(tables.size(), 8); i++) {
+            RestaurantTable table = tables.get(i);
+            Button tableButton = createTableButton(table);
+            
+            // Position tables 1-4 in INSIDE AREA (2x2 grid)
+            if (i < 4) {
+                insideAreaGrid.add(tableButton, insideCol, insideRow);
+                insideCol++;
+                if (insideCol >= 2) {
+                    insideCol = 0;
+                    insideRow++;
+                }
+            }
+            // Position tables 5-8 in OUTSIDE AREA (2x2 grid)
+            else {
+                outsideAreaGrid.add(tableButton, outsideCol, outsideRow);
+                outsideCol++;
+                if (outsideCol >= 2) {
+                    outsideCol = 0;
+                    outsideRow++;
+                }
+            }
+            
+            System.out.println("Positioned table " + table.getid() + " in " + (i < 4 ? "INSIDE" : "OUTSIDE") + " area");
+        }
+        
+        statusLabel.setText("✅ Loaded " + tables.size() + " tables from database");
+    }
+    
+    /**
+     * Create a single table button with table information
+     */
+    private Button createTableButton(RestaurantTable table) {
+        Button button = new Button();
+        button.setPrefWidth(120);
+        button.setPrefHeight(80);
+        button.setStyle("-fx-font-size: 12px; -fx-font-weight: bold;");
+        
+        // Determine table status and styling
+        boolean isReserved = table.getReservedID() > 0;
+        String status = isReserved ? "RESERVED" : "AVAILABLE";
+        String buttonStyle = isReserved ? 
+            "-fx-background-color: #dc3545; -fx-text-fill: white;" : 
+            "-fx-background-color: #28a745; -fx-text-fill: white;";
+        
+        button.setStyle(buttonStyle + " -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand;");
+        
+        // Set button text with table info (compact for smaller buttons)
+        String buttonText = String.format("Table %d\n%d Seats\n%s", 
+            table.getid(), 
+            table.getSeatingCapacity(), 
+            table.getLocation());
+        button.setText(buttonText);
+        
+        // Add click handler
+        button.setOnAction(e -> {
+            if (!isReserved) {
+                selectTable(table);
+                button.setStyle("-fx-background-color: #007bff; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-cursor: hand;");
+                button.setText(buttonText + " | SELECTED");
+            } else {
+                statusLabel.setText("❌ This table is already reserved");
+            }
+        });
+        
+        return button;
+    }
+    
+    /**
+     * Clear all table displays
+     */
+    private void clearTableDisplays() {
+        // Clear the map grids
+        barAreaGrid.getChildren().clear();
+        insideAreaGrid.getChildren().clear();
+        outsideAreaGrid.getChildren().clear();
+        
+        // Reset selected table
+        selectedTable = null;
+        selectedTableLabel.setText("No table selected");
+        reserveButton.setDisable(true);
+    }
+    
+    /**
+     * Select a table for reservation
+     */
+    private void selectTable(RestaurantTable table) {
+        selectedTable = new TablePane("Table " + table.getid(), table.getSeatingCapacity(), table.getLocation(), false, table.getid());
+        selectedTableLabel.setText("Selected: Table " + table.getid() + " (" + table.getSeatingCapacity() + " seats, " + table.getLocation() + ")");
+        reserveButton.setDisable(false);
+        
+        System.out.println("Selected table: " + table.getid() + " with capacity " + table.getSeatingCapacity());
     }
     
     private void handleTableSelection(TablePane tablePane, int tableId, int branchId) {
@@ -350,8 +412,8 @@ public class TableDiagramController {
         LocalDate date = datePicker.getValue();
         LocalTime time = timeComboBox.getValue();
         int guestCount = guestsSpinner.getValue();
-        String branchName = branchComboBox.getValue();
-        int branchId = branchIdMap.get(branchName);
+        String branchName = selectedBranchName;
+        int branchId = selectedBranchId;
         int tableId = selectedTable.getTableId();
         
         String location = selectedTable.getLocation();
@@ -385,9 +447,9 @@ public class TableDiagramController {
     private void handleBack() {
         try {
             cleanup();
-            App.setRoot("primary1");
+            App.setRoot("reservation_branch_selection");
         } catch (IOException e) {
-            statusLabel.setText("❌ Error returning to main screen.");
+            statusLabel.setText("❌ Error returning to branch selection.");
             e.printStackTrace();
         }
     }
@@ -418,6 +480,17 @@ public class TableDiagramController {
             } else if (message.startsWith("RESERVATION_FAILURE")) {
                 statusLabel.setText("❌ " + message.substring(message.indexOf(":") + 1).trim());
             }
+        });
+    }
+    
+    @Subscribe
+    public void onTablesReceived(TablesReceivedEvent event) {
+        List<RestaurantTable> tables = event.getTables();
+        System.out.println("🔵 TableDiagramController: onTablesReceived called with " + tables.size() + " tables from server");
+        
+        Platform.runLater(() -> {
+            System.out.println("🔵 TableDiagramController: Processing tables on JavaFX thread");
+            handleTablesResponse(tables);
         });
     }
     

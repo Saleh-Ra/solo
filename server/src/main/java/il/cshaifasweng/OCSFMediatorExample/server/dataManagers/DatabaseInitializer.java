@@ -1,5 +1,6 @@
 package il.cshaifasweng.OCSFMediatorExample.server.dataManagers;
 import il.cshaifasweng.OCSFMediatorExample.entities.*;
+import il.cshaifasweng.OCSFMediatorExample.server.dataManagers.DataManager;
 import org.hibernate.Session;
 import org.hibernate.SessionFactory;
 import org.hibernate.Transaction;
@@ -37,21 +38,21 @@ public class DatabaseInitializer {
                 System.out.println("Database is empty. Starting fresh initialization...");
                 
                 // Initialize in the correct order to avoid circular dependencies
-                System.out.println("\n1. Initializing restaurant tables...");
-                initializeRestaurantTable();
-                System.out.println("✓ Restaurant tables initialized\n");
-                
-                System.out.println("2. Initializing default menu...");
-                initializeMenu();
-                System.out.println("✓ Default menu initialized\n");
-                
-                System.out.println("3. Initializing restaurant chain...");
+                System.out.println("\n1. Initializing restaurant chain...");
                 initializeRestaurantChain();
                 System.out.println("✓ Restaurant chain initialized\n");
                 
-                System.out.println("4. Initializing branches...");
+                System.out.println("2. Initializing branches...");
                 initializeBranches();
                 System.out.println("✓ Branches initialized\n");
+                
+                System.out.println("3. Initializing restaurant tables...");
+                initializeRestaurantTable();
+                System.out.println("✓ Restaurant tables initialized\n");
+                
+                System.out.println("4. Initializing default menu...");
+                initializeMenu();
+                System.out.println("✓ Default menu initialized\n");
                 
                 System.out.println("5. Initializing branch menus...");
                 initializeBranchMenus();
@@ -340,7 +341,7 @@ public class DatabaseInitializer {
                     Branch branch3 = new Branch("Jerusalem", "daily 10:00-22:00", chain, null);
                     session.save(branch3);
                     
-                    Branch branch4 = new Branch("Beer-Shiva", "daily 10:00-22:00", chain, null);
+                    Branch branch4 = new Branch("Beer-Sheva", "daily 10:00-22:00", chain, null);
                     session.save(branch4);
                 } else {
                     RestaurantChain chain = chains.get(0);
@@ -355,7 +356,7 @@ public class DatabaseInitializer {
                     Branch branch3 = new Branch("Jerusalem", "daily 10:00-22:00", chain, null);
                     session.save(branch3);
                     
-                    Branch branch4 = new Branch("Beer-Shiva", "daily 10:00-22:00", chain, null);
+                    Branch branch4 = new Branch("Beer-Sheva", "daily 10:00-22:00", chain, null);
                     session.save(branch4);
                 }
             }
@@ -449,7 +450,7 @@ public class DatabaseInitializer {
             
             // Manager data (name, phone, password)
             String[][] managerData = {
-                {"Saleh", "0528189099", "saleh123"},
+                {"Saleh", "0528189099", "Saleh123"},
                 {"Nassim", "0544347642", "Nassim123"},
                 {"Hali", "0526112238", "Hali123"},
                 {"Mohammad", "0543518310", "Mohammad123"},
@@ -466,7 +467,24 @@ public class DatabaseInitializer {
                 System.out.println("Chain manager with phone " + managerData[0][1] + " already exists, skipped.");
             }
             
-            // Branch managers
+            // Special case: Give Saleh (chain manager) access to Tel-Aviv branch as well
+            if (userExists(session, managerData[0][1])) {
+                List<Branch> telAvivBranches = session.createQuery("from Branch b where b.location = 'Tel-Aviv'").getResultList();
+                if (!telAvivBranches.isEmpty()) {
+                    Branch telAvivBranch = telAvivBranches.get(0);
+                    List<UserAccount> salehAccounts = DataManager.fetchUserAccountsByPhoneNumber(managerData[0][1]);
+                    if (!salehAccounts.isEmpty()) {
+                        UserAccount salehAccount = salehAccounts.get(0);
+                        // Update Saleh's account to include Tel-Aviv branch access
+                        salehAccount.setBranchId(telAvivBranch.getId());
+                        salehAccount.setBranchName(telAvivBranch.getLocation());
+                        session.update(salehAccount);
+                        System.out.println("Updated Saleh (chain manager) with Tel-Aviv branch access");
+                    }
+                }
+            }
+            
+            // Create branch managers for the remaining managers (Nassim, Hali, Mohammad, Natali)
             List<Branch> branches = session.createQuery("from Branch").getResultList();
             
             if (!branches.isEmpty()) {
@@ -475,31 +493,27 @@ public class DatabaseInitializer {
                     Branch branch = branches.get(i);
                     
                     if (!userExists(session, managerData[idx][1])) {
-                        // Use the constructor with branch ID and name
+                        // Create the user account
                         UserAccount account = new UserAccount(
-                            managerData[idx][0],
-                            managerData[idx][1],
-                            "manager",
-                            managerData[idx][2],
-                            branch.getId(),
-                            branch.getLocation()
+                            managerData[idx][0],  // name
+                            managerData[idx][1],  // phone
+                            "manager",            // role
+                            managerData[idx][2]   // password
                         );
                         session.save(account);
-                        session.save(new BranchManager(managerData[idx][0], branch, account));
+                        
+                        // Create the BranchManager
+                        BranchManager branchManager = new BranchManager(managerData[idx][0], branch, account);
+                        session.save(branchManager);
+                        
+                        // Set branch info in the user account
+                        account.setBranchId(branch.getId());
+                        account.setBranchName(branch.getLocation());
+                        session.update(account);
+                        
                         System.out.println("Added branch manager: " + managerData[idx][0] + " for branch: " + branch.getLocation());
                     } else {
-                        System.out.println("Branch manager with phone " + managerData[idx][1] + " already exists, updating branch info if needed.");
-                        // Update existing manager with branch info
-                        List<UserAccount> existingAccounts = DataManager.fetchUserAccountsByPhoneNumber(managerData[idx][1]);
-                        if (!existingAccounts.isEmpty()) {
-                            UserAccount existingAccount = existingAccounts.get(0);
-                            if (existingAccount.getBranchId() == null || existingAccount.getBranchName() == null) {
-                                existingAccount.setBranchId(branch.getId());
-                                existingAccount.setBranchName(branch.getLocation());
-                                session.update(existingAccount);
-                                System.out.println("Updated branch info for manager: " + existingAccount.getName());
-                            }
-                        }
+                        System.out.println("Branch manager with phone " + managerData[idx][1] + " already exists, skipped.");
                     }
                 }
             }

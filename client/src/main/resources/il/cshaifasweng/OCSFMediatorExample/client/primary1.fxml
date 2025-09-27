@@ -17,6 +17,9 @@
          <Label text="Restaurant Kitchen" style="-fx-font-size: 32px; -fx-text-fill: white; -fx-font-weight: bold; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.4), 3, 0, 0, 1);" />
          <Label text="Welcome to our delicious experience" style="-fx-font-size: 18px; -fx-text-fill: white; -fx-font-style: italic;" />
          
+         <Button fx:id="openingHoursButton" onAction="#handleOpeningHours" text="🕒 Opening Hours" 
+                 style="-fx-min-width: 200px; -fx-min-height: 40px; -fx-font-size: 16px; -fx-background-color: #007bff; -fx-text-fill: white; -fx-border-color: #0056b3; -fx-border-width: 2px; -fx-cursor: hand; -fx-font-weight: bold;" />
+         
          <Button fx:id="userMenuButton" onAction="#handleUserMenu" text="User Menu" 
                  style="-fx-min-width: 200px; -fx-min-height: 40px; -fx-font-size: 16px;" />
          
@@ -27,6 +30,9 @@
                  style="-fx-min-width: 200px; -fx-min-height: 40px; -fx-font-size: 16px;" />
          
          <Button fx:id="personalAreaButton" onAction="#handlePersonalArea" text="Personal Area" 
+                 style="-fx-min-width: 200px; -fx-min-height: 40px; -fx-font-size: 16px;" />
+         
+         <Button fx:id="cancelReservationButton" onAction="#handleCancelReservation" text="Cancel Reservation" 
                  style="-fx-min-width: 200px; -fx-min-height: 40px; -fx-font-size: 16px;" />
       </children>
       <padding>

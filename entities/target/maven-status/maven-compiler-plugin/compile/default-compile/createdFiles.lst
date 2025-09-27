@@ -10,8 +10,11 @@ il\cshaifasweng\OCSFMediatorExample\entities\RestaurantTable.class
 il\cshaifasweng\OCSFMediatorExample\entities\RestaurantChainManager.class
 il\cshaifasweng\OCSFMediatorExample\entities\Branch.class
 il\cshaifasweng\OCSFMediatorExample\entities\Reservation.class
+il\cshaifasweng\OCSFMediatorExample\entities\TableAvailabilityInfo.class
 il\cshaifasweng\OCSFMediatorExample\entities\Client.class
+il\cshaifasweng\OCSFMediatorExample\entities\Report$ReportType.class
 il\cshaifasweng\OCSFMediatorExample\entities\BranchManager.class
+il\cshaifasweng\OCSFMediatorExample\entities\Report.class
 il\cshaifasweng\OCSFMediatorExample\entities\Complaint.class
 il\cshaifasweng\OCSFMediatorExample\entities\Payment.class
 il\cshaifasweng\OCSFMediatorExample\entities\Menu.class
