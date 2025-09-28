@@ -2,6 +2,8 @@ package il.cshaifasweng.OCSFMediatorExample.entities;
 
 import javax.persistence.*;
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @javax.persistence.Table(name = "Restaurant_table")
@@ -13,11 +15,10 @@ public class RestaurantTable implements Serializable {
     private int id;
 
     private int seatingCapacity;
-    //private boolean isOccupied;
     private int reservedID;
     private String location;
-    private String preferences;
     private String label; //table 1, table 6...
+    private String reservedBy; // phone number of person who reserved
     
     // Store availability as a string of 0s and 1s in database
     @Column(length = 1000)
@@ -32,12 +33,10 @@ public class RestaurantTable implements Serializable {
         updateMinutesData(); // Initialize the string representation
     }
 
-    public RestaurantTable(int seatingCapacity, int reservedID, String location, String preferences, String label, boolean[] time_array) {
+    public RestaurantTable(int seatingCapacity, int reservedID, String location, String label, boolean[] time_array) {
         this.seatingCapacity = seatingCapacity;
-        //this.isOccupied = occupied;
         this.reservedID = reservedID;
         this.location = location;
-        this.preferences = preferences;
         this.label = label;
         this.minutes = time_array != null ? time_array : new boolean[MINUTES];
         updateMinutesData(); // Initialize the string representation
@@ -68,17 +67,6 @@ public class RestaurantTable implements Serializable {
         }
     }
 
-    @PostLoad
-    private void onPostLoad() {
-        updateMinutesArray();
-    }
-
-    @PrePersist
-    @PreUpdate
-    private void onPrePersist() {
-        updateMinutesData();
-    }
-
     public int getid() {
         return id;
     }
@@ -95,12 +83,6 @@ public class RestaurantTable implements Serializable {
         this.seatingCapacity = seatingCapacity;
     }
 
-    public String getPreferences() {
-        return preferences;
-    }
-
-    public void setPreferences(String preferences) { this.preferences = preferences; }
-
     public String getLocation() {
         return location;
     }
@@ -110,15 +92,8 @@ public class RestaurantTable implements Serializable {
     public String getLabel() {
         return label;
     }
+
     public void setLabel(String label) { this.label = label; }
-
-    /*public boolean isOccupied() {
-        return isOccupied;
-    }
-
-    public void setOccupied(boolean occupied) {
-        isOccupied = occupied;
-    }*/
 
     public int getReservedID() {
         return reservedID;

@@ -82,6 +82,17 @@ public class PrimaryController implements Initializable {
 		}
 	}
 
+	@FXML
+	void handleBackToUserType() {
+		try {
+			// Navigate back to user type selection page
+			App.setRoot("user_type_selection");
+		} catch (IOException e) {
+			showError("Failed to return to user type selection.");
+			e.printStackTrace();
+		}
+	}
+
 	/**
 	 * Display opening hours for all branches
 	 */

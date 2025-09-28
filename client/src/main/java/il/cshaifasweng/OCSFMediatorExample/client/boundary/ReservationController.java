@@ -68,7 +68,6 @@ public class ReservationController {
 
     @FXML
     private void handleCheckAvailability() {
-        // First validate input
         String branchName = branchComboBox.getValue();
         String guestsText = guestsField.getText();
         String area = areaComboBox.getValue();
@@ -115,17 +114,14 @@ public class ReservationController {
         // Get branch ID (position + 1 as simple mapping)
         int branchId = getBranchId(branchName);
         
-        // Format: RESERVE_TABLE;branchId;guestCount;tableId;seatingPref;startDateTime;endDateTime;phoneNumber;location
-        // Note: We'll use 0 as tableId since this is a simple reservation (server will assign table)
-        String reservationMessage = String.format("RESERVE_TABLE;%d;%d;%d;%s;%s;%s;%s;%s",
+        // Format: RESERVE_TABLE;branchId;guestCount;area;startDateTime;endDateTime;phoneNumber;location
+        String reservationMessage = String.format("RESERVE_TABLE;%d;%d;%s;%s;%s;%s",
                 branchId,
                 guests,
-                0, // tableId - 0 means server will assign
                 area,
                 dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
                 endDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
-                phone,
-                area); // Using area as location for simplicity
+                phone);
                 
         statusLabel.setText("⏳ Sending reservation request...");
         

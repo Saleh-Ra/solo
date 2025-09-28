@@ -2,8 +2,8 @@ package il.cshaifasweng.OCSFMediatorExample.entities;
 
 import javax.persistence.*;
 import java.time.LocalDateTime;
-import java.util.List;
 import java.io.Serializable;
+import java.util.List;
 
 @Entity
 @Table(name = "reservation")
