@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.Label?>
+<?import javafx.scene.layout.AnchorPane?>
+<?import javafx.scene.layout.VBox?>
+
+<AnchorPane xmlns="http://javafx.com/javafx/23.0.1"
+            xmlns:fx="http://javafx.com/fxml/1"
+            fx:controller="il.cshaifasweng.OCSFMediatorExample.client.UserTypeSelectionController"
+            style="-fx-background-color: linear-gradient(to bottom right, #2c3e50, #3498db);"
+            stylesheets="@modern-style.css">
+
+   <VBox alignment="CENTER" prefHeight="400.0" prefWidth="600.0" spacing="30.0" layoutX="0" layoutY="0">
+      <children>
+         <Label text="Restaurant Management System" style="-fx-font-size: 36px; -fx-text-fill: white; -fx-font-weight: bold; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.4), 3, 0, 0, 1);" />
+         <Label text="Please select your user type" style="-fx-font-size: 20px; -fx-text-fill: white; -fx-font-style: italic;" />
+         
+         <VBox spacing="20.0" alignment="CENTER">
+            <Button fx:id="guestButton" onAction="#handleGuestSelection" text="👤 Guest (Customer)" 
+                    style="-fx-min-width: 250px; -fx-min-height: 50px; -fx-font-size: 18px; -fx-background-color: #27ae60; -fx-text-fill: white; -fx-border-color: #229954; -fx-border-width: 2px; -fx-cursor: hand; -fx-font-weight: bold; -fx-background-radius: 10; -fx-border-radius: 10;" />
+            
+            <Button fx:id="managerButton" onAction="#handleManagerSelection" text="👔 Manager" 
+                    style="-fx-min-width: 250px; -fx-min-height: 50px; -fx-font-size: 18px; -fx-background-color: #e74c3c; -fx-text-fill: white; -fx-border-color: #c0392b; -fx-border-width: 2px; -fx-cursor: hand; -fx-font-weight: bold; -fx-background-radius: 10; -fx-border-radius: 10;" />
+         </VBox>
+         
+         <Label text="Choose your role to continue" style="-fx-font-size: 14px; -fx-text-fill: #ecf0f1; -fx-font-style: italic;" />
+      </children>
+   </VBox>
+</AnchorPane>
