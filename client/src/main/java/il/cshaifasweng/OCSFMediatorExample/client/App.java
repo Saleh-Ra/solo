@@ -28,8 +28,8 @@ public class App extends Application {
         client = SimpleClient.getClient();
         client.openConnection();
 
-        // Load the initial scene
-        scene = new Scene(loadFXML("primary1"), 640, 480);
+        // Load the initial scene - user type selection
+        scene = new Scene(loadFXML("user_type_selection"), 640, 480);
         stage.setScene(scene);
         stage.setTitle("Restaurant Management System");
         stage.show();

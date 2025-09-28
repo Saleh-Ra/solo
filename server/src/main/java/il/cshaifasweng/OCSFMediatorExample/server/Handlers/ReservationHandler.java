@@ -39,7 +39,7 @@ public class ReservationHandler {
         String[] parts = msgString.split(";");
 
         // Format: RESERVE_TABLE;branchId;guestCount;tableId;seatingPref;startDateTime;endDateTime;phoneNumber;location
-        if (parts.length < 9) {
+        if (parts.length < 8) {
             System.out.println("Invalid format: Expected at least 9 parts, got " + parts.length);
             SimpleServer.sendFailureResponse(client, "RESERVATION_FAILURE", "Invalid format");
             return;
@@ -49,19 +49,18 @@ public class ReservationHandler {
             int branchId = Integer.parseInt(parts[1]);
             int guestCount = Integer.parseInt(parts[2]);
             int tableId = Integer.parseInt(parts[3]);
-            String seatingPref = parts[4];
+            String location = parts[4];
             LocalDateTime startTime = LocalDateTime.parse(parts[5], DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
             LocalDateTime endTime = LocalDateTime.parse(parts[6], DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
             String phoneNumber = parts[7];
-            String location = parts[8];
 
             System.out.println("Processing reservation - Branch: " + branchId + 
                     ", Guests: " + guestCount + 
                     ", Table ID: " + tableId +
+                    ", Location: " + location +
                     ", Start: " + startTime + 
                     ", End: " + endTime +
-                    ", Phone: " + phoneNumber + 
-                    ", Location: " + location);
+                    ", Phone: " + phoneNumber);
 
             // Fetch branch with tables in one session to avoid lazy loading issues
             Branch branch = null;

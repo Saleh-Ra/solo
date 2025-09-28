@@ -399,7 +399,6 @@ public class DatabaseInitializer {
                             3 + (i % 2),  // 3-4 seats
                             0,  // status
                             "Main",  // area
-                            (i % 3 == 0) ? "near bar" : (i % 3 == 1) ? "center" : "near kitchen",  // location
                             "Table " + i,  // label
                             new boolean[720]  // time slots
                         );

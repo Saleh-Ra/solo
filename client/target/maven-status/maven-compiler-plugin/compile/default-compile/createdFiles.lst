@@ -11,6 +11,7 @@ il\cshaifasweng\OCSFMediatorExample\client\ocsf\ObservableClient.class
 il\cshaifasweng\OCSFMediatorExample\client\boundary\CartController.class
 il\cshaifasweng\OCSFMediatorExample\client\SimpleClient$ReportExportEvent.class
 il\cshaifasweng\OCSFMediatorExample\client\boundary\SignInController.class
+il\cshaifasweng\OCSFMediatorExample\client\UserTypeSelectionController.class
 il\cshaifasweng\OCSFMediatorExample\client\ocsf\AdaptableClient.class
 il\cshaifasweng\OCSFMediatorExample\client\boundary\TablesMapController.class
 il\cshaifasweng\OCSFMediatorExample\client\PrimaryController.class
