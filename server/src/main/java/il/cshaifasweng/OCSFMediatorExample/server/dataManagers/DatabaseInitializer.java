@@ -262,6 +262,9 @@ public class DatabaseInitializer {
 
                 for (MenuItem item : menuItems) {
                     try {
+                        // Set image paths for each menu item
+                        setImagePathForMenuItem(item);
+                        
                         System.out.println("Saving menu item: " + item.getName() + " (Category: " + item.getCategory() + ")");
                         session.save(item);
                         System.out.println("Successfully saved menu item: " + item.getName());
@@ -782,6 +785,8 @@ public class DatabaseInitializer {
                 };
 
                 for (MenuItem item : branchItems) {
+                    // Set image paths for branch-specific items
+                    setImagePathForMenuItem(item);
                     session.save(item);
                     System.out.println("Added special item: " + item.getName() + " to branch: " + branch.getLocation());
                 }
@@ -1153,6 +1158,45 @@ public class DatabaseInitializer {
         } catch (Exception e) {
             System.err.println("Error initializing orders: " + e.getMessage());
             e.printStackTrace();
+        }
+    }
+    
+    /**
+     * Sets appropriate image path for a menu item based on its name and category
+     */
+    private static void setImagePathForMenuItem(MenuItem item) {
+        String itemName = item.getName().toLowerCase();
+        String category = item.getCategory().toLowerCase();
+
+        // IMPORTANT: imagePath should be just the filename. The client prefixes the folder path.
+        if (itemName.contains("pizza")) {
+            item.setImagePath("pizza.jpg");
+        } else if (itemName.equals("hamburger") || (itemName.contains("hamburger") && !itemName.contains("vegan"))) {
+            item.setImagePath("burger.jpg");
+        } else if (itemName.contains("vegan") && itemName.contains("hamburger")) {
+            item.setImagePath("Veggie-Burger.jpg");
+        } else if (itemName.contains("pasta")) {
+            item.setImagePath("pasta.png");
+        } else if (itemName.contains("greek") || itemName.contains("caesar") || itemName.contains("salad")) {
+            item.setImagePath("salad.png");
+        } else if (itemName.contains("coca") || itemName.contains("cola")) {
+            item.setImagePath("cola.jpg");
+        } else if (itemName.contains("tea")) {
+            item.setImagePath("iced-tea.jpg");
+        } else if (itemName.contains("bread")) {
+            item.setImagePath("Easy Garlic Bread with Sliced Bread.jpg");
+        } else if (itemName.contains("cake") || itemName.contains("chocolate")) {
+            item.setImagePath("chocolate cake.jpg");
+        } else if (itemName.contains("juice") || itemName.contains("orange")) {
+            item.setImagePath("orange juice.jpg");
+        } else if (itemName.contains("tiramisu")) {
+            item.setImagePath("tiramisu.jpg");
+        } else if (category.contains("desert")) {
+            // Dessert category default
+            item.setImagePath("chocolate cake.jpg");
+        } else {
+            // Final fallback
+            item.setImagePath("default_meal.jpg");
         }
     }
 }
