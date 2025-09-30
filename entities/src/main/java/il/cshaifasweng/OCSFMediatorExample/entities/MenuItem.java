@@ -30,6 +30,9 @@ public class MenuItem implements Serializable {
     @JoinColumn(name = "branch_id", nullable = true)
     private Branch branch;
 
+    @Column(nullable = true)
+    private String imagePath;
+
     public MenuItem(String name, String ingredients, String preferences, double price, String category) {
         this.name = name;
         this.ingredients = ingredients;
@@ -105,5 +108,13 @@ public class MenuItem implements Serializable {
 
     public void setCategory(String category) {
         this.category = category;
+    }
+
+    public String getImagePath() {
+        return imagePath;
+    }
+
+    public void setImagePath(String imagePath) {
+        this.imagePath = imagePath;
     }
 }

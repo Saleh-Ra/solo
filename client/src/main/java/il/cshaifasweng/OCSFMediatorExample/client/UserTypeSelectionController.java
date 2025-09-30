@@ -22,11 +22,10 @@ public class UserTypeSelectionController implements Initializable {
     @FXML
     void handleManagerSelection() {
         try {
-            // TODO: Navigate to manager interface
-            // For now, we'll show a placeholder message
-            showInfo("Manager interface will be implemented next.");
-        } catch (Exception e) {
-            showError("Failed to load manager interface.");
+            // Navigate to sign-in page for manager authentication
+            App.setRoot("sign_in");
+        } catch (IOException e) {
+            showError("Failed to load sign-in page.");
             e.printStackTrace();
         }
     }

@@ -45,9 +45,9 @@ public class SignInController {
     @FXML
     private void handleBack() {
         try {
-            App.setRoot("primary1");
+            App.setRoot("user_type_selection");
         } catch (IOException e) {
-            statusLabel.setText("❌ Could not return to main screen.");
+            statusLabel.setText("❌ Could not return to user type selection.");
             e.printStackTrace();
         }
     }

@@ -44,8 +44,7 @@ public class Reservation implements Serializable {
             inverseJoinColumns = @JoinColumn(name = "table_id"))
     private List<RestaurantTable> tables;
 
-    public Reservation() {
-    }
+    public Reservation() {}
 
     public Reservation(LocalDateTime reservationTime, int numberOfGuests, String phoneNumber, Branch branch, List<RestaurantTable> tables) {
         this.reservationTime = reservationTime;
@@ -62,13 +61,13 @@ public class Reservation implements Serializable {
     }
 
     public Reservation(LocalDateTime reservationTime, LocalDateTime endTime, int numberOfGuests,
-                       String phoneNumber, Branch branch, int tableId) {
+                       String phoneNumber, Branch branch) {
         this.reservationTime = reservationTime;
         this.endTime = endTime;
         this.numberOfGuests = numberOfGuests;
         this.phoneNumber = phoneNumber;
         this.branch = branch;
-        this.tableId = tableId;
+        //this.tableId = tableId;
     }
 
     public int getId() {

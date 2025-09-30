@@ -9,6 +9,10 @@ import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
+import javafx.geometry.Pos;
+import javafx.geometry.Insets;
 
 import java.io.IOException;
 import java.util.List;
@@ -109,35 +113,113 @@ public class UserMenuController {
         }
 
         for (MenuItem item : items) {
-            // Check if this is a branch-specific item
             boolean isSpecialItem = item.getBranch() != null;
-            
-            // Create label with appropriate styling
-            Label nameLabel;
-            if (isSpecialItem) {
-                nameLabel = new Label("★ SPECIAL: " + item.getName() + " (" + item.getCategory() + ") - $" + String.format("%.2f", item.getPrice()));
-                nameLabel.setStyle("-fx-font-weight: bold; -fx-text-fill: #3f87a6;");
-            } else {
-                nameLabel = new Label(item.getName() + " (" + item.getCategory() + ") - $" + String.format("%.2f", item.getPrice()));
-            }
-            
-            Button addButton = new Button("Add to Cart");
-            addButton.getStyleClass().add("small-button");
 
-            addButton.setOnAction(event -> {
+            // Build a large image button per item
+            Button itemButton = new Button();
+            itemButton.setText(item.getName() + " (" + item.getCategory() + ")\n$" + String.format("%.2f", item.getPrice()));
+            itemButton.setWrapText(true);
+            itemButton.setContentDisplay(ContentDisplay.TOP);
+            itemButton.setAlignment(Pos.CENTER);
+            itemButton.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #222222; -fx-background-color: white; -fx-border-color: #dddddd; -fx-border-radius: 8; -fx-background-radius: 8;");
+            itemButton.setPadding(new Insets(10));
+
+            ImageView imageView = createImageViewForItem(item);
+            if (imageView != null) {
+                itemButton.setGraphic(imageView);
+                itemButton.setGraphicTextGap(8);
+            } else {
+                // Ensure text is visible and layout is compact when no image is available
+                itemButton.setContentDisplay(ContentDisplay.TEXT_ONLY);
+                itemButton.setStyle(itemButton.getStyle() + " -fx-background-color: linear-gradient(#ffffff, #f7f7f7);");
+            }
+
+            itemButton.setOnAction(event -> {
                 cart.addItem(item);
                 updateCartCount();
             });
 
-            HBox row = new HBox(10, nameLabel, addButton);
-            
-            // Add special background for branch-specific items
             if (isSpecialItem) {
-                row.setStyle("-fx-background-color: rgba(63, 135, 166, 0.1); -fx-padding: 5; -fx-background-radius: 5;");
+                itemButton.setStyle(itemButton.getStyle() + " -fx-effect: dropshadow(three-pass-box, rgba(63,135,166,0.3), 8, 0, 0, 2);");
             }
-            
-            menuDisplayVBox.getChildren().add(row);
+
+            menuDisplayVBox.getChildren().add(itemButton);
         }
+    }
+
+    private ImageView createImageViewForItem(MenuItem item) {
+        Image image = null;
+
+        // 1) Use explicit imagePath if provided on the entity
+        if (item.getImagePath() != null && !item.getImagePath().isEmpty()) {
+            image = tryLoad("/il/cshaifasweng/OCSFMediatorExample/client/images/" + item.getImagePath());
+        }
+
+        // 2) Try common filename patterns based on item name
+        if (image == null) {
+            String name = item.getName();
+            if (name != null && !name.isEmpty()) {
+                String base = name.trim();
+                String lower = base.toLowerCase();
+
+                String[] candidates = new String[] {
+                    base + ".jpg",
+                    base + ".png",
+                    lower + ".jpg",
+                    lower + ".png",
+                    lower.replace(" ", "-") + ".jpg",
+                    lower.replace(" ", "-") + ".png",
+                    lower.replace(" ", "_") + ".jpg",
+                    lower.replace(" ", "_") + ".png"
+                };
+
+                for (String candidate : candidates) {
+                    image = tryLoad("/il/cshaifasweng/OCSFMediatorExample/client/images/" + candidate);
+                    if (image != null) break;
+                }
+            }
+        }
+
+        // 3) Try category-based fallback
+        if (image == null && item.getCategory() != null && !item.getCategory().isEmpty()) {
+            String cat = item.getCategory().trim();
+            String lowerCat = cat.toLowerCase();
+            String[] catCandidates = new String[] {
+                lowerCat + ".jpg",
+                lowerCat + ".png",
+                lowerCat.replace(" ", "-") + ".jpg",
+                lowerCat.replace(" ", "-") + ".png"
+            };
+            for (String candidate : catCandidates) {
+                image = tryLoad("/il/cshaifasweng/OCSFMediatorExample/client/images/" + candidate);
+                if (image != null) break;
+            }
+        }
+
+        // 4) Final default fallback
+        if (image == null) {
+            image = tryLoad("/il/cshaifasweng/OCSFMediatorExample/client/images/default_meal.jpg");
+        }
+
+        if (image == null) {
+            return null;
+        }
+
+        ImageView iv = new ImageView(image);
+        iv.setPreserveRatio(true);
+        iv.setFitWidth(240);
+        iv.setFitHeight(160);
+        return iv;
+    }
+
+    private Image tryLoad(String resourcePath) {
+        try {
+            java.io.InputStream is = getClass().getResourceAsStream(resourcePath);
+            if (is != null) {
+                return new Image(is);
+            }
+        } catch (Exception ignored) { }
+        return null;
     }
     
     private void updateCartCount() {
