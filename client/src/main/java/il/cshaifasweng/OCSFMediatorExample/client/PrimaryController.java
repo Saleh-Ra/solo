@@ -34,15 +34,6 @@ public class PrimaryController implements Initializable {
 		}
 	}
 
-	@FXML
-	void handleTableDiagram() {
-		try {
-			App.setRoot("reservation_branch_selection");
-		} catch (IOException e) {
-			showError("Failed to load reservation branch selection screen.");
-			e.printStackTrace();
-		}
-	}
 
 	@FXML
 	void handlePersonalArea() {

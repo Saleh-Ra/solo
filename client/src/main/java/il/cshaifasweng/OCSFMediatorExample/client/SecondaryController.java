@@ -53,6 +53,9 @@ public class SecondaryController implements MenuUpdateListener {
     private Button reportsButton;
 
     @FXML
+    private Button tableManagementButton;
+
+    @FXML
     private void initialize() {
         SimpleClient.getClient().setMenuUpdateListener(this);
         mealComboBox.setValue(null);
@@ -299,6 +302,15 @@ public class SecondaryController implements MenuUpdateListener {
             App.setRoot("reports_view");
         } catch (IOException e) {
             showError("Error opening reports: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    private void handleTableManagement() {
+        try {
+            App.setRoot("reservation_branch_selection");
+        } catch (IOException e) {
+            showError("Error opening table management: " + e.getMessage());
         }
     }
 

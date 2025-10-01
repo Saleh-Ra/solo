@@ -393,31 +393,44 @@ public class DatabaseInitializer {
 
                 // Create tables for each branch
                 for (Branch branch : branches) {
-                    String location = branch.getLocation();
-                    System.out.println("Creating tables for branch: " + location);
+                    String branchLocation = branch.getLocation();
+                    System.out.println("Creating tables for branch: " + branchLocation);
                     
-                    // Create tables for different areas
-                    for (int i = 1; i <= 8; i++) {
-                        RestaurantTable table = new RestaurantTable(
-                            3 + (i % 2),  // 3-4 seats
-                            0,  // status
-                            "Main",  // area
-                            "Table " + i,  // label
-                            new boolean[720]  // time slots
-                        );
-                        table.setLocation(location);  // Set the branch location
+                    // Define table areas and their counts
+                    String[] areas = {"Inside", "Outside", "Bar"};
+                    int[] tableCounts = {4, 3, 2};  // 4 Inside, 3 Outside, 2 Bar tables
+                    int[] seatCapacities = {4, 6, 2};  // Different capacities per area
+                    
+                    int tableNumber = 1;
+                    
+                    // Create tables for each area
+                    for (int areaIndex = 0; areaIndex < areas.length; areaIndex++) {
+                        String area = areas[areaIndex];
+                        int count = tableCounts[areaIndex];
+                        int capacity = seatCapacities[areaIndex];
                         
-                        // Link table to branch
-                        List<RestaurantTable> branchTables = branch.getTables();
-                        if (branchTables == null) {
-                            branchTables = new ArrayList<>();
+                        for (int i = 0; i < count; i++) {
+                            RestaurantTable table = new RestaurantTable(
+                                capacity,  // seats per table
+                                0,  // status
+                                area,  // location (Inside, Outside, Bar)
+                                "Table " + tableNumber,  // label
+                                new boolean[720]  // time slots
+                            );
+                            
+                            // Link table to branch
+                            List<RestaurantTable> branchTables = branch.getTables();
+                            if (branchTables == null) {
+                                branchTables = new ArrayList<>();
+                            }
+                            branchTables.add(table);
+                            branch.setTables(branchTables);
+                            
+                            // Save the table first
+                            session.save(table);
+                            System.out.println("Created " + area + " table " + tableNumber + " (" + capacity + " seats) for " + branchLocation);
+                            tableNumber++;
                         }
-                        branchTables.add(table);
-                        branch.setTables(branchTables);
-                        
-                        // Save the table first
-                        session.save(table);
-                        System.out.println("Created table " + i + " for " + location);
                     }
                     
                     // Update the branch with its tables

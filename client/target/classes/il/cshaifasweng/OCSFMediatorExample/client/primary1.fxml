@@ -26,8 +26,6 @@
          <Button fx:id="reservationButton" onAction="#handleMakeReservation" text="Simple Reservation" 
                  style="-fx-min-width: 200px; -fx-min-height: 40px; -fx-font-size: 16px;" />
          
-         <Button fx:id="tableDiagramButton" onAction="#handleTableDiagram" text="Visual Table Reservation" 
-                 style="-fx-min-width: 200px; -fx-min-height: 40px; -fx-font-size: 16px;" />
          
          <Button fx:id="personalAreaButton" onAction="#handlePersonalArea" text="Personal Area" 
                  style="-fx-min-width: 200px; -fx-min-height: 40px; -fx-font-size: 16px;" />

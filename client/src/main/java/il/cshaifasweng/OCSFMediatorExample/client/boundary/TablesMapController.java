@@ -4,7 +4,6 @@ import il.cshaifasweng.OCSFMediatorExample.client.App;
 import il.cshaifasweng.OCSFMediatorExample.client.SimpleClient;
 import il.cshaifasweng.OCSFMediatorExample.client.WarningEvent;
 import il.cshaifasweng.OCSFMediatorExample.entities.RestaurantTable;
-import il.cshaifasweng.OCSFMediatorExample.entities.TableAvailabilityInfo;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
@@ -45,7 +44,7 @@ public class TablesMapController {
     @FXML private Button table8Button;
     
     // Store table data and selection
-    private List<TableAvailabilityInfo> tableAvailabilityList = new ArrayList<>();
+    private List<RestaurantTable> tableList = new ArrayList<>();
     private RestaurantTable selectedTable = null;
     private int selectedBranchId;
     private String selectedBranchName;
@@ -173,40 +172,20 @@ public class TablesMapController {
         }
     }
     
-    @Subscribe
-    public void onTableAvailabilityReceived(List<TableAvailabilityInfo> availabilityList) {
-        System.out.println("🟢 TablesMapController: onTableAvailabilityReceived called with " + availabilityList.size() + " tables");
-        Platform.runLater(() -> {
-            tableAvailabilityList = availabilityList;
-            System.out.println("🟢 TablesMapController: Processing " + tableAvailabilityList.size() + " tables with availability from server");
-            updateTableButtonsWithAvailability();
-        });
-    }
     
     @Subscribe
     public void onTablesReceived(SimpleClient.TablesReceivedEvent event) {
         System.out.println("🟢 TablesMapController: onTablesReceived called with " + event.getTables().size() + " tables");
         Platform.runLater(() -> {
-            // Convert RestaurantTable objects to TableAvailabilityInfo for compatibility
-            List<TableAvailabilityInfo> availabilityList = new ArrayList<>();
-            for (RestaurantTable table : event.getTables()) {
-                TableAvailabilityInfo tableInfo = new TableAvailabilityInfo();
-                tableInfo.setTableId(table.getid());
-                tableInfo.setSeatingCapacity(table.getSeatingCapacity());
-                tableInfo.setLocation(table.getLocation());
-                tableInfo.setAvailable(true); // Assume available for now
-                availabilityList.add(tableInfo);
-            }
-            
-            tableAvailabilityList = availabilityList;
-            System.out.println("🟢 TablesMapController: Converted " + tableAvailabilityList.size() + " tables to availability info");
-            updateTableButtonsWithAvailability();
+            tableList = event.getTables();
+            System.out.println("🟢 TablesMapController: Processing " + tableList.size() + " tables from server");
+            updateTableButtons();
         });
     }
     
-    private void updateTableButtonsWithAvailability() {
-        if (tableAvailabilityList.isEmpty()) {
-            statusLabel.setText("❌ No availability data received");
+    private void updateTableButtons() {
+        if (tableList.isEmpty()) {
+            statusLabel.setText("❌ No table data received");
             return;
         }
         
@@ -216,47 +195,31 @@ public class TablesMapController {
             table5Button, table6Button, table7Button, table8Button
         );
         
-        System.out.println("🔵 Updating " + Math.min(tableAvailabilityList.size(), tableButtons.size()) + " table buttons with availability data");
+        System.out.println("🔵 Updating " + Math.min(tableList.size(), tableButtons.size()) + " table buttons with table data");
         
-        // Update each button with availability data
-        for (int i = 0; i < Math.min(tableAvailabilityList.size(), tableButtons.size()); i++) {
-            TableAvailabilityInfo tableInfo = tableAvailabilityList.get(i);
+        // Update each button with table data
+        for (int i = 0; i < Math.min(tableList.size(), tableButtons.size()); i++) {
+            RestaurantTable table = tableList.get(i);
             Button button = tableButtons.get(i);
             
             // Set button text
             String buttonText = String.format("Table %d\n%d Seats\n%s", 
-                tableInfo.getTableId(), 
-                tableInfo.getSeatingCapacity(), 
-                tableInfo.getLocation());
+                table.getid(), 
+                table.getSeatingCapacity(), 
+                table.getLocation());
             button.setText(buttonText);
             
-            // Set button style based on availability
-            if (tableInfo.isAvailable()) {
-                button.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold;");
-                button.setDisable(false);
-                System.out.println("🟢 Table " + tableInfo.getTableId() + " marked as GREEN (available) - real-time data");
-            } else {
-                button.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold;");
-                button.setDisable(true);
-                System.out.println("🔴 Table " + tableInfo.getTableId() + " marked as RED (unavailable) - real-time data");
-            }
+            // Set button style (assume available for now)
+            button.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold;");
+            button.setDisable(false);
+            System.out.println("🟢 Table " + table.getid() + " marked as GREEN (available)");
             
-            // Add click handler - create a simple RestaurantTable for selection
-            final int tableId = tableInfo.getTableId();
-            final int seatingCapacity = tableInfo.getSeatingCapacity();
-            final String location = tableInfo.getLocation();
-            
-            button.setOnAction(e -> {
-                // Create a temporary RestaurantTable object for selection
-                RestaurantTable tempTable = new RestaurantTable();
-                tempTable.setid(tableId);
-                tempTable.setSeatingCapacity(seatingCapacity);
-                tempTable.setLocation(location);
-                selectTable(tempTable, button);
-            });
+            // Add click handler
+            final RestaurantTable tableForSelection = table;
+            button.setOnAction(e -> selectTable(tableForSelection, button));
         }
         
-        statusLabel.setText("✅ Loaded " + tableAvailabilityList.size() + " tables with real-time availability. Select a table to make a reservation.");
+        statusLabel.setText("✅ Loaded " + tableList.size() + " tables. Select a table to make a reservation.");
     }
     
     private void selectTable(RestaurantTable table, Button button) {
@@ -280,17 +243,12 @@ public class TablesMapController {
             table5Button, table6Button, table7Button, table8Button
         );
         
-        // Use availability info to reset button colors
-        if (!tableAvailabilityList.isEmpty()) {
-            for (int i = 0; i < Math.min(tableAvailabilityList.size(), tableButtons.size()); i++) {
+        // Reset button colors using table data
+        if (!tableList.isEmpty()) {
+            for (int i = 0; i < Math.min(tableList.size(), tableButtons.size()); i++) {
                 Button button = tableButtons.get(i);
-                TableAvailabilityInfo tableInfo = tableAvailabilityList.get(i);
-                
-                if (tableInfo.isAvailable()) {
-                    button.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold;");
-                } else {
-                    button.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold;");
-                }
+                // Assume all tables are available for now
+                button.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold;");
             }
         }
     }

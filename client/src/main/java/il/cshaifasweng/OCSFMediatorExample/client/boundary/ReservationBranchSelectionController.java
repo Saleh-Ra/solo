@@ -31,7 +31,8 @@ public class ReservationBranchSelectionController {
     @FXML
     private void handleBackToMain() {
         try {
-            App.setRoot("primary1");
+            // Navigate back to managers page instead of primary1
+            App.setRoot("secondary2");
         } catch (IOException e) {
             e.printStackTrace();
         }
