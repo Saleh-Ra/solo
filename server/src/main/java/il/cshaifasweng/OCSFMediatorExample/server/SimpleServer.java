@@ -1,7 +1,7 @@
 package il.cshaifasweng.OCSFMediatorExample.server;
 import il.cshaifasweng.OCSFMediatorExample.entities.Order;
-import il.cshaifasweng.OCSFMediatorExample.entities.Reservation;
 import il.cshaifasweng.OCSFMediatorExample.entities.RestaurantTable;
+import il.cshaifasweng.OCSFMediatorExample.entities.Branch;
 import il.cshaifasweng.OCSFMediatorExample.server.Handlers.*;
 import il.cshaifasweng.OCSFMediatorExample.server.dataManagers.*;
 
@@ -9,10 +9,16 @@ import il.cshaifasweng.OCSFMediatorExample.server.ocsf.AbstractServer;
 import il.cshaifasweng.OCSFMediatorExample.server.ocsf.ConnectionToClient;
 import il.cshaifasweng.OCSFMediatorExample.entities.MenuItem;
 import il.cshaifasweng.OCSFMediatorExample.server.ocsf.SubscribedClient;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 /*VERY IMPORTANT:
 the server has to update the clients after each change in tables or menu change.
 it also has to update one client regarding the orders he has.
@@ -20,7 +26,14 @@ in addition, it must send messages to the managers regarding monthly sales and p
 */
 
 public class SimpleServer extends AbstractServer {
-	public static final ArrayList<SubscribedClient> SubscribersList = new ArrayList<>();
+	// Thread-safe list for managing client subscriptions
+	public static final List<SubscribedClient> SubscribersList = Collections.synchronizedList(new ArrayList<>());
+	
+	// Thread pool for handling heavy operations asynchronously
+	private static final ExecutorService taskExecutor = Executors.newFixedThreadPool(10);
+	
+	// Thread pool for database operations
+	private static final ExecutorService dbExecutor = Executors.newFixedThreadPool(5);
 
 	public SimpleServer(int port) {
 		super(port);
@@ -29,6 +42,13 @@ public class SimpleServer extends AbstractServer {
 
 	public static void main(String[] args) {
 		SimpleServer server = new SimpleServer(3000);
+		
+		// Add shutdown hook to gracefully close thread pools
+		Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+			System.out.println("Server shutting down...");
+			shutdownThreadPools();
+		}));
+		
 		try {
 			server.listen();
 			System.out.println("Server started and listening on port 3000");
@@ -52,35 +72,53 @@ public class SimpleServer extends AbstractServer {
 		String msgString = msg.toString();
 		System.out.println("Received message from client: " + msgString);
 
+		// Send immediate acknowledgment for heavy operations
+		if (isHeavyOperation(msgString)) {
+			try {
+				client.sendToClient("REQUEST_RECEIVED");
+			} catch (IOException e) {
+				System.err.println("Error sending acknowledgment: " + e.getMessage());
+			}
+		}
+
         if (msgString.startsWith("GET_MENU_BY_CATEGORY")) {
             MenuHandler.sendMenuByCategoryToClient(msgString, client);
         } else if (msgString.startsWith("GET_MENU")) {
             MenuHandler.sendMenuToClient(msgString, client);
 		} else if (msgString.startsWith("UPDATE_PRICE")) {
-			MenuHandler.handleUpdatePriceRequest(msgString, client);
+			// Heavy operation - process asynchronously
+			taskExecutor.submit(() -> MenuHandler.handleUpdatePriceRequest(msgString, client));
 		} else if (msgString.startsWith("ADD_ITEM")) {
-			MenuHandler.handleAddItemRequest(msgString, client);
+			// Heavy operation - process asynchronously
+			taskExecutor.submit(() -> MenuHandler.handleAddItemRequest(msgString, client));
 		} else if (msgString.startsWith("DELETE_ITEM")) {
-			MenuHandler.handleDeleteItemRequest(msgString, client);
+			// Heavy operation - process asynchronously
+			taskExecutor.submit(() -> MenuHandler.handleDeleteItemRequest(msgString, client));
         } else if (msgString.startsWith("TOGGLE_ITEM_SCOPE")) {
-            MenuHandler.handleToggleItemScope(msgString, client);
+            // Heavy operation - process asynchronously
+            taskExecutor.submit(() -> MenuHandler.handleToggleItemScope(msgString, client));
         } else if (msgString.startsWith("UPDATE_INGREDIENTS")) {
-            MenuHandler.handleUpdateIngredients(msgString, client);
+            // Heavy operation - process asynchronously
+            taskExecutor.submit(() -> MenuHandler.handleUpdateIngredients(msgString, client));
 		}
 		//reservation
 		else if (msgString.startsWith("RESERVE_TABLE")) {
-			ReservationHandler.handleReserveRequest(msgString, client);
+			// Heavy operation - process asynchronously
+			taskExecutor.submit(() -> ReservationHandler.handleReserveRequest(msgString, client));
 		} else if (msgString.startsWith("CANCEL_RESERVATION")) {
-			ReservationHandler.handleCancelReservation(msgString, client);
+			// Heavy operation - process asynchronously
+			taskExecutor.submit(() -> ReservationHandler.handleCancelReservation(msgString, client));
 		} else if (msgString.startsWith("GET_AVAILABLE_TABLES")) {
 			ReservationHandler.handleGetAvailableTables(msgString,client);
 		}
 
 		//order
 		else if (msgString.startsWith("CREATE_ORDER")) {
-			OrderHandler.handleCreateOrder(msgString, client);
+			// Heavy operation - process asynchronously
+			taskExecutor.submit(() -> OrderHandler.handleCreateOrder(msgString, client));
 		} else if (msgString.startsWith("CANCEL_ORDER")) {
-			OrderHandler.handleCancelOrder(msgString, client);
+			// Heavy operation - process asynchronously
+			taskExecutor.submit(() -> OrderHandler.handleCancelOrder(msgString, client));
 		} else if (msgString.startsWith("GET_ALL_ORDERS")) {
 			OrderHandler.handleGetAllOrders(client);
 		} else if (msgString.startsWith("GET_USER_ORDERS")) {
@@ -88,22 +126,51 @@ public class SimpleServer extends AbstractServer {
 		} else if (msgString.startsWith("GET_REPORTS")) {
 			ReportHandler.handleGetReports(client);
 		} else if (msgString.startsWith("GENERATE_REPORT")) {
-			ReportHandler.handleGenerateReport(msgString, client);
+			// Heavy operation - process asynchronously
+			taskExecutor.submit(() -> ReportHandler.handleGenerateReport(msgString, client));
 		} else if (msgString.startsWith("EXPORT_REPORT")) {
-			ReportHandler.handleExportReport(msgString, client);
+			// Heavy operation - process asynchronously
+			taskExecutor.submit(() -> ReportHandler.handleExportReport(msgString, client));
 		}
 		//client
 		else if (msgString.startsWith("SIGNUP")) {
-			ClientHandler.handleSignup(msgString, client);
+			// Heavy operation - process asynchronously
+			taskExecutor.submit(() -> ClientHandler.handleSignup(msgString, client));
 		} else if (msgString.startsWith("LOGIN")) {
-			ClientHandler.handleLogin(msgString, client);
+			// Heavy operation - process asynchronously
+			taskExecutor.submit(() -> ClientHandler.handleLogin(msgString, client));
 		} else if (msgString.startsWith("REGISTER_CLIENT")) {
-			ClientHandler.handleRegisterClient(msgString, client);
+			// Heavy operation - process asynchronously
+			taskExecutor.submit(() -> ClientHandler.handleRegisterClient(msgString, client));
 		} else if (msgString.startsWith("GET_CLIENT_INFO")) {
 			ClientHandler.handleGetClientInfo(msgString, client);
 		} else if (msgString.startsWith("UPDATE_CLIENT_EMAIL")) {
-			ClientHandler.handleUpdateClientEmail(msgString, client);
+			// Heavy operation - process asynchronously
+			taskExecutor.submit(() -> ClientHandler.handleUpdateClientEmail(msgString, client));
+		} else if (msgString.startsWith("GET_ALL_BRANCHES")) {
+			handleGetAllBranches(client);
 		}
+	}
+	
+	/**
+	 * Determines if an operation is heavy and should be processed asynchronously
+	 */
+	private boolean isHeavyOperation(String msgString) {
+		return msgString.startsWith("RESERVE_TABLE") ||
+			   msgString.startsWith("CANCEL_RESERVATION") ||
+			   msgString.startsWith("CREATE_ORDER") ||
+			   msgString.startsWith("CANCEL_ORDER") ||
+			   msgString.startsWith("UPDATE_PRICE") ||
+			   msgString.startsWith("ADD_ITEM") ||
+			   msgString.startsWith("DELETE_ITEM") ||
+			   msgString.startsWith("TOGGLE_ITEM_SCOPE") ||
+			   msgString.startsWith("UPDATE_INGREDIENTS") ||
+			   msgString.startsWith("GENERATE_REPORT") ||
+			   msgString.startsWith("EXPORT_REPORT") ||
+			   msgString.startsWith("SIGNUP") ||
+			   msgString.startsWith("LOGIN") ||
+			   msgString.startsWith("REGISTER_CLIENT") ||
+			   msgString.startsWith("UPDATE_CLIENT_EMAIL");
 	}
 
 	public static String serializeOrders(List<Order> orders) {
@@ -118,6 +185,30 @@ public class SimpleServer extends AbstractServer {
 					.append(order.getDeliveryLocation()).append("|"); // Use '|' between orders
 		}
 		return sb.toString();
+	}
+
+	/**
+	 * Handle GET_ALL_BRANCHES request - send all branches with opening hours to client
+	 */
+	public static void handleGetAllBranches(ConnectionToClient client) {
+		try {
+			SessionFactory factory = Database.getSessionFactoryInstance();
+			Session session = factory.openSession();
+			
+			List<Branch> branches = session.createQuery("from Branch", Branch.class).getResultList();
+			System.out.println("Sending " + branches.size() + " branches to client");
+			
+			// Send branches to client
+			client.sendToClient(branches);
+			session.close();
+			
+		} catch (IOException e) {
+			System.err.println("Error sending branches to client: " + e.getMessage());
+			e.printStackTrace();
+		} catch (Exception e) {
+			System.err.println("Error fetching branches from database: " + e.getMessage());
+			e.printStackTrace();
+		}
 	}
 
 	public static void sendUpdatedOrdersToClient(String phone, ConnectionToClient client) {
@@ -170,5 +261,56 @@ public class SimpleServer extends AbstractServer {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
+	}
+	
+	/**
+	 * Gracefully shuts down the thread pools when the server is closing
+	 */
+	public static void shutdownThreadPools() {
+		System.out.println("Shutting down thread pools...");
+		
+		// Shutdown task executor
+		taskExecutor.shutdown();
+		try {
+			if (!taskExecutor.awaitTermination(30, TimeUnit.SECONDS)) {
+				taskExecutor.shutdownNow();
+				if (!taskExecutor.awaitTermination(10, TimeUnit.SECONDS)) {
+					System.err.println("Task executor did not terminate");
+				}
+			}
+		} catch (InterruptedException e) {
+			taskExecutor.shutdownNow();
+			Thread.currentThread().interrupt();
+		}
+		
+		// Shutdown database executor
+		dbExecutor.shutdown();
+		try {
+			if (!dbExecutor.awaitTermination(30, TimeUnit.SECONDS)) {
+				dbExecutor.shutdownNow();
+				if (!dbExecutor.awaitTermination(10, TimeUnit.SECONDS)) {
+					System.err.println("Database executor did not terminate");
+				}
+			}
+		} catch (InterruptedException e) {
+			dbExecutor.shutdownNow();
+			Thread.currentThread().interrupt();
+		}
+		
+		System.out.println("Thread pools shut down successfully");
+	}
+	
+	/**
+	 * Get the database executor for use in handlers
+	 */
+	public static ExecutorService getDbExecutor() {
+		return dbExecutor;
+	}
+	
+	/**
+	 * Get the task executor for use in handlers
+	 */
+	public static ExecutorService getTaskExecutor() {
+		return taskExecutor;
 	}
 }
