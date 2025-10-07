@@ -1,10 +1,8 @@
-il\cshaifasweng\OCSFMediatorExample\client\boundary\TableDiagramController$TablePane.class
 il\cshaifasweng\OCSFMediatorExample\client\ocsf\AbstractClient.class
 il\cshaifasweng\OCSFMediatorExample\client\boundary\ReservationController.class
 il\cshaifasweng\OCSFMediatorExample\client\Main.class
 il\cshaifasweng\OCSFMediatorExample\client\boundary\ContactUsController.class
 il\cshaifasweng\OCSFMediatorExample\client\SimpleClient$OrdersReceivedEvent.class
-il\cshaifasweng\OCSFMediatorExample\client\boundary\TableDiagramController$1.class
 il\cshaifasweng\OCSFMediatorExample\client\boundary\PersonalAreaController.class
 il\cshaifasweng\OCSFMediatorExample\client\boundary\OrderController.class
 il\cshaifasweng\OCSFMediatorExample\client\ocsf\ObservableClient.class
@@ -26,7 +24,6 @@ il\cshaifasweng\OCSFMediatorExample\client\SimpleClient$ReportReceivedEvent.clas
 il\cshaifasweng\OCSFMediatorExample\client\boundary\CartPageController.class
 il\cshaifasweng\OCSFMediatorExample\client\boundary\ReservationBranchSelectionController.class
 il\cshaifasweng\OCSFMediatorExample\client\MenuUpdateListener.class
-il\cshaifasweng\OCSFMediatorExample\client\boundary\TableDiagramController.class
 il\cshaifasweng\OCSFMediatorExample\client\WarningEvent.class
 il\cshaifasweng\OCSFMediatorExample\client\ocsf\ObservableSWRClient.class
 il\cshaifasweng\OCSFMediatorExample\client\SimpleClient.class

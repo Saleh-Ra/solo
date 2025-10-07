@@ -2,6 +2,7 @@ package il.cshaifasweng.OCSFMediatorExample.server;
 import il.cshaifasweng.OCSFMediatorExample.entities.Order;
 import il.cshaifasweng.OCSFMediatorExample.entities.Reservation;
 import il.cshaifasweng.OCSFMediatorExample.entities.RestaurantTable;
+import il.cshaifasweng.OCSFMediatorExample.entities.Branch;
 import il.cshaifasweng.OCSFMediatorExample.server.Handlers.*;
 import il.cshaifasweng.OCSFMediatorExample.server.dataManagers.*;
 
@@ -9,6 +10,8 @@ import il.cshaifasweng.OCSFMediatorExample.server.ocsf.AbstractServer;
 import il.cshaifasweng.OCSFMediatorExample.server.ocsf.ConnectionToClient;
 import il.cshaifasweng.OCSFMediatorExample.entities.MenuItem;
 import il.cshaifasweng.OCSFMediatorExample.server.ocsf.SubscribedClient;
+import org.hibernate.Session;
+import org.hibernate.SessionFactory;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -74,6 +77,12 @@ public class SimpleServer extends AbstractServer {
 			ReservationHandler.handleCancelReservation(msgString, client);
 		} else if (msgString.startsWith("GET_AVAILABLE_TABLES")) {
 			ReservationHandler.handleGetAvailableTables(msgString,client);
+		} else if (msgString.startsWith("GET_USER_RESERVATIONS")) {
+			ReservationHandler.handleGetUserReservations(msgString, client);
+		} else if (msgString.startsWith("GET_RESERVATIONS_FOR_TIME")) {
+			ReservationHandler.handleGetReservationsForTime(msgString, client);
+		} else if (msgString.startsWith("GET_BRANCH_TABLES")) {
+			ReservationHandler.handleGetBranchTables(msgString, client);
 		}
 
 		//order
@@ -103,6 +112,8 @@ public class SimpleServer extends AbstractServer {
 			ClientHandler.handleGetClientInfo(msgString, client);
 		} else if (msgString.startsWith("UPDATE_CLIENT_EMAIL")) {
 			ClientHandler.handleUpdateClientEmail(msgString, client);
+		} else if (msgString.startsWith("GET_ALL_BRANCHES")) {
+			handleGetAllBranches(client);
 		}
 	}
 
@@ -119,6 +130,31 @@ public class SimpleServer extends AbstractServer {
 		}
 		return sb.toString();
 	}
+
+	/**
+	 * Handle GET_ALL_BRANCHES request - send all branches with opening hours to client
+	 */
+	public static void handleGetAllBranches(ConnectionToClient client) {
+		try {
+			SessionFactory factory = Database.getSessionFactoryInstance();
+			Session session = factory.openSession();
+			
+			List<Branch> branches = session.createQuery("from Branch", Branch.class).getResultList();
+			System.out.println("Sending " + branches.size() + " branches to client");
+			
+			// Send branches to client
+			client.sendToClient(branches);
+			session.close();
+			
+		} catch (IOException e) {
+			System.err.println("Error sending branches to client: " + e.getMessage());
+			e.printStackTrace();
+		} catch (Exception e) {
+			System.err.println("Error fetching branches from database: " + e.getMessage());
+			e.printStackTrace();
+		}
+	}
+	
 
 	public static void sendUpdatedOrdersToClient(String phone, ConnectionToClient client) {
 		try {

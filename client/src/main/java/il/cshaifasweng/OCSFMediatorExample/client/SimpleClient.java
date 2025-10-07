@@ -7,7 +7,6 @@ import il.cshaifasweng.OCSFMediatorExample.entities.MenuItem;
 import il.cshaifasweng.OCSFMediatorExample.entities.Order;
 import il.cshaifasweng.OCSFMediatorExample.entities.Reservation;
 import il.cshaifasweng.OCSFMediatorExample.entities.RestaurantTable;
-import il.cshaifasweng.OCSFMediatorExample.entities.TableAvailabilityInfo;
 import il.cshaifasweng.OCSFMediatorExample.entities.Warning;
 import org.greenrobot.eventbus.EventBus;
 
@@ -204,13 +203,6 @@ public class SimpleClient extends AbstractClient {
                 System.out.println("🟡 SimpleClient: Posting TablesReceivedEvent with " + tables.size() + " tables");
                 EventBus.getDefault().post(new TablesReceivedEvent(tables));
                 System.out.println("🟡 SimpleClient: TablesReceivedEvent posted to EventBus");
-            }
-                        // Check if it's a list of table availability info
-            else if (!((List<?>) msg).isEmpty() && ((List<?>) msg).get(0) instanceof TableAvailabilityInfo) {
-                List<TableAvailabilityInfo> tableAvailabilityList = (List<TableAvailabilityInfo>) msg;
-                System.out.println("🟡 SimpleClient: Received " + tableAvailabilityList.size() + " table availability info from server");
-                EventBus.getDefault().post(tableAvailabilityList);
-                System.out.println("🟡 SimpleClient: TableAvailabilityInfo posted to EventBus");
             }
             // Check if it's a list of branches
             else if (!((List<?>) msg).isEmpty() && ((List<?>) msg).get(0) instanceof Branch) {

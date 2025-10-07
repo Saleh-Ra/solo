@@ -4,7 +4,6 @@ import il.cshaifasweng.OCSFMediatorExample.client.App;
 import il.cshaifasweng.OCSFMediatorExample.client.SimpleClient;
 import il.cshaifasweng.OCSFMediatorExample.client.WarningEvent;
 import il.cshaifasweng.OCSFMediatorExample.entities.RestaurantTable;
-import il.cshaifasweng.OCSFMediatorExample.entities.TableAvailabilityInfo;
 import javafx.application.Platform;
 import javafx.collections.FXCollections;
 import javafx.fxml.FXML;
@@ -27,9 +26,6 @@ public class TablesMapController {
 
     @FXML private DatePicker datePicker;
     @FXML private ComboBox<LocalTime> timeComboBox;
-    @FXML private Spinner<Integer> guestsSpinner;
-    @FXML private TextField phoneField;
-    @FXML private Button reserveButton;
     @FXML private Label statusLabel;
     @FXML private Label selectedTableLabel;
     @FXML private Label branchLabel;
@@ -45,7 +41,7 @@ public class TablesMapController {
     @FXML private Button table8Button;
     
     // Store table data and selection
-    private List<TableAvailabilityInfo> tableAvailabilityList = new ArrayList<>();
+    private List<RestaurantTable> tableList = new ArrayList<>();
     private RestaurantTable selectedTable = null;
     private int selectedBranchId;
     private String selectedBranchName;
@@ -80,15 +76,15 @@ public class TablesMapController {
         // Add listeners for date/time changes
         datePicker.valueProperty().addListener((observable, oldValue, newValue) -> {
             if (newValue != null && timeComboBox.getValue() != null) {
-                System.out.println("🔵 Date changed to: " + newValue + ", loading availability...");
-                loadTablesWithAvailability();
+                System.out.println("🔵 Date changed to: " + newValue + ", updating colors...");
+                updateTableColorsForTime();
             }
         });
         
         timeComboBox.valueProperty().addListener((observable, oldValue, newValue) -> {
             if (newValue != null && datePicker.getValue() != null) {
-                System.out.println("🔵 Time changed to: " + newValue + ", loading availability...");
-                loadTablesWithAvailability();
+                System.out.println("🔵 Time changed to: " + newValue + ", updating colors...");
+                updateTableColorsForTime();
             }
         });
     }
@@ -126,18 +122,7 @@ public class TablesMapController {
         });
         timeComboBox.getSelectionModel().select(LocalTime.of(12, 0));
         
-        // Setup guests spinner
-        SpinnerValueFactory<Integer> valueFactory = 
-                new SpinnerValueFactory.IntegerSpinnerValueFactory(1, 20, 2);
-        guestsSpinner.setValueFactory(valueFactory);
-        
-        // Set phone number if available
-        if (SimpleClient.getCurrentUserPhone() != null && !SimpleClient.getCurrentUserPhone().isEmpty()) {
-            phoneField.setText(SimpleClient.getCurrentUserPhone());
-        }
-        
-        // Disable reserve button initially
-        reserveButton.setDisable(true);
+        // No need for guests spinner or phone field in table management view
         
         // Setup table button click handlers
         setupTableButtons();
@@ -161,7 +146,7 @@ public class TablesMapController {
     
     private void loadTablesWithAvailability() {
         try {
-            // For now, let's try a simpler approach - just get basic table info
+            // First, get the basic table info
             String message = "GET_BRANCH_TABLES;" + selectedBranchId;
             System.out.println("🔵 TablesMapController: Sending basic table request: " + message);
             SimpleClient.getClient().sendToServer(message);
@@ -173,40 +158,56 @@ public class TablesMapController {
         }
     }
     
-    @Subscribe
-    public void onTableAvailabilityReceived(List<TableAvailabilityInfo> availabilityList) {
-        System.out.println("🟢 TablesMapController: onTableAvailabilityReceived called with " + availabilityList.size() + " tables");
-        Platform.runLater(() -> {
-            tableAvailabilityList = availabilityList;
-            System.out.println("🟢 TablesMapController: Processing " + tableAvailabilityList.size() + " tables with availability from server");
-            updateTableButtonsWithAvailability();
-        });
+    private void updateTableColorsForTime() {
+        if (tableList.isEmpty()) {
+            return;
+        }
+        
+        LocalDate date = datePicker.getValue();
+        LocalTime time = timeComboBox.getValue();
+        
+        if (date == null || time == null) {
+            return;
+        }
+        
+        // Request reservations for this specific date/time
+        String dateTimeStr = LocalDateTime.of(date, time).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+        String message = "GET_RESERVATIONS_FOR_TIME;" + selectedBranchId + ";" + dateTimeStr;
+        
+        try {
+            System.out.println("🔵 Requesting reservations for " + dateTimeStr);
+            SimpleClient.getClient().sendToServer(message);
+            statusLabel.setText("⏳ Checking availability for " + date + " at " + time);
+        } catch (Exception e) {
+            System.err.println("❌ Error checking reservations: " + e.getMessage());
+        }
     }
+    
     
     @Subscribe
     public void onTablesReceived(SimpleClient.TablesReceivedEvent event) {
         System.out.println("🟢 TablesMapController: onTablesReceived called with " + event.getTables().size() + " tables");
         Platform.runLater(() -> {
-            // Convert RestaurantTable objects to TableAvailabilityInfo for compatibility
-            List<TableAvailabilityInfo> availabilityList = new ArrayList<>();
-            for (RestaurantTable table : event.getTables()) {
-                TableAvailabilityInfo tableInfo = new TableAvailabilityInfo();
-                tableInfo.setTableId(table.getid());
-                tableInfo.setSeatingCapacity(table.getSeatingCapacity());
-                tableInfo.setLocation(table.getLocation());
-                tableInfo.setAvailable(true); // Assume available for now
-                availabilityList.add(tableInfo);
-            }
-            
-            tableAvailabilityList = availabilityList;
-            System.out.println("🟢 TablesMapController: Converted " + tableAvailabilityList.size() + " tables to availability info");
-            updateTableButtonsWithAvailability();
+            tableList = event.getTables();
+            System.out.println("🟢 TablesMapController: Processing " + tableList.size() + " tables from server");
+            updateTableButtons();
+            // After loading tables, check availability for current time
+            updateTableColorsForTime();
         });
     }
     
-    private void updateTableButtonsWithAvailability() {
-        if (tableAvailabilityList.isEmpty()) {
-            statusLabel.setText("❌ No availability data received");
+    @Subscribe
+    public void onReservationsReceived(SimpleClient.ReservationsReceivedEvent event) {
+        System.out.println("🟢 TablesMapController: onReservationsReceived called with " + event.getReservations().size() + " reservations");
+        Platform.runLater(() -> {
+            // Update table colors based on reservations
+            updateTableColors(event.getReservations());
+            statusLabel.setText("✅ Updated availability status");
+        });
+    }
+    
+    private void updateTableColors(List<il.cshaifasweng.OCSFMediatorExample.entities.Reservation> reservations) {
+        if (tableList.isEmpty()) {
             return;
         }
         
@@ -216,47 +217,89 @@ public class TablesMapController {
             table5Button, table6Button, table7Button, table8Button
         );
         
-        System.out.println("🔵 Updating " + Math.min(tableAvailabilityList.size(), tableButtons.size()) + " table buttons with availability data");
+        LocalDate selectedDate = datePicker.getValue();
+        LocalTime selectedTime = timeComboBox.getValue();
         
-        // Update each button with availability data
-        for (int i = 0; i < Math.min(tableAvailabilityList.size(), tableButtons.size()); i++) {
-            TableAvailabilityInfo tableInfo = tableAvailabilityList.get(i);
+        if (selectedDate == null || selectedTime == null) {
+            return;
+        }
+        
+        LocalDateTime selectedDateTime = LocalDateTime.of(selectedDate, selectedTime);
+        
+        // Update each button color based on reservations
+        for (int i = 0; i < Math.min(tableList.size(), tableButtons.size()); i++) {
+            RestaurantTable table = tableList.get(i);
+            Button button = tableButtons.get(i);
+            
+            boolean isReserved = false;
+            
+            // Check if this table has a reservation at the selected time
+            for (il.cshaifasweng.OCSFMediatorExample.entities.Reservation reservation : reservations) {
+                if (reservation.getTables() != null) {
+                    for (RestaurantTable reservedTable : reservation.getTables()) {
+                        if (reservedTable.getid() == table.getid()) {
+                            // Check if reservation overlaps with selected time (90-minute window)
+                            LocalDateTime resStart = reservation.getReservationTime();
+                            LocalDateTime resEnd = reservation.getEndTime();
+                            
+                            if (selectedDateTime.isBefore(resEnd) && selectedDateTime.plusMinutes(90).isAfter(resStart)) {
+                                isReserved = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                if (isReserved) break;
+            }
+            
+            // Set button color
+            if (isReserved) {
+                button.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold;");
+                System.out.println("🔴 Table " + table.getid() + " marked as RED (reserved)");
+            } else {
+                button.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold;");
+                System.out.println("🟢 Table " + table.getid() + " marked as GREEN (available)");
+            }
+        }
+    }
+    
+    private void updateTableButtons() {
+        if (tableList.isEmpty()) {
+            statusLabel.setText("❌ No table data received");
+            return;
+        }
+        
+        // Create list of all table buttons
+        List<Button> tableButtons = Arrays.asList(
+            table1Button, table2Button, table3Button, table4Button,
+            table5Button, table6Button, table7Button, table8Button
+        );
+        
+        System.out.println("🔵 Updating " + Math.min(tableList.size(), tableButtons.size()) + " table buttons with table data");
+        
+        // Update each button with table data
+        for (int i = 0; i < Math.min(tableList.size(), tableButtons.size()); i++) {
+            RestaurantTable table = tableList.get(i);
             Button button = tableButtons.get(i);
             
             // Set button text
             String buttonText = String.format("Table %d\n%d Seats\n%s", 
-                tableInfo.getTableId(), 
-                tableInfo.getSeatingCapacity(), 
-                tableInfo.getLocation());
+                table.getid(), 
+                table.getSeatingCapacity(), 
+                table.getLocation());
             button.setText(buttonText);
             
-            // Set button style based on availability
-            if (tableInfo.isAvailable()) {
-                button.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold;");
-                button.setDisable(false);
-                System.out.println("🟢 Table " + tableInfo.getTableId() + " marked as GREEN (available) - real-time data");
-            } else {
-                button.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold;");
-                button.setDisable(true);
-                System.out.println("🔴 Table " + tableInfo.getTableId() + " marked as RED (unavailable) - real-time data");
-            }
+            // Set default button style (will be updated when we get reservation data)
+            button.setStyle("-fx-background-color: #6c757d; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold;");
+            button.setDisable(false);
+            System.out.println("⚪ Table " + table.getid() + " marked as GRAY (loading status)");
             
-            // Add click handler - create a simple RestaurantTable for selection
-            final int tableId = tableInfo.getTableId();
-            final int seatingCapacity = tableInfo.getSeatingCapacity();
-            final String location = tableInfo.getLocation();
-            
-            button.setOnAction(e -> {
-                // Create a temporary RestaurantTable object for selection
-                RestaurantTable tempTable = new RestaurantTable();
-                tempTable.setid(tableId);
-                tempTable.setSeatingCapacity(seatingCapacity);
-                tempTable.setLocation(location);
-                selectTable(tempTable, button);
-            });
+            // Add click handler
+            final RestaurantTable tableForSelection = table;
+            button.setOnAction(e -> selectTable(tableForSelection, button));
         }
         
-        statusLabel.setText("✅ Loaded " + tableAvailabilityList.size() + " tables with real-time availability. Select a table to make a reservation.");
+        statusLabel.setText("✅ Loaded " + tableList.size() + " tables. Checking availability...");
     }
     
     private void selectTable(RestaurantTable table, Button button) {
@@ -269,7 +312,6 @@ public class TablesMapController {
         // Store selection
         selectedTable = table;
         selectedTableLabel.setText("Selected: Table " + table.getid() + " (" + table.getSeatingCapacity() + " seats)");
-        reserveButton.setDisable(false);
         
         System.out.println("Selected table: " + table.getid());
     }
@@ -280,62 +322,17 @@ public class TablesMapController {
             table5Button, table6Button, table7Button, table8Button
         );
         
-        // Use availability info to reset button colors
-        if (!tableAvailabilityList.isEmpty()) {
-            for (int i = 0; i < Math.min(tableAvailabilityList.size(), tableButtons.size()); i++) {
+        // Reset button colors using table data
+        if (!tableList.isEmpty()) {
+            for (int i = 0; i < Math.min(tableList.size(), tableButtons.size()); i++) {
                 Button button = tableButtons.get(i);
-                TableAvailabilityInfo tableInfo = tableAvailabilityList.get(i);
-                
-                if (tableInfo.isAvailable()) {
-                    button.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold;");
-                } else {
-                    button.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold;");
-                }
+                // Assume all tables are available for now
+                button.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold;");
             }
         }
     }
     
-    @FXML
-    private void handleReserveTable() {
-        if (selectedTable == null) {
-            statusLabel.setText("⚠️ Please select a table first.");
-            return;
-        }
-        
-        String phone = phoneField.getText().trim();
-        if (phone.isEmpty()) {
-            statusLabel.setText("⚠️ Please enter your phone number.");
-            return;
-        }
-        
-        LocalDate date = datePicker.getValue();
-        LocalTime time = timeComboBox.getValue();
-        int guestCount = guestsSpinner.getValue();
-        
-        // Calculate end time (1.5 hours after start time)
-        LocalTime endTime = time.plusMinutes(90);
-        
-        // Format: RESERVE_TABLE;branchId;guestCount;tableId;seatingPref;startDateTime;endDateTime;phoneNumber;location
-        String reservationMessage = String.format("RESERVE_TABLE;%d;%d;%d;%s;%s;%s;%s;%s",
-                selectedBranchId,
-                guestCount,
-                selectedTable.getid(),
-                selectedTable.getLocation(),
-                LocalDateTime.of(date, time).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
-                LocalDateTime.of(date, endTime).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
-                phone,
-                selectedTable.getLocation());
-        
-        statusLabel.setText("⏳ Sending reservation request...");
-        
-        try {
-            System.out.println("Sending reservation request: " + reservationMessage);
-            SimpleClient.getClient().sendToServer(reservationMessage);
-        } catch (IOException e) {
-            statusLabel.setText("❌ Connection error: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
+    // No reservation functionality - this is now a table management view only
     
     @FXML
     private void handleBack() {

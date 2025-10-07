@@ -4,13 +4,11 @@ import il.cshaifasweng.OCSFMediatorExample.entities.Branch;
 import il.cshaifasweng.OCSFMediatorExample.entities.Client;
 import il.cshaifasweng.OCSFMediatorExample.entities.Reservation;
 import il.cshaifasweng.OCSFMediatorExample.entities.RestaurantTable;
-import il.cshaifasweng.OCSFMediatorExample.entities.TableAvailabilityInfo;
 import il.cshaifasweng.OCSFMediatorExample.entities.UserAccount;
 import il.cshaifasweng.OCSFMediatorExample.server.SimpleServer;
 import il.cshaifasweng.OCSFMediatorExample.server.dataManagers.DataManager;
 import il.cshaifasweng.OCSFMediatorExample.server.dataManagers.Database;
 import il.cshaifasweng.OCSFMediatorExample.server.ocsf.ConnectionToClient;
-import org.hibernate.annotations.Table;
 import org.hibernate.Hibernate;
 import org.hibernate.Session;
 
@@ -19,7 +17,6 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 public class ReservationHandler {
 
@@ -28,8 +25,8 @@ public class ReservationHandler {
         System.out.println("Received reservation request: " + msgString);
         String[] parts = msgString.split(";");
 
-        // Format: RESERVE_TABLE;branchId;guestCount;tableId;location;startDateTime;endDateTime;phoneNumber
-        if (parts.length < 7) {
+        // Format: RESERVE_TABLE;branchId;guestCount;location;startDateTime;endDateTime;phoneNumber;customerName
+        if (parts.length < 8) {
             System.out.println("Invalid format: Expected at least 8 parts, got " + parts.length);
             SimpleServer.sendFailureResponse(client, "RESERVATION_FAILURE", "Invalid format");
             return;
@@ -42,17 +39,18 @@ public class ReservationHandler {
             LocalDateTime startTime = LocalDateTime.parse(parts[4], DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
             LocalDateTime endTime = LocalDateTime.parse(parts[5], DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
             String phoneNumber = parts[6];
+            String customerName = parts[7];
 
             System.out.println("Processing reservation - Branch: " + branchId + 
                     ", Guests: " + guestCount +
                     ", Location: " + location +
                     ", Start: " + startTime + 
                     ", End: " + endTime +
-                    ", Phone: " + phoneNumber);
+                    ", Phone: " + phoneNumber +
+                    ", Name: " + customerName);
 
             // Fetch branch with tables in one session to avoid lazy loading issues
             Branch branch;
-            List<RestaurantTable> tables;
             Session branchSession = Database.getSessionFactoryInstance().openSession();
             try {
                 branchSession.beginTransaction();
@@ -64,7 +62,6 @@ public class ReservationHandler {
                 }
                 // Initialize the lazy-loaded tables collection
                 Hibernate.initialize(branch.getTables());
-                tables = new ArrayList<>(branch.getTables());
                 branchSession.getTransaction().commit();
             } finally {
                 branchSession.close();
@@ -75,11 +72,14 @@ public class ReservationHandler {
             UserAccount userAccount;
             if (userAccounts.isEmpty()) {
                 System.out.println("No user account found with phone: " + phoneNumber + ". Creating new account.");
-                // Create a new user account - for Guest client with null branch fields
-                userAccount = new UserAccount("Guest", phoneNumber, "client", "password");
+                // Create a new user account with phone as username and name+123 as password
+                String username = phoneNumber;
+                String password = customerName.toLowerCase() + "123";
+                userAccount = new UserAccount(customerName, phoneNumber, "client", password);
                 // Branch fields remain null by default for client accounts
                 DataManager.add(userAccount);
-                System.out.println("Created new user account with ID: " + userAccount.getId());
+                System.out.println("Created new user account with ID: " + userAccount.getId() + 
+                    ", Username: " + username + ", Password: " + password);
             } else {
                 userAccount = userAccounts.get(0);
                 System.out.println("Found user account: " + userAccount.getName() + " with ID: " + userAccount.getId());
@@ -101,10 +101,19 @@ public class ReservationHandler {
                     customer.setReservation(new ArrayList<>());
                 }
             }
-            boolean available=checkifpossible(branchId,guestCount,location,startTime,endTime);
-            // Create tables list with just this table
-            List<RestaurantTable> tablesToAdd = new ArrayList<>();
-
+            
+            /// ////////////////////////////////////////////////////////////////////////////////////
+            // Get the tables to reserve for this reservation
+            List<RestaurantTable> tablesToAdd = checkifpossible(branchId,guestCount,location,startTime,endTime);
+            
+            // If no tables available, send failure response
+            if (tablesToAdd == null || tablesToAdd.isEmpty()) {
+                System.out.println("❌ No available tables found for reservation");
+                SimpleServer.sendFailureResponse(client, "RESERVATION_FAILURE", "No available tables for " + guestCount + " guests at " + location);
+                return;
+            }
+            
+            System.out.println("✅ Found " + tablesToAdd.size() + " table(s) to reserve");
             
             // Create and save reservation in a single transaction
             Reservation newReservation = new Reservation(startTime, endTime, guestCount, phoneNumber, branch);
@@ -145,30 +154,20 @@ public class ReservationHandler {
             
             System.out.println("Reservation successfully created for phone: " + phoneNumber + " at " + branch.getLocation());
             
-            // Update table status to show it's reserved (for immediate visual feedback)
-            /*try (Session updateSession = Database.getSessionFactoryInstance().openSession()) {
-                updateSession.beginTransaction();
-                
-                // Reload the table and set reservedID
-                RestaurantTable tableToUpdate = updateSession.get(RestaurantTable.class, tableId);
-                if (tableToUpdate != null) {
-                    tableToUpdate.setReservedID(1); // Mark as reserved
-                    updateSession.update(tableToUpdate);
-                    System.out.println("✅ Updated table " + tableId + " reservedID to 1 for immediate visual feedback");
-                }
-                
-                updateSession.getTransaction().commit();
-            } catch (Exception e) {
-                System.err.println("⚠️ Warning: Could not update table reservedID: " + e.getMessage());
-                // Don't fail the reservation if this update fails
-            }*/
-            
-            System.out.println("Reservation created successfully - table marked as reserved for immediate feedback");
-            
             // Send navigation command to return to main page
             client.sendToClient("NAVIGATE_TO_MAIN");
             
-            SimpleServer.sendSuccessResponse(client, "RESERVATION_SUCCESS", "Table reserved successfully. Redirecting to main page.");
+            // Send account credentials to client for new accounts
+            String successMessage = "Table reserved successfully. Redirecting to main page.";
+            if (userAccounts.isEmpty()) {
+                // New account was created, include credentials
+                String username = phoneNumber;
+                String password = customerName.toLowerCase() + "123";
+                successMessage = String.format("Table reserved successfully! Your account has been created. Username: %s, Password: %s. Redirecting to main page.", 
+                    username, password);
+            }
+            
+            SimpleServer.sendSuccessResponse(client, "RESERVATION_SUCCESS", successMessage);
 
 
         } catch (Exception e) {
@@ -178,14 +177,13 @@ public class ReservationHandler {
         }
     }
 
-    //check if there is an option to make the reservation
-    private static boolean checkifpossible(int branchId, int guestCount, String location, LocalDateTime startTime, LocalDateTime endTime)
+
+    /**
+     * Check if reservation is possible and return the tables to reserve
+     * @return List of tables to reserve, or empty list if not possible
+     */
+    private static List<RestaurantTable> checkifpossible(int branchId, int guestCount, String location, LocalDateTime startTime, LocalDateTime endTime)
     {
-        /**
-         * check if tables are available at start< time< end
-         * once we find the occupied tables, we wanna see if available seats>= guests number (based on location)
-         * only after that we can make the reservation
-         */
         try (Session session = Database.getSessionFactoryInstance().openSession()) {
             
             System.out.println("🔍 Checking reservation possibility for "
@@ -195,13 +193,15 @@ public class ReservationHandler {
             Branch branch = session.get(Branch.class, branchId);
             if (branch == null) {
                 System.out.println("❌ Branch not found with ID: " + branchId);
-                return false;
+                return new ArrayList<>();
             }
             
+            // Initialize lazy-loaded tables collection
+            Hibernate.initialize(branch.getTables());
             List<RestaurantTable> allTables = branch.getTables();
             if (allTables == null || allTables.isEmpty()) {
                 System.out.println("❌ No tables found for branch " + branchId);
-                return false;
+                return new ArrayList<>();
             }
             
             // Filter tables by location
@@ -216,7 +216,7 @@ public class ReservationHandler {
             
             if (locationTables.isEmpty()) {
                 System.out.println("❌ No tables found in " + location + " area");
-                return false;
+                return new ArrayList<>();
             }
             
             // Get all reservations for this branch in the time window
@@ -243,13 +243,16 @@ public class ReservationHandler {
                 }
             }
             
-            System.out.println("🔍 Found " + occupiedTableIds.size() + " occupied tables during requested time");
+            System.out.println("🔍 Found " + occupiedTableIds.size() + " occupied table(s) during requested time");
             
-            // Calculate available seats in the requested location
+            // Collect available tables and calculate capacity
+            List<RestaurantTable> tablesToReserve = new ArrayList<>();
             int availableSeats = 0;
+            
             for (RestaurantTable table : locationTables) {
                 if (!occupiedTableIds.contains(table.getid())) {
                     availableSeats += table.getSeatingCapacity();
+                    tablesToReserve.add(table);
                     System.out.println("✅ Table " + table.getid() + " available with " + table.getSeatingCapacity() + " seats");
                 } else {
                     System.out.println("❌ Table " + table.getid() + " occupied during requested time");
@@ -258,102 +261,48 @@ public class ReservationHandler {
             
             System.out.println("🔍 Total available seats in " + location + ": " + availableSeats + " (needed: " + guestCount + ")");
             
-            boolean canAccommodate = availableSeats >= guestCount;
-            if (canAccommodate) {
-                System.out.println("✅ Reservation is possible - sufficient seats available");
+            // Check if we have enough capacity
+            if (availableSeats >= guestCount) {
+                // Select the minimum number of tables needed
+                List<RestaurantTable> selectedTables = selectOptimalTables(tablesToReserve, guestCount);
+                System.out.println("✅ Reservation is possible - selected " + selectedTables.size() + " table(s)");
+                return selectedTables;
             } else {
                 System.out.println("❌ Reservation not possible - insufficient seats (need " + guestCount + ", have " + availableSeats + ")");
+                return new ArrayList<>();
             }
-            
-            return canAccommodate;
             
         } catch (Exception e) {
             System.err.println("❌ Error checking reservation possibility: " + e.getMessage());
             e.printStackTrace();
-            return false; // Assume not possible if there's an error
+            return new ArrayList<>();
         }
     }
-
+    
     /**
-     * Checks if a table is already reserved during the specified time window.
+     * Select the optimal tables to accommodate the guest count
+     * Strategy: Use the minimum number of tables that can fit all guests
      */
-    private static boolean checkIfTableIsReserved(int branchId, int tableId, LocalDateTime startTime, LocalDateTime endTime) {
-        try (Session session = Database.getSessionFactoryInstance().openSession()) {
-            System.out.println("🔍🔍🔍 DEEP DEBUG: Starting table availability check 🔍🔍🔍");
-            System.out.println("🔍 Requested: Table " + tableId + " at branch " + branchId);
-            System.out.println("🔍 Time window: " + startTime + " to " + endTime);
-            System.out.println("🔍 Date: " + startTime.toLocalDate());
-            
-            // Use a simpler approach - get all reservations for this branch and filter by table manually
-            String hql = "FROM Reservation r WHERE r.branch.id = :branchId";
-            System.out.println("🔍 Using HQL: " + hql);
-            
-            List<Reservation> allReservations = session.createQuery(hql, Reservation.class)
-                    .setParameter("branchId", branchId)
-                    .list();
-            
-            // Now filter by table manually to avoid JOIN issues
-            List<Reservation> tableReservations = new ArrayList<>();
-            for (Reservation r : allReservations) {
-                if (r.getTables() != null) {
-                    for (RestaurantTable table : r.getTables()) {
-                        if (table.getid() == tableId) {
-                            tableReservations.add(r);
-                            break; // Found this table in this reservation, move to next reservation
-                        }
-                    }
-                }
+    private static List<RestaurantTable> selectOptimalTables(List<RestaurantTable> availableTables, int guestCount) {
+        List<RestaurantTable> selectedTables = new ArrayList<>();
+        int seatsAllocated = 0;
+        
+        // Sort tables by capacity (largest first) for optimal allocation
+        List<RestaurantTable> sortedTables = new ArrayList<>(availableTables);
+        sortedTables.sort((t1, t2) -> Integer.compare(t2.getSeatingCapacity(), t1.getSeatingCapacity()));
+        
+        // Select tables until we have enough seats
+        for (RestaurantTable table : sortedTables) {
+            if (seatsAllocated >= guestCount) {
+                break;
             }
-            
-            System.out.println("🔍 Found " + allReservations.size() + " TOTAL reservations for branch " + branchId);
-            System.out.println("🔍 Found " + tableReservations.size() + " reservations that include table " + tableId);
-            
-            // Now filter by date manually to see what we're dealing with
-            List<Reservation> sameDateReservations = new ArrayList<>();
-            for (Reservation r : tableReservations) {
-                LocalDateTime reservationDate = r.getReservationTime();
-                System.out.println("🔍 Reservation " + r.getId() + ": " + reservationDate + " (date: " + reservationDate.toLocalDate() + ")");
-                
-                if (reservationDate.toLocalDate().equals(startTime.toLocalDate())) {
-                    sameDateReservations.add(r);
-                    System.out.println("🔍 -> SAME DATE! Adding to check list");
-                } else {
-                    System.out.println("🔍 -> DIFFERENT DATE! Skipping");
-                }
-            }
-            
-            System.out.println("🔍 After date filtering: " + sameDateReservations.size() + " reservations for same date");
-            
-            // Check if any reservation overlaps with the requested time window
-            for (Reservation reservation : sameDateReservations) {
-                LocalDateTime reservationStart = reservation.getReservationTime();
-                LocalDateTime reservationEnd = reservation.getEndTime();
-                
-                System.out.println("🔍 Checking against reservation: " + reservation.getId() + 
-                                 " from " + reservationStart + " to " + reservationEnd);
-                
-                // Debug the overlaps logic
-                boolean startBeforeEnd = reservationStart.isBefore(endTime);
-                boolean endAfterStart = reservationEnd.isAfter(startTime);
-                boolean overlaps = startBeforeEnd && endAfterStart;
-                
-                System.out.println("🔍 Overlap check: " + reservationStart + ".isBefore(" + endTime + ") = " + startBeforeEnd);
-                System.out.println("🔍 Overlap check: " + reservationEnd + ".isAfter(" + startTime + ") = " + endAfterStart);
-                System.out.println("🔍 Final overlap result: " + overlaps);
-                
-                if (overlaps) {
-                    System.out.println("❌❌❌ CONFLICT FOUND: Reservation " + reservation.getId() + " overlaps with requested time! ❌❌❌");
-                    return true;
-                }
-            }
-            
-            System.out.println("✅✅✅ No conflicts found - table is available! ✅✅✅");
-            return false;
-        } catch (Exception e) {
-            System.err.println("❌❌❌ Error checking if table is reserved: " + e.getMessage());
-            e.printStackTrace();
-            return true; // Assume reserved if there's an error
+            selectedTables.add(table);
+            seatsAllocated += table.getSeatingCapacity();
+            System.out.println("📌 Selected table " + table.getid() + " with " + table.getSeatingCapacity() + " seats");
         }
+        
+        System.out.println("📊 Total allocated seats: " + seatsAllocated + " for " + guestCount + " guests");
+        return selectedTables;
     }
 
     public static void handleCancelReservation(String msgString, ConnectionToClient client) {
@@ -434,7 +383,6 @@ public class ReservationHandler {
             // Delete the reservation
             DataManager.delete(reservation);
 
-            // TODO: Process refund (optional, maybe just a print for now)
             System.out.println("Refund for client: " + (refundPercentage * 100) + "%");
 
             SimpleServer.sendSuccessResponse(client, "CANCELLING_RESERVATION_SUCCESS", 
@@ -461,6 +409,138 @@ public class ReservationHandler {
         } catch (Exception e) {
             e.printStackTrace();
             SimpleServer.sendFailureResponse(client, "CANCELLING_RESERVATION_FAILURE", "Server error: " + e.getMessage());
+        }
+    }
+
+    public static void handleGetUserReservations(String msgString, ConnectionToClient client) {
+        String[] parts = msgString.split(";");
+        // Format: GET_USER_RESERVATIONS;phoneNumber
+        if (parts.length < 2) {
+            SimpleServer.sendFailureResponse(client, "GET_USER_RESERVATIONS_FAILURE", "Invalid format");
+            return;
+        }
+
+        try (Session session = Database.getSessionFactoryInstance().openSession()) {
+            String phoneNumber = parts[1];
+            System.out.println("Getting reservations for phone: " + phoneNumber);
+            
+            // Find the client by phone number in the same session
+            String hql = "FROM Client c WHERE c.account.phoneNumber = :phoneNumber";
+            List<Client> clients = session.createQuery(hql, Client.class)
+                    .setParameter("phoneNumber", phoneNumber)
+                    .getResultList();
+                    
+            if (clients.isEmpty()) {
+                System.out.println("No client found with phone: " + phoneNumber);
+                // Send empty list
+                client.sendToClient(new ArrayList<Reservation>());
+                return;
+            }
+            
+            Client clientEntity = clients.get(0);
+            System.out.println("Found client: " + clientEntity.getName() + " with ID: " + clientEntity.getId());
+            
+            // Initialize the lazy-loaded reservations collection while session is open
+            Hibernate.initialize(clientEntity.getReservations());
+            
+            // Get reservations for this client
+            List<Reservation> reservations = clientEntity.getReservations();
+            if (reservations == null) {
+                reservations = new ArrayList<>();
+            }
+            
+            System.out.println("Found " + reservations.size() + " reservations for client");
+            
+            // Send reservations to client
+            client.sendToClient(reservations);
+            
+        } catch (Exception e) {
+            System.err.println("Error getting user reservations: " + e.getMessage());
+            e.printStackTrace();
+            SimpleServer.sendFailureResponse(client, "GET_USER_RESERVATIONS_FAILURE", "Server error: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Handle GET_RESERVATIONS_FOR_TIME request - return reservations for specific branch and date/time
+     * Format: GET_RESERVATIONS_FOR_TIME;branchId;dateTime
+     */
+    public static void handleGetReservationsForTime(String msgString, ConnectionToClient client) {
+        System.out.println("🔍 Received reservations for time request: " + msgString);
+        String[] parts = msgString.split(";");
+        
+        if (parts.length < 3) {
+            SimpleServer.sendFailureResponse(client, "GET_RESERVATIONS_FOR_TIME_FAILURE", "Invalid format");
+            return;
+        }
+        
+        try {
+            int branchId = Integer.parseInt(parts[1]);
+            LocalDateTime dateTime = LocalDateTime.parse(parts[2], DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+            
+            System.out.println("🔍 Getting reservations for branch " + branchId + " at " + dateTime);
+            
+            try (Session session = Database.getSessionFactoryInstance().openSession()) {
+                // Get all reservations for this branch on this date
+                String hql = "FROM Reservation r WHERE r.branch.id = :branchId AND DATE(r.reservationTime) = DATE(:dateTime)";
+                List<Reservation> reservations = session.createQuery(hql, Reservation.class)
+                        .setParameter("branchId", branchId)
+                        .setParameter("dateTime", dateTime)
+                        .list();
+                
+                // Initialize lazy-loaded tables for each reservation
+                for (Reservation reservation : reservations) {
+                    Hibernate.initialize(reservation.getTables());
+                }
+                
+                System.out.println("🔍 Found " + reservations.size() + " reservations for " + dateTime.toLocalDate());
+                client.sendToClient(reservations);
+                
+            }
+        } catch (Exception e) {
+            System.err.println("❌ Error getting reservations for time: " + e.getMessage());
+            e.printStackTrace();
+            SimpleServer.sendFailureResponse(client, "GET_RESERVATIONS_FOR_TIME_FAILURE", "Server error: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Handle GET_BRANCH_TABLES request - return all tables for a specific branch
+     * Format: GET_BRANCH_TABLES;branchId
+     */
+    public static void handleGetBranchTables(String msgString, ConnectionToClient client) {
+        System.out.println("🔍 Received get branch tables request: " + msgString);
+        String[] parts = msgString.split(";");
+        
+        if (parts.length < 2) {
+            SimpleServer.sendFailureResponse(client, "GET_BRANCH_TABLES_FAILURE", "Invalid format");
+            return;
+        }
+        
+        try {
+            int branchId = Integer.parseInt(parts[1]);
+            System.out.println("🔍 Getting tables for branch " + branchId);
+            
+            try (Session session = Database.getSessionFactoryInstance().openSession()) {
+                Branch branch = session.get(Branch.class, branchId);
+                if (branch == null) {
+                    System.out.println("❌ Branch not found with ID: " + branchId);
+                    SimpleServer.sendFailureResponse(client, "GET_BRANCH_TABLES_FAILURE", "Branch not found");
+                    return;
+                }
+                
+                // Initialize lazy-loaded tables collection
+                Hibernate.initialize(branch.getTables());
+                List<RestaurantTable> tables = branch.getTables();
+                
+                System.out.println("🔍 Found " + tables.size() + " tables for branch " + branchId);
+                client.sendToClient(tables);
+                
+            }
+        } catch (Exception e) {
+            System.err.println("❌ Error getting branch tables: " + e.getMessage());
+            e.printStackTrace();
+            SimpleServer.sendFailureResponse(client, "GET_BRANCH_TABLES_FAILURE", "Server error: " + e.getMessage());
         }
     }
 }    

@@ -19,6 +19,7 @@
 
         <ComboBox fx:id="branchComboBox" promptText="Choose Branch" prefWidth="300"/>
         <TextField fx:id="guestsField" promptText="Number of Guests" prefWidth="300"/>
+        <TextField fx:id="nameField" promptText="Your Name" prefWidth="300"/>
         <TextField fx:id="phoneField" promptText="Phone Number" prefWidth="300"/>
         <ComboBox fx:id="areaComboBox" promptText="Seating Area" prefWidth="300"/>
         <DatePicker fx:id="datePicker" promptText="Reservation Date" prefWidth="300"/>
