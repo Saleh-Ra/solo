@@ -25,8 +25,8 @@ public class ReservationHandler {
         System.out.println("Received reservation request: " + msgString);
         String[] parts = msgString.split(";");
 
-        // Format: RESERVE_TABLE;branchId;guestCount;tableId;location;startDateTime;endDateTime;phoneNumber
-        if (parts.length < 7) {
+        // Format: RESERVE_TABLE;branchId;guestCount;location;startDateTime;endDateTime;phoneNumber;customerName
+        if (parts.length < 8) {
             System.out.println("Invalid format: Expected at least 8 parts, got " + parts.length);
             SimpleServer.sendFailureResponse(client, "RESERVATION_FAILURE", "Invalid format");
             return;
@@ -39,13 +39,15 @@ public class ReservationHandler {
             LocalDateTime startTime = LocalDateTime.parse(parts[4], DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
             LocalDateTime endTime = LocalDateTime.parse(parts[5], DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
             String phoneNumber = parts[6];
+            String customerName = parts[7];
 
             System.out.println("Processing reservation - Branch: " + branchId + 
                     ", Guests: " + guestCount +
                     ", Location: " + location +
                     ", Start: " + startTime + 
                     ", End: " + endTime +
-                    ", Phone: " + phoneNumber);
+                    ", Phone: " + phoneNumber +
+                    ", Name: " + customerName);
 
             // Fetch branch with tables in one session to avoid lazy loading issues
             Branch branch;
@@ -70,11 +72,14 @@ public class ReservationHandler {
             UserAccount userAccount;
             if (userAccounts.isEmpty()) {
                 System.out.println("No user account found with phone: " + phoneNumber + ". Creating new account.");
-                // Create a new user account - for Guest client with null branch fields
-                userAccount = new UserAccount("Guest", phoneNumber, "client", "password");
+                // Create a new user account with phone as username and name+123 as password
+                String username = phoneNumber;
+                String password = customerName.toLowerCase() + "123";
+                userAccount = new UserAccount(customerName, phoneNumber, "client", password);
                 // Branch fields remain null by default for client accounts
                 DataManager.add(userAccount);
-                System.out.println("Created new user account with ID: " + userAccount.getId());
+                System.out.println("Created new user account with ID: " + userAccount.getId() + 
+                    ", Username: " + username + ", Password: " + password);
             } else {
                 userAccount = userAccounts.get(0);
                 System.out.println("Found user account: " + userAccount.getName() + " with ID: " + userAccount.getId());
@@ -98,7 +103,7 @@ public class ReservationHandler {
             }
             
             /// ////////////////////////////////////////////////////////////////////////////////////
-            // Get the tables to reserve for this reservation (using thread pool for database operations)
+            // Get the tables to reserve for this reservation
             List<RestaurantTable> tablesToAdd = checkifpossible(branchId,guestCount,location,startTime,endTime);
             
             // If no tables available, send failure response
@@ -152,7 +157,17 @@ public class ReservationHandler {
             // Send navigation command to return to main page
             client.sendToClient("NAVIGATE_TO_MAIN");
             
-            SimpleServer.sendSuccessResponse(client, "RESERVATION_SUCCESS", "Table reserved successfully. Redirecting to main page.");
+            // Send account credentials to client for new accounts
+            String successMessage = "Table reserved successfully. Redirecting to main page.";
+            if (userAccounts.isEmpty()) {
+                // New account was created, include credentials
+                String username = phoneNumber;
+                String password = customerName.toLowerCase() + "123";
+                successMessage = String.format("Table reserved successfully! Your account has been created. Username: %s, Password: %s. Redirecting to main page.", 
+                    username, password);
+            }
+            
+            SimpleServer.sendSuccessResponse(client, "RESERVATION_SUCCESS", successMessage);
 
 
         } catch (Exception e) {
@@ -394,6 +409,138 @@ public class ReservationHandler {
         } catch (Exception e) {
             e.printStackTrace();
             SimpleServer.sendFailureResponse(client, "CANCELLING_RESERVATION_FAILURE", "Server error: " + e.getMessage());
+        }
+    }
+
+    public static void handleGetUserReservations(String msgString, ConnectionToClient client) {
+        String[] parts = msgString.split(";");
+        // Format: GET_USER_RESERVATIONS;phoneNumber
+        if (parts.length < 2) {
+            SimpleServer.sendFailureResponse(client, "GET_USER_RESERVATIONS_FAILURE", "Invalid format");
+            return;
+        }
+
+        try (Session session = Database.getSessionFactoryInstance().openSession()) {
+            String phoneNumber = parts[1];
+            System.out.println("Getting reservations for phone: " + phoneNumber);
+            
+            // Find the client by phone number in the same session
+            String hql = "FROM Client c WHERE c.account.phoneNumber = :phoneNumber";
+            List<Client> clients = session.createQuery(hql, Client.class)
+                    .setParameter("phoneNumber", phoneNumber)
+                    .getResultList();
+                    
+            if (clients.isEmpty()) {
+                System.out.println("No client found with phone: " + phoneNumber);
+                // Send empty list
+                client.sendToClient(new ArrayList<Reservation>());
+                return;
+            }
+            
+            Client clientEntity = clients.get(0);
+            System.out.println("Found client: " + clientEntity.getName() + " with ID: " + clientEntity.getId());
+            
+            // Initialize the lazy-loaded reservations collection while session is open
+            Hibernate.initialize(clientEntity.getReservations());
+            
+            // Get reservations for this client
+            List<Reservation> reservations = clientEntity.getReservations();
+            if (reservations == null) {
+                reservations = new ArrayList<>();
+            }
+            
+            System.out.println("Found " + reservations.size() + " reservations for client");
+            
+            // Send reservations to client
+            client.sendToClient(reservations);
+            
+        } catch (Exception e) {
+            System.err.println("Error getting user reservations: " + e.getMessage());
+            e.printStackTrace();
+            SimpleServer.sendFailureResponse(client, "GET_USER_RESERVATIONS_FAILURE", "Server error: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Handle GET_RESERVATIONS_FOR_TIME request - return reservations for specific branch and date/time
+     * Format: GET_RESERVATIONS_FOR_TIME;branchId;dateTime
+     */
+    public static void handleGetReservationsForTime(String msgString, ConnectionToClient client) {
+        System.out.println("🔍 Received reservations for time request: " + msgString);
+        String[] parts = msgString.split(";");
+        
+        if (parts.length < 3) {
+            SimpleServer.sendFailureResponse(client, "GET_RESERVATIONS_FOR_TIME_FAILURE", "Invalid format");
+            return;
+        }
+        
+        try {
+            int branchId = Integer.parseInt(parts[1]);
+            LocalDateTime dateTime = LocalDateTime.parse(parts[2], DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+            
+            System.out.println("🔍 Getting reservations for branch " + branchId + " at " + dateTime);
+            
+            try (Session session = Database.getSessionFactoryInstance().openSession()) {
+                // Get all reservations for this branch on this date
+                String hql = "FROM Reservation r WHERE r.branch.id = :branchId AND DATE(r.reservationTime) = DATE(:dateTime)";
+                List<Reservation> reservations = session.createQuery(hql, Reservation.class)
+                        .setParameter("branchId", branchId)
+                        .setParameter("dateTime", dateTime)
+                        .list();
+                
+                // Initialize lazy-loaded tables for each reservation
+                for (Reservation reservation : reservations) {
+                    Hibernate.initialize(reservation.getTables());
+                }
+                
+                System.out.println("🔍 Found " + reservations.size() + " reservations for " + dateTime.toLocalDate());
+                client.sendToClient(reservations);
+                
+            }
+        } catch (Exception e) {
+            System.err.println("❌ Error getting reservations for time: " + e.getMessage());
+            e.printStackTrace();
+            SimpleServer.sendFailureResponse(client, "GET_RESERVATIONS_FOR_TIME_FAILURE", "Server error: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Handle GET_BRANCH_TABLES request - return all tables for a specific branch
+     * Format: GET_BRANCH_TABLES;branchId
+     */
+    public static void handleGetBranchTables(String msgString, ConnectionToClient client) {
+        System.out.println("🔍 Received get branch tables request: " + msgString);
+        String[] parts = msgString.split(";");
+        
+        if (parts.length < 2) {
+            SimpleServer.sendFailureResponse(client, "GET_BRANCH_TABLES_FAILURE", "Invalid format");
+            return;
+        }
+        
+        try {
+            int branchId = Integer.parseInt(parts[1]);
+            System.out.println("🔍 Getting tables for branch " + branchId);
+            
+            try (Session session = Database.getSessionFactoryInstance().openSession()) {
+                Branch branch = session.get(Branch.class, branchId);
+                if (branch == null) {
+                    System.out.println("❌ Branch not found with ID: " + branchId);
+                    SimpleServer.sendFailureResponse(client, "GET_BRANCH_TABLES_FAILURE", "Branch not found");
+                    return;
+                }
+                
+                // Initialize lazy-loaded tables collection
+                Hibernate.initialize(branch.getTables());
+                List<RestaurantTable> tables = branch.getTables();
+                
+                System.out.println("🔍 Found " + tables.size() + " tables for branch " + branchId);
+                client.sendToClient(tables);
+                
+            }
+        } catch (Exception e) {
+            System.err.println("❌ Error getting branch tables: " + e.getMessage());
+            e.printStackTrace();
+            SimpleServer.sendFailureResponse(client, "GET_BRANCH_TABLES_FAILURE", "Server error: " + e.getMessage());
         }
     }
 }    

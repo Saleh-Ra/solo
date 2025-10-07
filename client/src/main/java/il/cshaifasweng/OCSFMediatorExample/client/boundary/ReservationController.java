@@ -22,6 +22,7 @@ public class ReservationController {
     @FXML private DatePicker datePicker;
     @FXML private TextField timeField;
     @FXML private TextField phoneField; // Added phone field for client identification
+    @FXML private TextField nameField; // Added name field for customer name
     @FXML private Label statusLabel;
     
     // Maps for branch IDs (we'll use position as ID for simplicity)
@@ -45,10 +46,18 @@ public class ReservationController {
         if (message.startsWith("RESERVATION_SUCCESS")) {
             // Reservation was successful
             statusLabel.setText("✅ Reservation confirmed!");
+            
+            // Check if account credentials are included in the message
+            if (message.contains("Your account has been created")) {
+                // Extract credentials from message
+                String credentialsMessage = message.substring(message.indexOf("Your account has been created"));
+                showAccountCredentialsPopup(credentialsMessage);
+            }
+            
             // Add a delay before redirecting to the main page
             new Thread(() -> {
                 try {
-                    Thread.sleep(2000);
+                    Thread.sleep(3000); // Increased delay to allow user to read credentials
                     javafx.application.Platform.runLater(() -> {
                         try {
                             App.setRoot("primary1");
@@ -74,8 +83,9 @@ public class ReservationController {
         LocalDate date = datePicker.getValue();
         String timeText = timeField.getText();
         String phone = phoneField.getText().trim();
+        String customerName = nameField.getText().trim();
 
-        if (branchName == null || guestsText.isEmpty() || area == null || date == null || timeText.isEmpty() || phone.isEmpty()) {
+        if (branchName == null || guestsText.isEmpty() || area == null || date == null || timeText.isEmpty() || phone.isEmpty() || customerName.isEmpty()) {
             statusLabel.setText("⚠ Please fill in all fields.");
             return;
         }
@@ -114,14 +124,15 @@ public class ReservationController {
         // Get branch ID (position + 1 as simple mapping)
         int branchId = getBranchId(branchName);
         
-        // Format: RESERVE_TABLE;branchId;guestCount;area;startDateTime;endDateTime;phoneNumber;location
-        String reservationMessage = String.format("RESERVE_TABLE;%d;%d;%s;%s;%s;%s",
+        // Format: RESERVE_TABLE;branchId;guestCount;area;startDateTime;endDateTime;phoneNumber;customerName
+        String reservationMessage = String.format("RESERVE_TABLE;%d;%d;%s;%s;%s;%s;%s",
                 branchId,
                 guests,
                 area,
                 dateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
                 endDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")),
-                phone);
+                phone,
+                customerName);
                 
         statusLabel.setText("⏳ Sending reservation request...");
         
@@ -155,6 +166,17 @@ public class ReservationController {
             statusLabel.setText("❌ Could not return to main screen.");
             e.printStackTrace();
         }
+    }
+    
+    private void showAccountCredentialsPopup(String credentialsMessage) {
+        javafx.application.Platform.runLater(() -> {
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Account Created");
+            alert.setHeaderText("Your account has been created!");
+            alert.setContentText(credentialsMessage + "\n\nPlease save these credentials for future logins.");
+            alert.getDialogPane().setPrefWidth(500);
+            alert.showAndWait();
+        });
     }
     
     // Clean up when controller is being destroyed

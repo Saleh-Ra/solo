@@ -146,13 +146,13 @@ public class ClientHandler {
         }
 
         // Query the database to check credentials using DataManager
-        // For managers, use phoneNumber; for clients, use name
+        // For new system: username is phone number, password is name+123
         List<UserAccount> accounts;
         if (username.matches("\\d+")) {
-            // If username is all digits, treat it as phone number (for managers)
+            // If username is all digits, treat it as phone number (new system)
             accounts = DataManager.fetchUserAccountsByPhoneNumber(username);
         } else {
-            // If username is not all digits, treat it as name (for clients)
+            // If username is not all digits, treat it as name (old system compatibility)
             accounts = DataManager.fetchByField(UserAccount.class, "name", username);
         }
         
