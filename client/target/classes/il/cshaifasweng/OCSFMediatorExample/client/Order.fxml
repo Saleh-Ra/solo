@@ -13,7 +13,7 @@
         <Label text="📝 Enter Your Delivery And Payment Info" style="-fx-font-size: 18px; -fx-font-weight: bold;" />
 
         <TextField fx:id="nameField" promptText="Full Name" />
-        <TextField fx:id="idField" promptText="ID Number" />
+        <TextField fx:id="idField" promptText="Phone Number" />
         <TextField fx:id="addressField" promptText="Delivery Address" />
 
         <HBox spacing="10">

@@ -10,8 +10,11 @@ import il.cshaifasweng.OCSFMediatorExample.entities.Order;
 import il.cshaifasweng.OCSFMediatorExample.entities.UserAccount;
 import il.cshaifasweng.OCSFMediatorExample.server.SimpleServer;
 import il.cshaifasweng.OCSFMediatorExample.server.dataManagers.DataManager;
+import il.cshaifasweng.OCSFMediatorExample.server.dataManagers.Database;
 import il.cshaifasweng.OCSFMediatorExample.server.ocsf.ConnectionToClient;
 import il.cshaifasweng.OCSFMediatorExample.server.ocsf.SubscribedClient;
+import org.hibernate.Hibernate;
+import org.hibernate.Session;
 
 import java.util.List;
 import java.util.ArrayList;
@@ -70,8 +73,56 @@ public class OrderHandler {
             System.out.println("Total cost: $" + totalCost);
             System.out.println("Branch ID: " + branchId);
             
-            // Create order object with the selected branch ID
-            Order order = new Order(branchId, totalCost, now, null);
+            // Get or create user account (same behavior as reservations)
+            List<UserAccount> existingAccounts = DataManager.fetchUserAccountsByPhoneNumber(phone);
+            UserAccount userAccount;
+            boolean isNewAccount = false;
+            
+            if (existingAccounts.isEmpty()) {
+                // Create new account for first-time customer
+                System.out.println("No user account found with phone: " + phone + ". Creating new account.");
+                String username = phone;
+                String password = customerName.toLowerCase() + "123";
+                userAccount = new UserAccount(customerName, phone, "client", password);
+                DataManager.add(userAccount);
+                isNewAccount = true;
+                System.out.println("Created new user account with ID: " + userAccount.getId() + 
+                    ", Username: " + username + ", Password: " + password);
+            } else {
+                // Phone number exists - verify the name matches
+                userAccount = existingAccounts.get(0);
+                if (!userAccount.getName().equalsIgnoreCase(customerName.trim())) {
+                    System.out.println("❌ Phone number " + phone + " already registered to different customer: " + 
+                        userAccount.getName() + " (tried to use with name: " + customerName + ")");
+                    SimpleServer.sendFailureResponse(client, "CREATE_ORDER_FAILURE", 
+                        "This phone number is already registered to another customer. Please use your registered name or a different phone number.");
+                    return;
+                }
+                System.out.println("Found existing user account: " + userAccount.getName() + " with ID: " + userAccount.getId());
+            }
+            
+            // Get or create Client entity for this UserAccount (same as reservations)
+            List<Client> clients = DataManager.fetchClientsByPhoneNumber(phone);
+            Client customer;
+            
+            if (clients.isEmpty()) {
+                System.out.println("No Client entity found. Creating Client for UserAccount ID: " + userAccount.getId());
+                customer = new Client(userAccount.getName(), userAccount);
+                if (customer.getOrders() == null) {
+                    customer.setOrders(new ArrayList<>());
+                }
+                DataManager.add(customer);
+                System.out.println("Created Client entity with ID: " + customer.getId());
+            } else {
+                customer = clients.get(0);
+                if (customer.getOrders() == null) {
+                    customer.setOrders(new ArrayList<>());
+                }
+                System.out.println("Found existing Client entity with ID: " + customer.getId());
+            }
+            
+            // Create order object with the selected branch ID and link to Client
+            Order order = new Order(branchId, totalCost, now, customer);
             
             // Set additional details
             order.setStatus("Pending");
@@ -82,19 +133,54 @@ public class OrderHandler {
             order.setDeliveryLocation(deliveryLocation);
             order.setPaymentMethod(paymentMethod);
             
-            // Save to database
-            System.out.println("Saving order to database...");
-            DataManager.add(order);
-            System.out.println("Order saved with ID: " + order.getId());
+            // Save both order and update client in a single transaction
+            Session saveSession = Database.getSessionFactoryInstance().openSession();
+            try {
+                saveSession.beginTransaction();
+                
+                // First, reload the client to get fresh data
+                Client freshClient = saveSession.get(Client.class, customer.getId());
+                
+                // Save the order
+                saveSession.save(order);
+                System.out.println("Order saved with ID: " + order.getId());
+                
+                // Add order to client's list in the same session
+                if (freshClient.getOrders() == null) {
+                    System.out.println("Client orders list was null, initializing...");
+                    freshClient.setOrders(new ArrayList<>());
+                }
+                freshClient.getOrders().add(order);
+                System.out.println("Added order to client's list. Client now has " + freshClient.getOrders().size() + " orders");
+                
+                saveSession.getTransaction().commit();
+                System.out.println("Order and client updated in the same transaction");
+            } catch (Exception e) {
+                System.err.println("Error saving order: " + e.getMessage());
+                e.printStackTrace();
+                if (saveSession.getTransaction() != null && saveSession.getTransaction().isActive()) {
+                    saveSession.getTransaction().rollback();
+                }
+                SimpleServer.sendFailureResponse(client, "ORDER_FAILURE", "Error saving order: " + e.getMessage());
+                return;
+            } finally {
+                saveSession.close();
+            }
             
-            // Note: Branch monthly orders are transient fields, so we don't need to update them here
-            // The order is already linked to the branch via branchId field
             System.out.println("Order linked to branch ID: " + branchId);
             
             //now change the client's order list
             SimpleServer.sendUpdatedOrdersToClient(phone, client);
-            // Send success response
-            SimpleServer.sendSuccessResponse(client, "CREATE_ORDER_SUCCESS", "Order created successfully with ID: " + order.getId());
+            
+            // Send success response with account credentials if new account was created
+            String successMessage = "Order created successfully with ID: " + order.getId();
+            if (isNewAccount) {
+                String username = phone;
+                String password = customerName.toLowerCase() + "123";
+                successMessage = String.format("Order created successfully with ID: %d! Your account has been created. Username: %s, Password: %s", 
+                    order.getId(), username, password);
+            }
+            SimpleServer.sendSuccessResponse(client, "CREATE_ORDER_SUCCESS", successMessage);
         } catch (NumberFormatException e) {
             System.out.println("Failed to parse total cost: " + e.getMessage());
             SimpleServer.sendFailureResponse(client, "CREATE_ORDER_FAILURE", "Invalid number format: " + e.getMessage());
@@ -159,61 +245,49 @@ public class OrderHandler {
             SimpleServer.sendFailureResponse(client, "GET_ORDERS_FAILURE", "Invalid format");
             return;
         }
-        
-        String phoneNumber = parts[1];
-        System.out.println("Fetching orders for phone number: " + phoneNumber);
-        
-        try {
-            // Get all orders
-            List<Order> allOrders = DataManager.fetchAll(Order.class);
+
+        try (Session session = Database.getSessionFactoryInstance().openSession()) {
+            String phoneNumber = parts[1];
+            System.out.println("Getting orders for phone: " + phoneNumber);
             
-            // Check if this is a manager by looking at their role
-            Object clientInfo = client.getInfo("user");
-            List<Order> userOrders = new ArrayList<>();
-            
-            if (clientInfo != null && clientInfo instanceof UserAccount) {
-                UserAccount user = (UserAccount) clientInfo;
-                if ("manager".equalsIgnoreCase(user.getRole()) && user.getBranchId() != null) {
-                    // Manager: show orders for their branch
-                    int branchId = user.getBranchId();
-                    System.out.println("Manager requesting orders for branch ID: " + branchId);
+            // Find the client by phone number in the same session
+            String hql = "FROM Client c WHERE c.account.phoneNumber = :phoneNumber";
+            List<Client> clients = session.createQuery(hql, Client.class)
+                    .setParameter("phoneNumber", phoneNumber)
+                    .getResultList();
                     
-                    for (Order order : allOrders) {
-                        if (order.getBranchId() == branchId) {
-                            userOrders.add(order);
-                            System.out.println("Found branch order: " + order.getId() + " for branch: " + branchId);
-                        }
-                    }
-                } else {
-                    // Regular user: show their own orders
-                    for (Order order : allOrders) {
-                        if (phoneNumber.equals(order.getPhoneNumber())) {
-                            userOrders.add(order);
-                            System.out.println("Found user order: " + order.getId() + " for phone: " + phoneNumber);
-                        }
-                    }
-                }
-            } else {
-                // Fallback: show user's own orders
-                for (Order order : allOrders) {
-                    if (phoneNumber.equals(order.getPhoneNumber())) {
-                        userOrders.add(order);
-                        System.out.println("Found user order: " + order.getId() + " for phone: " + phoneNumber);
-                    }
-                }
+            if (clients.isEmpty()) {
+                System.out.println("No client found with phone: " + phoneNumber);
+                // Send empty list
+                client.sendToClient(new ArrayList<Order>());
+                return;
+            }
+            
+            Client clientEntity = clients.get(0);
+            System.out.println("Found client: " + clientEntity.getName() + " with ID: " + clientEntity.getId());
+            
+            // Initialize the lazy-loaded orders collection while session is open
+            Hibernate.initialize(clientEntity.getOrders());
+            
+            // Get orders for this client
+            List<Order> orders = clientEntity.getOrders();
+            if (orders == null) {
+                System.out.println("WARNING: Client's orders list is null!");
+                orders = new ArrayList<>();
+            }
+            
+            System.out.println("Found " + orders.size() + " orders for client");
+            for (Order o : orders) {
+                System.out.println("  - Order ID: " + o.getId() + ", Total: $" + o.getTotalCost() + ", Status: " + o.getStatus());
             }
             
             // Send orders to client
-            client.sendToClient(userOrders);
-            System.out.println("Sent " + userOrders.size() + " orders to client");
+            client.sendToClient(orders);
+            
         } catch (Exception e) {
-            System.err.println("Error fetching orders: " + e.getMessage());
+            System.err.println("Error getting user orders: " + e.getMessage());
             e.printStackTrace();
-            try {
-                SimpleServer.sendFailureResponse(client, "GET_ORDERS_FAILURE", "Error fetching orders");
-            } catch (Exception ex) {
-                ex.printStackTrace();
-            }
+            SimpleServer.sendFailureResponse(client, "GET_ORDERS_FAILURE", "Server error: " + e.getMessage());
         }
     }
 }

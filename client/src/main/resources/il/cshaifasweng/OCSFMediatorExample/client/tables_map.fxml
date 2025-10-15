@@ -54,38 +54,9 @@
          <!-- Main Restaurant Area -->
          <VBox alignment="CENTER" spacing="25" style="-fx-border-color: #dee2e6; -fx-border-width: 2; -fx-border-radius: 8; -fx-padding: 20; -fx-background-color: #f8f9fa; -fx-background-radius: 8;">
             
-            <!-- Inside Area - Tables 1-4 -->
-            <VBox alignment="CENTER" spacing="15">
-               <Label text="INSIDE AREA" style="-fx-font-weight: bold; -fx-font-size: 14; -fx-text-fill: #495057;" />
-               
-               <!-- Top row inside -->
-               <HBox alignment="CENTER" spacing="20">
-                  <Button fx:id="table1Button" prefWidth="80" prefHeight="60" styleClass="table-button" />
-                  <Button fx:id="table2Button" prefWidth="80" prefHeight="60" styleClass="table-button" />
-               </HBox>
-               
-               <!-- Bottom row inside -->
-               <HBox alignment="CENTER" spacing="20">
-                  <Button fx:id="table3Button" prefWidth="80" prefHeight="60" styleClass="table-button" />
-                  <Button fx:id="table4Button" prefWidth="80" prefHeight="60" styleClass="table-button" />
-               </HBox>
-            </VBox>
-            
-            <!-- Outside Area - Tables 5-8 -->
-            <VBox alignment="CENTER" spacing="15">
-               <Label text="OUTSIDE AREA" style="-fx-font-weight: bold; -fx-font-size: 14; -fx-text-fill: #495057;" />
-               
-               <!-- Top row outside -->
-               <HBox alignment="CENTER" spacing="20">
-                  <Button fx:id="table5Button" prefWidth="80" prefHeight="60" styleClass="table-button" />
-                  <Button fx:id="table6Button" prefWidth="80" prefHeight="60" styleClass="table-button" />
-               </HBox>
-               
-               <!-- Bottom row outside -->
-               <HBox alignment="CENTER" spacing="20">
-                  <Button fx:id="table7Button" prefWidth="80" prefHeight="60" styleClass="table-button" />
-                  <Button fx:id="table8Button" prefWidth="80" prefHeight="60" styleClass="table-button" />
-               </HBox>
+            <!-- Dynamic Table Areas -->
+            <VBox fx:id="dynamicTableContainer" alignment="CENTER" spacing="20">
+               <!-- Tables will be added here dynamically based on database -->
             </VBox>
             
          </VBox>

@@ -81,7 +81,15 @@ public class ReservationHandler {
                 System.out.println("Created new user account with ID: " + userAccount.getId() + 
                     ", Username: " + username + ", Password: " + password);
             } else {
+                // Phone number exists - verify the name matches
                 userAccount = userAccounts.get(0);
+                if (!userAccount.getName().equalsIgnoreCase(customerName.trim())) {
+                    System.out.println("❌ Phone number " + phoneNumber + " already registered to different customer: " + 
+                        userAccount.getName() + " (tried to use with name: " + customerName + ")");
+                    SimpleServer.sendFailureResponse(client, "RESERVATION_FAILURE", 
+                        "This phone number is already registered to another customer. Please use your registered name or a different phone number.");
+                    return;
+                }
                 System.out.println("Found user account: " + userAccount.getName() + " with ID: " + userAccount.getId());
             }
 
@@ -313,19 +321,26 @@ public class ReservationHandler {
             return;
         }
 
+        Session session = null;
         try {
             int reservationId = Integer.parseInt(parts[1]);
+            System.out.println("🗑️ Processing cancellation for reservation ID: " + reservationId);
 
-            List<Reservation> reservations = DataManager.fetchByField(Reservation.class, "id", reservationId);
-            if (reservations.isEmpty()) {
+            // Open a single session for all operations
+            session = Database.getSessionFactoryInstance().openSession();
+            session.beginTransaction();
+
+            // Load the reservation in this session
+            Reservation reservation = session.get(Reservation.class, reservationId);
+            if (reservation == null) {
+                session.getTransaction().rollback();
                 SimpleServer.sendFailureResponse(client, "CANCELLING_RESERVATION_FAILURE", "Reservation not found");
                 return;
             }
 
-            Reservation reservation = reservations.get(0);
+            // Calculate refund percentage
             LocalDateTime startTime = reservation.getReservationTime();
             LocalDateTime now = LocalDateTime.now();
-
             Duration diff = Duration.between(now, startTime);
             long minutesBefore = diff.toMinutes();
 
@@ -338,60 +353,54 @@ public class ReservationHandler {
                 refundPercentage = 0.0; // No refund
             }
             
-            // Remove the reservation from the client's list
+            System.out.println("💰 Refund percentage: " + (refundPercentage * 100) + "%");
+            
+            // Remove the reservation from the client's list (if client exists)
             Client customer = reservation.getClient();
-            if (customer != null && customer.getReservations() != null) {
-                customer.getReservations().remove(reservation);
-                // Update the customer in the database using a session
-                Session updateSession = Database.getSessionFactoryInstance().openSession();
-                try {
-                    updateSession.beginTransaction();
-                    updateSession.update(customer);
-                    updateSession.getTransaction().commit();
-                } catch (Exception e) {
-                    if (updateSession.getTransaction() != null) {
-                        updateSession.getTransaction().rollback();
-                    }
-                    System.err.println("Error updating client: " + e.getMessage());
-                } finally {
-                    updateSession.close();
+            if (customer != null) {
+                // Reload client in this session to ensure it's attached
+                customer = session.get(Client.class, customer.getId());
+                if (customer != null && customer.getReservations() != null) {
+                    customer.getReservations().remove(reservation);
+                    System.out.println("✅ Removed reservation from client's list");
                 }
             }
             
             // Reset table reservedID to make it available again
-            try (Session tableUpdateSession = Database.getSessionFactoryInstance().openSession()) {
-                tableUpdateSession.beginTransaction();
-                
-                // Get the table from the reservation and reset its reservedID
-                if (reservation.getTables() != null && !reservation.getTables().isEmpty()) {
-                    for (RestaurantTable table : reservation.getTables()) {
-                        RestaurantTable tableToUpdate = tableUpdateSession.get(RestaurantTable.class, table.getid());
-                        if (tableToUpdate != null) {
-                            tableToUpdate.setReservedID(0); // Mark as available
-                            tableUpdateSession.update(tableToUpdate);
-                            System.out.println("✅ Reset table " + table.getid() + " reservedID to 0 (available)");
-                        }
+            if (reservation.getTables() != null && !reservation.getTables().isEmpty()) {
+                for (RestaurantTable table : reservation.getTables()) {
+                    RestaurantTable tableToUpdate = session.get(RestaurantTable.class, table.getid());
+                    if (tableToUpdate != null) {
+                        tableToUpdate.setReservedID(0); // Mark as available
+                        System.out.println("✅ Reset table " + table.getid() + " reservedID to 0 (available)");
                     }
                 }
-                
-                tableUpdateSession.getTransaction().commit();
-            } catch (Exception e) {
-                System.err.println("⚠️ Warning: Could not reset table reservedID: " + e.getMessage());
-                // Don't fail the cancellation if this update fails
             }
             
-            // Delete the reservation
-            DataManager.delete(reservation);
-
-            System.out.println("Refund for client: " + (refundPercentage * 100) + "%");
+            // Delete the reservation (it's attached to the session, so this will work)
+            session.delete(reservation);
+            System.out.println("✅ Deleted reservation from database");
+            
+            // Commit all changes in one transaction
+            session.getTransaction().commit();
+            System.out.println("✅ Transaction committed successfully");
 
             SimpleServer.sendSuccessResponse(client, "CANCELLING_RESERVATION_SUCCESS", 
                     "Reservation cancelled. Refund: " + (int)(refundPercentage * 100) + "%");
-            System.out.println("Reservation cancelled successfully: " + reservationId);
+            System.out.println("🎉 Reservation cancelled successfully: " + reservationId);
 
         } catch (Exception e) {
+            System.err.println("❌ Error cancelling reservation: " + e.getMessage());
             e.printStackTrace();
+            if (session != null && session.getTransaction() != null && session.getTransaction().isActive()) {
+                session.getTransaction().rollback();
+                System.out.println("⏪ Transaction rolled back due to error");
+            }
             SimpleServer.sendFailureResponse(client, "CANCELLING_RESERVATION_FAILURE", "Server error: " + e.getMessage());
+        } finally {
+            if (session != null && session.isOpen()) {
+                session.close();
+            }
         }
     }
 
@@ -479,13 +488,20 @@ public class ReservationHandler {
             LocalDateTime dateTime = LocalDateTime.parse(parts[2], DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
             
             System.out.println("🔍 Getting reservations for branch " + branchId + " at " + dateTime);
+            System.out.println("🔍 Parsed dateTime from client: " + dateTime);
+            System.out.println("🔍 Query date: " + dateTime.toLocalDate());
             
             try (Session session = Database.getSessionFactoryInstance().openSession()) {
                 // Get all reservations for this branch on this date
-                String hql = "FROM Reservation r WHERE r.branch.id = :branchId AND DATE(r.reservationTime) = DATE(:dateTime)";
+                // Use datetime range to avoid timezone issues
+                LocalDateTime startOfDay = dateTime.toLocalDate().atStartOfDay();
+                LocalDateTime endOfDay = dateTime.toLocalDate().atTime(23, 59, 59);
+                
+                String hql = "FROM Reservation r WHERE r.branch.id = :branchId AND r.reservationTime >= :startOfDay AND r.reservationTime <= :endOfDay";
                 List<Reservation> reservations = session.createQuery(hql, Reservation.class)
                         .setParameter("branchId", branchId)
-                        .setParameter("dateTime", dateTime)
+                        .setParameter("startOfDay", startOfDay)
+                        .setParameter("endOfDay", endOfDay)
                         .list();
                 
                 // Initialize lazy-loaded tables for each reservation
@@ -494,6 +510,14 @@ public class ReservationHandler {
                 }
                 
                 System.out.println("🔍 Found " + reservations.size() + " reservations for " + dateTime.toLocalDate());
+                
+                // Debug: Print reservation details
+                for (Reservation res : reservations) {
+                    System.out.println("  - Reservation ID: " + res.getId() + 
+                                     ", Time: " + res.getReservationTime() + 
+                                     ", Tables: " + (res.getTables() != null ? res.getTables().size() : 0));
+                }
+                
                 client.sendToClient(reservations);
                 
             }

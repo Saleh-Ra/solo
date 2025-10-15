@@ -211,11 +211,11 @@ public class SimpleClient extends AbstractClient {
                 EventBus.getDefault().post(new BranchesReceivedEvent(branches));
                 System.out.println("🟡 SimpleClient: BranchesReceivedEvent posted to EventBus");
             }
-            // Or it's an empty list - check the instance type from generic signature
+			// Or it's an empty list - check the instance type from generic signature
 			else if (((List<?>) msg).isEmpty()) {
 				// Since we can't tell what type of empty list it is, post both empty events
 				// The controller will handle whichever is relevant
-				System.out.println("Received empty list from server");
+				System.out.println("Received empty list from server - posting both empty events");
 				EventBus.getDefault().post(new OrdersReceivedEvent(new ArrayList<>()));
 				EventBus.getDefault().post(new ReservationsReceivedEvent(new ArrayList<>()));
 			}
