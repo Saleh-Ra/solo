@@ -61,13 +61,21 @@ public class PersonalAreaController {
     @Subscribe
     public void onOrdersReceived(SimpleClient.OrdersReceivedEvent event) {
         // This runs on background thread, so use Platform.runLater
+        System.out.println("🔵 PersonalAreaController: Received OrdersReceivedEvent with " + event.getOrders().size() + " orders");
         Platform.runLater(() -> {
             List<Order> orders = event.getOrders();
-            displayUserOrders(orders);
-            if (orders.isEmpty()) {
-                statusLabel.setText("You have no orders");
+            System.out.println("🔵 PersonalAreaController: Displaying " + orders.size() + " orders");
+            
+            // Only clear and update if we actually have orders or this is the first load
+            if (!orders.isEmpty() || ordersListView.getItems().isEmpty()) {
+                displayUserOrders(orders);
+                if (orders.isEmpty()) {
+                    statusLabel.setText("You have no orders");
+                } else {
+                    statusLabel.setText("Found " + orders.size() + " orders");
+                }
             } else {
-                statusLabel.setText("Found " + orders.size() + " orders");
+                System.out.println("🔵 PersonalAreaController: Ignoring empty orders event (already have orders displayed)");
             }
         });
     }
@@ -87,14 +95,17 @@ public class PersonalAreaController {
     }
     
     private void displayUserOrders(List<Order> orders) {
+        System.out.println("🔵 PersonalAreaController: displayUserOrders called with " + orders.size() + " orders");
         ordersListView.getItems().clear();
         
         if (orders.isEmpty()) {
+            System.out.println("🔵 PersonalAreaController: No orders to display");
             statusLabel.setText("You have no orders yet");
             return;
         }
         
         for (Order order : orders) {
+            System.out.println("🔵 PersonalAreaController: Processing order ID: " + order.getId() + ", Total: $" + order.getTotalCost());
             // Format order details
             String orderTime = order.getOrderTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
             String details = String.format("Order #%d - $%.2f - %s", 
@@ -106,7 +117,9 @@ public class PersonalAreaController {
             boolean isActive = "Pending".equals(order.getStatus());
             
             addOrderItem(details, isActive);
+            System.out.println("🔵 PersonalAreaController: Added order item to list");
         }
+        System.out.println("🔵 PersonalAreaController: ListView now has " + ordersListView.getItems().size() + " items");
     }
 
     private void displayUserReservations(List<Reservation> reservations) {
@@ -146,6 +159,7 @@ public class PersonalAreaController {
     }
 
     private void addOrderItem(String text, boolean isActive) {
+        System.out.println("🔵 PersonalAreaController: addOrderItem called with text: " + text);
         Label label = new Label((isActive ? "🟢 " : "⚪ ") + text);
         Button cancelButton = new Button("Cancel");
         cancelButton.setVisible(isActive);
@@ -167,6 +181,7 @@ public class PersonalAreaController {
 
         HBox row = new HBox(10, label, cancelButton);
         ordersListView.getItems().add(row);
+        System.out.println("🔵 PersonalAreaController: Added HBox to ListView. ListView size: " + ordersListView.getItems().size());
     }
     
     private void cancelOrder(int orderId) {

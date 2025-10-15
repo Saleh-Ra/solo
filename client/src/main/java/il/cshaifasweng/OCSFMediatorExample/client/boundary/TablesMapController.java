@@ -29,20 +29,13 @@ public class TablesMapController {
     @FXML private Label statusLabel;
     @FXML private Label selectedTableLabel;
     @FXML private Label branchLabel;
-    
-    // Table buttons - 8 fixed positions
-    @FXML private Button table1Button;
-    @FXML private Button table2Button;
-    @FXML private Button table3Button;
-    @FXML private Button table4Button;
-    @FXML private Button table5Button;
-    @FXML private Button table6Button;
-    @FXML private Button table7Button;
-    @FXML private Button table8Button;
+    @FXML private VBox dynamicTableContainer;
     
     // Store table data and selection
     private List<RestaurantTable> tableList = new ArrayList<>();
     private RestaurantTable selectedTable = null;
+    private Map<Integer, Button> tableButtons = new HashMap<>();
+    private java.util.Set<Integer> occupiedTableIds = new java.util.HashSet<>();
     private int selectedBranchId;
     private String selectedBranchName;
     
@@ -129,19 +122,14 @@ public class TablesMapController {
     }
     
     private void setupTableButtons() {
-        // Create list of all table buttons for easy iteration
-        List<Button> tableButtons = Arrays.asList(
-            table1Button, table2Button, table3Button, table4Button,
-            table5Button, table6Button, table7Button, table8Button
-        );
+        // Clear existing dynamic table container
+        dynamicTableContainer.getChildren().clear();
+        tableButtons.clear();
         
-        // Set initial button text and disable them
-        for (int i = 0; i < tableButtons.size(); i++) {
-            Button button = tableButtons.get(i);
-            button.setText("Table " + (i + 1) + "\nLoading...");
-            button.setDisable(true);
-            button.setStyle("-fx-background-color: #6c757d; -fx-text-fill: white; -fx-font-size: 12px;");
-        }
+        // Add loading message
+        Label loadingLabel = new Label("Loading tables...");
+        loadingLabel.setStyle("-fx-font-size: 16px; -fx-text-fill: #6c757d;");
+        dynamicTableContainer.getChildren().add(loadingLabel);
     }
     
     private void loadTablesWithAvailability() {
@@ -171,11 +159,13 @@ public class TablesMapController {
         }
         
         // Request reservations for this specific date/time
-        String dateTimeStr = LocalDateTime.of(date, time).format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+        LocalDateTime selectedDateTime = LocalDateTime.of(date, time);
+        String dateTimeStr = selectedDateTime.format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
         String message = "GET_RESERVATIONS_FOR_TIME;" + selectedBranchId + ";" + dateTimeStr;
         
         try {
-            System.out.println("🔵 Requesting reservations for " + dateTimeStr);
+            System.out.println("🔵 Client sending time: " + selectedDateTime);
+            System.out.println("🔵 Client sending string: " + dateTimeStr);
             SimpleClient.getClient().sendToServer(message);
             statusLabel.setText("⏳ Checking availability for " + date + " at " + time);
         } catch (Exception e) {
@@ -211,12 +201,6 @@ public class TablesMapController {
             return;
         }
         
-        // Create list of all table buttons
-        List<Button> tableButtons = Arrays.asList(
-            table1Button, table2Button, table3Button, table4Button,
-            table5Button, table6Button, table7Button, table8Button
-        );
-        
         LocalDate selectedDate = datePicker.getValue();
         LocalTime selectedTime = timeComboBox.getValue();
         
@@ -227,9 +211,9 @@ public class TablesMapController {
         LocalDateTime selectedDateTime = LocalDateTime.of(selectedDate, selectedTime);
         
         // Update each button color based on reservations
-        for (int i = 0; i < Math.min(tableList.size(), tableButtons.size()); i++) {
-            RestaurantTable table = tableList.get(i);
-            Button button = tableButtons.get(i);
+        for (RestaurantTable table : tableList) {
+            Button button = tableButtons.get(table.getid());
+            if (button == null) continue;
             
             boolean isReserved = false;
             
@@ -238,11 +222,13 @@ public class TablesMapController {
                 if (reservation.getTables() != null) {
                     for (RestaurantTable reservedTable : reservation.getTables()) {
                         if (reservedTable.getid() == table.getid()) {
-                            // Check if reservation overlaps with selected time (90-minute window)
+                            // Check if selected time is within the reservation window
+                            // Table is reserved from reservation start time until 90 minutes after
                             LocalDateTime resStart = reservation.getReservationTime();
-                            LocalDateTime resEnd = reservation.getEndTime();
+                            LocalDateTime resEnd = reservation.getEndTime(); // Should be resStart + 90 minutes
                             
-                            if (selectedDateTime.isBefore(resEnd) && selectedDateTime.plusMinutes(90).isAfter(resStart)) {
+                            // Selected time is within reservation if: resStart <= selectedDateTime < resEnd
+                            if (!selectedDateTime.isBefore(resStart) && selectedDateTime.isBefore(resEnd)) {
                                 isReserved = true;
                                 break;
                             }
@@ -254,10 +240,10 @@ public class TablesMapController {
             
             // Set button color
             if (isReserved) {
-                button.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold;");
+                button.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold;");
                 System.out.println("🔴 Table " + table.getid() + " marked as RED (reserved)");
             } else {
-                button.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold;");
+                button.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold;");
                 System.out.println("🟢 Table " + table.getid() + " marked as GREEN (available)");
             }
         }
@@ -269,37 +255,74 @@ public class TablesMapController {
             return;
         }
         
-        // Create list of all table buttons
-        List<Button> tableButtons = Arrays.asList(
-            table1Button, table2Button, table3Button, table4Button,
-            table5Button, table6Button, table7Button, table8Button
-        );
+        // Clear existing container
+        dynamicTableContainer.getChildren().clear();
+        tableButtons.clear();
         
-        System.out.println("🔵 Updating " + Math.min(tableList.size(), tableButtons.size()) + " table buttons with table data");
+        System.out.println("🔵 Creating " + tableList.size() + " dynamic table buttons");
         
-        // Update each button with table data
-        for (int i = 0; i < Math.min(tableList.size(), tableButtons.size()); i++) {
-            RestaurantTable table = tableList.get(i);
-            Button button = tableButtons.get(i);
+        // Group tables by location
+        Map<String, List<RestaurantTable>> tablesByLocation = new HashMap<>();
+        for (RestaurantTable table : tableList) {
+            String location = table.getLocation() != null ? table.getLocation() : "Unknown";
+            tablesByLocation.computeIfAbsent(location, k -> new ArrayList<>()).add(table);
+        }
+        
+        // Create sections for each location
+        for (Map.Entry<String, List<RestaurantTable>> entry : tablesByLocation.entrySet()) {
+            String location = entry.getKey();
+            List<RestaurantTable> tables = entry.getValue();
             
-            // Set button text
-            String buttonText = String.format("Table %d\n%d Seats\n%s", 
-                table.getid(), 
-                table.getSeatingCapacity(), 
-                table.getLocation());
-            button.setText(buttonText);
+            // Create location label
+            Label locationLabel = new Label(location.toUpperCase() + " AREA");
+            locationLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14; -fx-text-fill: #495057;");
+            dynamicTableContainer.getChildren().add(locationLabel);
             
-            // Set default button style (will be updated when we get reservation data)
-            button.setStyle("-fx-background-color: #6c757d; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold;");
-            button.setDisable(false);
-            System.out.println("⚪ Table " + table.getid() + " marked as GRAY (loading status)");
+            // Create grid for tables in this location
+            GridPane gridPane = new GridPane();
+            gridPane.setAlignment(Pos.CENTER);
+            gridPane.setHgap(15);
+            gridPane.setVgap(15);
             
-            // Add click handler
-            final RestaurantTable tableForSelection = table;
-            button.setOnAction(e -> selectTable(tableForSelection, button));
+            // Add tables to grid (max 4 per row)
+            int colsPerRow = 4;
+            for (int i = 0; i < tables.size(); i++) {
+                RestaurantTable table = tables.get(i);
+                int row = i / colsPerRow;
+                int col = i % colsPerRow;
+                
+                Button button = createTableButton(table);
+                gridPane.add(button, col, row);
+                tableButtons.put(table.getid(), button);
+            }
+            
+            dynamicTableContainer.getChildren().add(gridPane);
         }
         
         statusLabel.setText("✅ Loaded " + tableList.size() + " tables. Checking availability...");
+    }
+    
+    private Button createTableButton(RestaurantTable table) {
+        Button button = new Button();
+        button.setPrefWidth(90);
+        button.setPrefHeight(70);
+        
+        // Set button text
+        String buttonText = String.format("Table %d\n%d Seats", 
+            table.getid(), 
+            table.getSeatingCapacity());
+        button.setText(buttonText);
+        
+        // Set default button style (will be updated when we get reservation data)
+        button.setStyle("-fx-background-color: #6c757d; -fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold;");
+        button.setDisable(false);
+        
+        // Add click handler
+        button.setOnAction(e -> selectTable(table, button));
+        
+        System.out.println("⚪ Table " + table.getid() + " created in " + table.getLocation() + " area");
+        
+        return button;
     }
     
     private void selectTable(RestaurantTable table, Button button) {
@@ -317,17 +340,17 @@ public class TablesMapController {
     }
     
     private void resetAllButtons() {
-        List<Button> tableButtons = Arrays.asList(
-            table1Button, table2Button, table3Button, table4Button,
-            table5Button, table6Button, table7Button, table8Button
-        );
-        
-        // Reset button colors using table data
-        if (!tableList.isEmpty()) {
-            for (int i = 0; i < Math.min(tableList.size(), tableButtons.size()); i++) {
-                Button button = tableButtons.get(i);
-                // Assume all tables are available for now
-                button.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 12px; -fx-font-weight: bold;");
+        // Reset all dynamic buttons to their original status colors
+        for (RestaurantTable table : tableList) {
+            Button button = tableButtons.get(table.getid());
+            if (button == null) continue;
+            
+            // Use reservation status to determine color
+            boolean isOccupied = occupiedTableIds.contains(table.getid());
+            if (isOccupied) {
+                button.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold;");
+            } else {
+                button.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 11px; -fx-font-weight: bold;");
             }
         }
     }

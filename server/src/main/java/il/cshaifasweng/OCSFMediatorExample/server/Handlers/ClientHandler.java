@@ -146,19 +146,12 @@ public class ClientHandler {
         }
 
         // Query the database to check credentials using DataManager
-        // For new system: username is phone number, password is name+123
-        List<UserAccount> accounts;
-        if (username.matches("\\d+")) {
-            // If username is all digits, treat it as phone number (new system)
-            accounts = DataManager.fetchUserAccountsByPhoneNumber(username);
-        } else {
-            // If username is not all digits, treat it as name (old system compatibility)
-            accounts = DataManager.fetchByField(UserAccount.class, "name", username);
-        }
+        // Username MUST be phone number (unique identifier)
+        List<UserAccount> accounts = DataManager.fetchUserAccountsByPhoneNumber(username);
         
         if (accounts.isEmpty()) {
             try {
-                client.sendToClient(new Warning("LOGIN_FAILURE: Invalid username or password"));
+                client.sendToClient(new Warning("LOGIN_FAILURE: Invalid phone number or password"));
             } catch (IOException e) {
                 e.printStackTrace();
             }

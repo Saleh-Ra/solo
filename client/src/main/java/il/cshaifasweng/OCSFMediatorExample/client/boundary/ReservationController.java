@@ -4,7 +4,9 @@ import il.cshaifasweng.OCSFMediatorExample.client.App;
 import il.cshaifasweng.OCSFMediatorExample.client.SimpleClient;
 import il.cshaifasweng.OCSFMediatorExample.client.WarningEvent;
 import javafx.fxml.FXML;
+import javafx.geometry.Insets;
 import javafx.scene.control.*;
+import javafx.scene.layout.GridPane;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 
@@ -23,6 +25,7 @@ public class ReservationController {
     @FXML private TextField timeField;
     @FXML private TextField phoneField; // Added phone field for client identification
     @FXML private TextField nameField; // Added name field for customer name
+    @FXML private ComboBox<String> paymentMethodComboBox; // Added payment method selection
     @FXML private Label statusLabel;
     
     // Maps for branch IDs (we'll use position as ID for simplicity)
@@ -35,7 +38,8 @@ public class ReservationController {
         
         // Add branches with IDs (position + 1)
         branchComboBox.getItems().addAll(branchNames);
-        areaComboBox.getItems().addAll("Inside", "Outside", "Bar", "Special Needs");
+        areaComboBox.getItems().addAll("Inside", "Outside", "Bar");
+        paymentMethodComboBox.getItems().addAll("Credit Card", "Cash");
     }
     
     // Handle server responses
@@ -84,8 +88,9 @@ public class ReservationController {
         String timeText = timeField.getText();
         String phone = phoneField.getText().trim();
         String customerName = nameField.getText().trim();
+        String paymentMethod = paymentMethodComboBox.getValue();
 
-        if (branchName == null || guestsText.isEmpty() || area == null || date == null || timeText.isEmpty() || phone.isEmpty() || customerName.isEmpty()) {
+        if (branchName == null || guestsText.isEmpty() || area == null || date == null || timeText.isEmpty() || phone.isEmpty() || customerName.isEmpty() || paymentMethod == null) {
             statusLabel.setText("⚠ Please fill in all fields.");
             return;
         }
@@ -113,6 +118,53 @@ public class ReservationController {
         if (phone.length() < 10) {
             statusLabel.setText("⚠ Please enter a valid phone number.");
             return;
+        }
+        
+        // ✅ Credit card form popup (if credit card is selected)
+        if (paymentMethod.equals("Credit Card")) {
+            Dialog<String[]> cardDialog = new Dialog<>();
+            cardDialog.setTitle("Enter Credit Card Info");
+            cardDialog.setHeaderText("Please provide your credit card details");
+
+            Label numberLabel = new Label("Card Number:");
+            TextField numberField = new TextField();
+
+            Label expLabel = new Label("Expiration (MM/YY):");
+            TextField expField = new TextField();
+
+            Label cvvLabel = new Label("CVV:");
+            PasswordField cvvField = new PasswordField();
+
+            GridPane grid = new GridPane();
+            grid.setHgap(10);
+            grid.setVgap(10);
+            grid.setPadding(new Insets(20, 150, 10, 10));
+
+            grid.add(numberLabel, 0, 0);
+            grid.add(numberField, 1, 0);
+            grid.add(expLabel, 0, 1);
+            grid.add(expField, 1, 1);
+            grid.add(cvvLabel, 0, 2);
+            grid.add(cvvField, 1, 2);
+
+            cardDialog.getDialogPane().setContent(grid);
+            ButtonType okButtonType = new ButtonType("Confirm", ButtonBar.ButtonData.OK_DONE);
+            cardDialog.getDialogPane().getButtonTypes().addAll(okButtonType, ButtonType.CANCEL);
+
+            cardDialog.setResultConverter(dialogButton -> {
+                if (dialogButton == okButtonType) {
+                    return new String[]{numberField.getText(), expField.getText(), cvvField.getText()};
+                }
+                return null;
+            });
+
+            var result = cardDialog.showAndWait();
+            if (result.isEmpty() || result.get()[0].isEmpty() || result.get()[1].isEmpty() || result.get()[2].isEmpty()) {
+                statusLabel.setText("❌ Incomplete credit card details.");
+                return;
+            }
+
+            System.out.println("💳 Card Info: " + result.get()[0] + " | Exp: " + result.get()[1] + " | CVV: " + result.get()[2]);
         }
 
         // Convert date and time to LocalDateTime for the reservation

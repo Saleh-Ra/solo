@@ -30,7 +30,7 @@ public class OrderController {
 
     @FXML
     public void initialize() {
-        paymentMethodComboBox.getItems().addAll("Credit Card", "Cash", "PayPal");
+        paymentMethodComboBox.getItems().addAll("Credit Card", "Cash");
         
         // Use the current user's phone number if available
         if (SimpleClient.getCurrentUserPhone() != null && !SimpleClient.getCurrentUserPhone().isEmpty()) {
@@ -49,6 +49,12 @@ public class OrderController {
 
         if (name.isEmpty() || phone.isEmpty() || address.isEmpty() || date == null || time.isEmpty() || method == null) {
             statusLabel.setText("❌ Please fill out all fields.");
+            return;
+        }
+        
+        // Validate phone number
+        if (phone.length() < 10) {
+            statusLabel.setText("❌ Please enter a valid phone number (at least 10 digits).");
             return;
         }
 
@@ -127,14 +133,22 @@ public class OrderController {
             
             // Clear cart and show success message
             cart.clearCart();
-            statusLabel.setText("🎉 Your order has been placed successfully! " +
-                    "Our kitchen has started preparing it. Expect delivery at your selected time. " +
-                    "Thank you for choosing us!");
+            
+            // Check if this response includes account credentials (new account created)
+            // The server sends a message like: "Order created successfully with ID: X! Your account has been created. Username: Y, Password: Z"
+            // We'll just show the success message as-is
+            statusLabel.setText("🎉 Order placed successfully!");
+            
+            // Show alert with full details
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Order Placed Successfully");
+            alert.setHeaderText("Your order has been placed!");
+            alert.setContentText("Our kitchen has started preparing it. Expect delivery at your selected time.\n\nThank you for choosing us!");
+            alert.showAndWait();
 
             try {
-                Thread.sleep(3000);
                 App.setRoot("primary1");
-            } catch (InterruptedException e) {
+            } catch (IOException e) {
                 e.printStackTrace();
             }
         } catch (IOException e) {

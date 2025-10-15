@@ -117,11 +117,32 @@ public class UserMenuController {
 
             // Build a large image button per item
             Button itemButton = new Button();
-            itemButton.setText(item.getName() + " (" + item.getCategory() + ")\n$" + String.format("%.2f", item.getPrice()));
+            
+            // Add special badge to text if it's a special item
+            String itemText = isSpecialItem 
+                ? "⭐ " + item.getName() + " ⭐\n(" + item.getCategory() + ")\n$" + String.format("%.2f", item.getPrice())
+                : item.getName() + " (" + item.getCategory() + ")\n$" + String.format("%.2f", item.getPrice());
+            
+            itemButton.setText(itemText);
             itemButton.setWrapText(true);
             itemButton.setContentDisplay(ContentDisplay.TOP);
             itemButton.setAlignment(Pos.CENTER);
-            itemButton.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #222222; -fx-background-color: white; -fx-border-color: #dddddd; -fx-border-radius: 8; -fx-background-radius: 8;");
+            
+            // Apply different styling based on whether it's special
+            if (isSpecialItem) {
+                // Special items: Gold gradient background with special border
+                itemButton.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #1a1a1a; " +
+                    "-fx-background-color: linear-gradient(to bottom, #ffd700, #ffed4e, #ffd700); " +
+                    "-fx-border-color: #d4af37; -fx-border-width: 3; -fx-border-radius: 8; " +
+                    "-fx-background-radius: 8; " +
+                    "-fx-effect: dropshadow(three-pass-box, rgba(212,175,55,0.6), 10, 0, 0, 3);");
+            } else {
+                // Regular items: Simple white background
+                itemButton.setStyle("-fx-font-size: 14px; -fx-font-weight: bold; -fx-text-fill: #222222; " +
+                    "-fx-background-color: white; -fx-border-color: #dddddd; " +
+                    "-fx-border-radius: 8; -fx-background-radius: 8;");
+            }
+            
             itemButton.setPadding(new Insets(10));
 
             ImageView imageView = createImageViewForItem(item);
@@ -131,17 +152,15 @@ public class UserMenuController {
             } else {
                 // Ensure text is visible and layout is compact when no image is available
                 itemButton.setContentDisplay(ContentDisplay.TEXT_ONLY);
-                itemButton.setStyle(itemButton.getStyle() + " -fx-background-color: linear-gradient(#ffffff, #f7f7f7);");
+                if (!isSpecialItem) {
+                    itemButton.setStyle(itemButton.getStyle() + " -fx-background-color: linear-gradient(#ffffff, #f7f7f7);");
+                }
             }
 
             itemButton.setOnAction(event -> {
                 cart.addItem(item);
                 updateCartCount();
             });
-
-            if (isSpecialItem) {
-                itemButton.setStyle(itemButton.getStyle() + " -fx-effect: dropshadow(three-pass-box, rgba(63,135,166,0.3), 8, 0, 0, 2);");
-            }
 
             menuDisplayVBox.getChildren().add(itemButton);
         }
