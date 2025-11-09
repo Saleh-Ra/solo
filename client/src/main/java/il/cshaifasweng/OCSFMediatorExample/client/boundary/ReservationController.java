@@ -53,9 +53,8 @@ public class ReservationController {
             
             // Check if account credentials are included in the message
             if (message.contains("Your account has been created")) {
-                // Extract credentials from message
-                String credentialsMessage = message.substring(message.indexOf("Your account has been created"));
-                showAccountCredentialsPopup(credentialsMessage);
+                // Extract credentials from message - pass full message for extraction
+                showAccountCredentialsPopup(message);
             }
             
             // Add a delay before redirecting to the main page
@@ -114,9 +113,17 @@ public class ReservationController {
             return;
         }
         
-        // Validate phone number
-        if (phone.length() < 10) {
-            statusLabel.setText("⚠ Please enter a valid phone number.");
+        // Validate phone number - exactly 10 digits, must start with "05", numbers only
+        if (phone.length() != 10) {
+            statusLabel.setText("⚠ Phone number must be exactly 10 digits.");
+            return;
+        }
+        if (!phone.startsWith("05")) {
+            statusLabel.setText("⚠ Phone number must start with '05'.");
+            return;
+        }
+        if (!phone.matches("\\d+")) {
+            statusLabel.setText("⚠ Phone number can only contain numbers.");
             return;
         }
         
@@ -161,6 +168,27 @@ public class ReservationController {
             var result = cardDialog.showAndWait();
             if (result.isEmpty() || result.get()[0].isEmpty() || result.get()[1].isEmpty() || result.get()[2].isEmpty()) {
                 statusLabel.setText("❌ Incomplete credit card details.");
+                return;
+            }
+
+            // Validate card number - exactly 16 digits
+            String cardNumber = result.get()[0].trim();
+            if (!cardNumber.matches("^\\d{16}$")) {
+                statusLabel.setText("❌ Card number must be exactly 16 digits.");
+                return;
+            }
+
+            // Validate expiration format MM/YY
+            String exp = result.get()[1].trim();
+            if (!exp.matches("^(0[1-9]|1[0-2])\\/\\d{2}$")) {
+                statusLabel.setText("❌ Expiration must be in MM/YY format.");
+                return;
+            }
+
+            // Validate CVV - exactly 3 digits
+            String cvv = result.get()[2].trim();
+            if (!cvv.matches("^\\d{3}$")) {
+                statusLabel.setText("❌ CVV must be exactly 3 digits.");
                 return;
             }
 
@@ -220,12 +248,39 @@ public class ReservationController {
         }
     }
     
-    private void showAccountCredentialsPopup(String credentialsMessage) {
+    private void showAccountCredentialsPopup(String message) {
         javafx.application.Platform.runLater(() -> {
+            // Extract username and password from message
+            // Format: "Table reserved successfully! Your account has been created. Username: Y, Password: Z. Redirecting to main page."
+            String username = "";
+            String password = "";
+            
+            try {
+                int usernameIndex = message.indexOf("Username: ");
+                int passwordIndex = message.indexOf("Password: ");
+                
+                if (usernameIndex != -1 && passwordIndex != -1) {
+                    username = message.substring(usernameIndex + "Username: ".length(), passwordIndex).trim();
+                    password = message.substring(passwordIndex + "Password: ".length()).trim();
+                    // Remove any trailing text after password
+                    if (password.contains(".")) {
+                        password = password.substring(0, password.indexOf("."));
+                    }
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+            
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle("Account Created");
-            alert.setHeaderText("Your account has been created!");
-            alert.setContentText(credentialsMessage + "\n\nPlease save these credentials for future logins.");
+            alert.setTitle("Welcome to our Restaurant!");
+            alert.setHeaderText("Welcome to our Restaurant!");
+            
+            String welcomeMessage = "Your new account has been created with:\n\n" +
+                    "Username: " + username + "\n" +
+                    "Password: " + password + "\n\n" +
+                    "Please save these credentials for future logins.";
+            
+            alert.setContentText(welcomeMessage);
             alert.getDialogPane().setPrefWidth(500);
             alert.showAndWait();
         });

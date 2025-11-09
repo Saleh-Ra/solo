@@ -3,7 +3,6 @@ package il.cshaifasweng.OCSFMediatorExample.server.Handlers;
 import il.cshaifasweng.OCSFMediatorExample.entities.Client;
 import il.cshaifasweng.OCSFMediatorExample.entities.UserAccount;
 import il.cshaifasweng.OCSFMediatorExample.entities.Warning;
-import il.cshaifasweng.OCSFMediatorExample.server.SimpleServer;
 import il.cshaifasweng.OCSFMediatorExample.server.dataManagers.DataManager;
 import il.cshaifasweng.OCSFMediatorExample.server.ocsf.ConnectionToClient;
 
@@ -69,8 +68,8 @@ public class ClientHandler {
                 System.out.println("Created new client: " + name);
             }
 
-            // Success response
-            client.sendToClient(new Warning("REGISTER_CLIENT_SUCCESS"));
+            // Success response - send SIGNUP_SUCCESS to trigger client redirect
+            client.sendToClient(new Warning("SIGNUP_SUCCESS;Account created successfully! Please sign in with your phone number."));
         } catch (Exception e) {
             try {
                 client.sendToClient(new Warning("REGISTER_CLIENT_FAILURE: " + e.getMessage()));

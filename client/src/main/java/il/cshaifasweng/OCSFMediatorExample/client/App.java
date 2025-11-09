@@ -66,6 +66,17 @@ public class App extends Application {
     @Subscribe
     public void onWarningEvent(WarningEvent event) {
         // Handle warning events from the server
+        // Skip order/reservation success/failure messages - let controllers handle those
+        String message = event.getWarning().getMessage();
+        if (message.startsWith("CREATE_ORDER_SUCCESS") || message.startsWith("CREATE_ORDER_FAILURE") ||
+            message.startsWith("RESERVATION_SUCCESS") || message.startsWith("RESERVATION_FAILURE") ||
+            message.startsWith("CANCEL_ORDER_SUCCESS") || message.startsWith("CANCEL_ORDER_FAILURE") ||
+            message.startsWith("CANCELLING_RESERVATION_SUCCESS") || message.startsWith("CANCELLING_RESERVATION_FAILURE")) {
+            // These are handled by specific controllers, don't show here
+            return;
+        }
+        
+        // Only show other warnings (like actual warnings from server)
         Platform.runLater(() -> {
             Alert alert = new Alert(AlertType.WARNING,
                     String.format("Message: %s\nTimestamp: %s\n",

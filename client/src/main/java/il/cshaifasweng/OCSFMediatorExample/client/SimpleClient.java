@@ -35,7 +35,8 @@ public class SimpleClient extends AbstractClient {
 
 	public static SimpleClient getClient() {
 		if (client == null) {
-			client = new SimpleClient("localhost", 3000);
+            client = new SimpleClient("localhost", 3000);
+			//client = new SimpleClient("192.168.61.50", 3000);
 		}
 		return client;
 	}
@@ -173,9 +174,39 @@ public class SimpleClient extends AbstractClient {
 			// Handle signup responses
 			else if (message.startsWith("SIGNUP_SUCCESS")) {
 				try {
-					System.out.println("Signup successful, redirecting to sign-in page");
-					App.setRoot("sign_in");
-				} catch (IOException e) {
+					System.out.println("Signup successful, showing success message and redirecting to sign-in page");
+					
+					// Extract the success message if available
+					String successMessage = "Account created successfully!";
+					if (message.contains(";")) {
+						String[] parts = message.split(";", 2);
+						if (parts.length > 1) {
+							successMessage = parts[1];
+						}
+					}
+					
+					// Show success alert and redirect when user clicks OK
+					final String finalMessage = successMessage;
+					javafx.application.Platform.runLater(() -> {
+						javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
+							javafx.scene.control.Alert.AlertType.INFORMATION
+						);
+						alert.setTitle("Success");
+						alert.setHeaderText("Account Created Successfully! ✅");
+						alert.setContentText(finalMessage);
+						
+						// When user clicks OK, redirect to sign-in page
+						alert.showAndWait().ifPresent(response -> {
+							if (response == javafx.scene.control.ButtonType.OK) {
+								try {
+									App.setRoot("sign_in");
+								} catch (IOException e) {
+									e.printStackTrace();
+								}
+							}
+						});
+					});
+				} catch (Exception e) {
 					e.printStackTrace();
 				}
 			}
@@ -232,7 +263,16 @@ public class SimpleClient extends AbstractClient {
 			String message = (String) msg;
 			System.out.println("Received string message: " + message);
 			
-			if (message.startsWith("REPORTS_DATA;")) {
+			// Handle order and reservation success/failure messages
+			if (message.startsWith("CREATE_ORDER_SUCCESS") || message.startsWith("CREATE_ORDER_FAILURE") ||
+				message.startsWith("RESERVATION_SUCCESS") || message.startsWith("RESERVATION_FAILURE") ||
+				message.startsWith("CANCEL_ORDER_SUCCESS") || message.startsWith("CANCEL_ORDER_FAILURE") ||
+				message.startsWith("CANCELLING_RESERVATION_SUCCESS") || message.startsWith("CANCELLING_RESERVATION_FAILURE")) {
+				// Wrap in Warning object and post as WarningEvent for controllers to handle
+				Warning warning = new Warning(message);
+				EventBus.getDefault().post(new WarningEvent(warning));
+			}
+			else if (message.startsWith("REPORTS_DATA;")) {
 				String reportData = message.substring("REPORTS_DATA;".length());
 				EventBus.getDefault().post(new ReportReceivedEvent(reportData));
 			} else if (message.startsWith("REPORT_GENERATED;")) {
@@ -241,7 +281,7 @@ public class SimpleClient extends AbstractClient {
 			} else if (message.startsWith("REPORT_ERROR;")) {
 				String errorMsg = message.substring("REPORT_ERROR;".length());
 				EventBus.getDefault().post(new ReportErrorEvent(errorMsg));
-			            } else if (message.startsWith("REPORT_EXPORTED;")) {
+			} else if (message.startsWith("REPORT_EXPORTED;")) {
                 String exportMsg = message.substring("REPORT_EXPORTED;".length());
                 EventBus.getDefault().post(new ReportExportEvent(exportMsg));
             } else if (message.equals("NAVIGATE_TO_MAIN")) {

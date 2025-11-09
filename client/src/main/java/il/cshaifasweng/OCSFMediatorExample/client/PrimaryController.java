@@ -58,6 +58,23 @@ public class PrimaryController implements Initializable {
 	}
 
 	@FXML
+	void handleNewUserHelp() {
+		String helpMessage = "📱 New User Guide\n\n" +
+				"Welcome to Restaurant Kitchen!\n\n" +
+				"When you make a reservation or place an order, you can track it in your Personal Area.\n\n" +
+				"🔑 Access Your Personal Area:\n" +
+				"• Username: Your phone number\n" +
+				"• Password: Your name + 123\n\n" +
+				"Example:\n" +
+				"If your name is 'John' and phone is '0501234567':\n" +
+				"• Username: 0501234567\n" +
+				"• Password: John123\n\n" +
+				"💡 Tip: You can view and manage all your reservations and orders from your Personal Area!";
+		
+		showInfo("New User Help", helpMessage);
+	}
+
+	@FXML
 	void handleOpeningHours() {
 		System.out.println("🔵 handleOpeningHours() method called!");
 		System.out.println("🔵 Button click detected!");
@@ -142,13 +159,20 @@ public class PrimaryController implements Initializable {
 	}
 
 	/**
-	 * Show information dialog
+	 * Show information dialog with custom title and header
 	 */
-	private void showInfo(String msg) {
+	private void showInfo(String title, String msg) {
 		Alert alert = new Alert(Alert.AlertType.INFORMATION);
-		alert.setTitle("Opening Hours");
-		alert.setHeaderText("Restaurant Branch Information");
+		alert.setTitle(title);
+		alert.setHeaderText(null);
 		alert.setContentText(msg);
 		alert.showAndWait();
+	}
+
+	/**
+	 * Show information dialog (for backward compatibility)
+	 */
+	private void showInfo(String msg) {
+		showInfo("Opening Hours", msg);
 	}
 }
