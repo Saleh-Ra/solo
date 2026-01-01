@@ -28,6 +28,20 @@ public class SignUpController {
             return;
         }
 
+        // Validate phone number - exactly 10 digits, must start with "05", numbers only
+        if (phone.length() != 10) {
+            statusLabel.setText("⚠ Phone number must be exactly 10 digits.");
+            return;
+        }
+        if (!phone.startsWith("05")) {
+            statusLabel.setText("⚠ Phone number must start with '05'.");
+            return;
+        }
+        if (!phone.matches("\\d+")) {
+            statusLabel.setText("⚠ Phone number can only contain numbers.");
+            return;
+        }
+
         if (!password.equals(confirmPassword)) {
             statusLabel.setText("⚠ Passwords do not match.");
             return;

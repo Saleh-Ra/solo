@@ -27,6 +27,16 @@ public class Complaint implements Serializable {
     @JoinColumn(name = "branch_id", nullable = false)
     private Branch branch;
 
+    // ✅ Many Complaints can be assigned to ONE CustomerService rep.
+    // Nullable because complaints start unassigned
+    @ManyToOne
+    @JoinColumn(name = "customer_service_id", nullable = true)
+    private CustomerService assignedCustomerService;
+
+    // Optional field for manager/CS rep response/notes
+    @Column(length = 1000)
+    private String managerNotes;
+
     public Complaint() {}
 
     public Complaint(String description, Status status, Client client, Branch branch) {
@@ -34,6 +44,14 @@ public class Complaint implements Serializable {
         this.status = status;
         this.client = client;
         this.branch = branch;
+    }
+
+    public Complaint(String description, Status status, Client client, Branch branch, CustomerService assignedCustomerService) {
+        this.description = description;
+        this.status = status;
+        this.client = client;
+        this.branch = branch;
+        this.assignedCustomerService = assignedCustomerService;
     }
 
     // ✅ Getters and Setters
@@ -75,6 +93,22 @@ public class Complaint implements Serializable {
 
     public void setBranch(Branch branch) {
         this.branch = branch;
+    }
+
+    public CustomerService getAssignedCustomerService() {
+        return assignedCustomerService;
+    }
+
+    public void setAssignedCustomerService(CustomerService assignedCustomerService) {
+        this.assignedCustomerService = assignedCustomerService;
+    }
+
+    public String getManagerNotes() {
+        return managerNotes;
+    }
+
+    public void setManagerNotes(String managerNotes) {
+        this.managerNotes = managerNotes;
     }
 
     // ✅ Enum for Complaint Status

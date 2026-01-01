@@ -12,6 +12,11 @@
             style="-fx-background-color: linear-gradient(to bottom right, #2c3e50, #3498db);"
             stylesheets="@modern-style.css">
 
+   <!-- New User Help Button - Upper Left Corner -->
+   <Button fx:id="newUserHelpButton" onAction="#handleNewUserHelp" text="!" 
+           AnchorPane.topAnchor="120.0" AnchorPane.leftAnchor="15.0"
+           style="-fx-min-width: 50px; -fx-max-width: 50px; -fx-min-height: 50px; -fx-max-height: 50px; -fx-font-size: 24px; -fx-font-weight: bold; -fx-background-color: #28a745; -fx-background-radius: 8px; -fx-border-color: #1e7e34; -fx-border-width: 2px; -fx-border-radius: 8px; -fx-text-fill: white; -fx-cursor: hand; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.3), 5, 0, 0, 2);" />
+
    <VBox alignment="CENTER" prefHeight="400.0" prefWidth="600.0" spacing="30.0" layoutX="0" layoutY="0">
       <children>
          <Label text="Restaurant Management System" style="-fx-font-size: 36px; -fx-text-fill: white; -fx-font-weight: bold; -fx-effect: dropshadow(three-pass-box, rgba(0,0,0,0.4), 3, 0, 0, 1);" />

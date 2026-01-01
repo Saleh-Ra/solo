@@ -40,8 +40,12 @@ public class ReportsViewController {
         String branchName = SimpleClient.getClient().getBranchName();
         branchLabel.setText(" - " + (branchName != null ? branchName : "Unknown Branch"));
 
-        // Initialize report types combo box
-        reportTypeComboBox.setItems(FXCollections.observableArrayList(Report.ReportType.values()));
+        // Initialize report types combo box - only show ORDERS, RESERVATIONS, and COMPLAINTS
+        reportTypeComboBox.setItems(FXCollections.observableArrayList(
+            Report.ReportType.ORDERS,
+            Report.ReportType.RESERVATIONS,
+            Report.ReportType.COMPLAINTS
+        ));
         
         // Set default dates
         startDatePicker.setValue(LocalDate.now().minusMonths(1));

@@ -3,8 +3,8 @@ package il.cshaifasweng.OCSFMediatorExample.server.Handlers;
 import il.cshaifasweng.OCSFMediatorExample.entities.Client;
 import il.cshaifasweng.OCSFMediatorExample.entities.UserAccount;
 import il.cshaifasweng.OCSFMediatorExample.entities.Warning;
-import il.cshaifasweng.OCSFMediatorExample.server.SimpleServer;
 import il.cshaifasweng.OCSFMediatorExample.server.dataManagers.DataManager;
+import il.cshaifasweng.OCSFMediatorExample.server.dataManagers.Database;
 import il.cshaifasweng.OCSFMediatorExample.server.ocsf.ConnectionToClient;
 
 import java.io.IOException;
@@ -69,8 +69,8 @@ public class ClientHandler {
                 System.out.println("Created new client: " + name);
             }
 
-            // Success response
-            client.sendToClient(new Warning("REGISTER_CLIENT_SUCCESS"));
+            // Success response - send SIGNUP_SUCCESS to trigger client redirect
+            client.sendToClient(new Warning("SIGNUP_SUCCESS;Account created successfully! Please sign in with your phone number."));
         } catch (Exception e) {
             try {
                 client.sendToClient(new Warning("REGISTER_CLIENT_FAILURE: " + e.getMessage()));
@@ -244,5 +244,132 @@ public class ClientHandler {
     public static void handleUpdateClientEmail(String msgString, ConnectionToClient client) {
         // TODO: Update email by ID or name
         System.out.println("Received client email update request: " + msgString);
+    }
+
+    public static void handleGetUserAccountInfo(String msgString, ConnectionToClient client) {
+        // Expected: "GET_USER_ACCOUNT_INFO;phoneNumber"
+        String[] parts = msgString.split(";");
+        if (parts.length < 2) {
+            try {
+                client.sendToClient(new Warning("GET_USER_ACCOUNT_INFO_FAILURE: Invalid format"));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return;
+        }
+
+        String phoneNumber = parts[1].trim();
+        List<UserAccount> accounts = DataManager.fetchUserAccountsByPhoneNumber(phoneNumber);
+        
+        if (accounts.isEmpty()) {
+            try {
+                client.sendToClient(new Warning("GET_USER_ACCOUNT_INFO_FAILURE: User account not found"));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return;
+        }
+
+        try {
+            UserAccount account = accounts.get(0);
+            // Send account info as: "GET_USER_ACCOUNT_INFO_SUCCESS;name;phoneNumber;password"
+            String response = String.format("GET_USER_ACCOUNT_INFO_SUCCESS;%s;%s;%s",
+                account.getName(), account.getPhoneNumber(), account.getPassword());
+            client.sendToClient(new Warning(response));
+        } catch (IOException e) {
+            e.printStackTrace();
+            try {
+                client.sendToClient(new Warning("GET_USER_ACCOUNT_INFO_FAILURE: Error sending account data"));
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+
+    public static void handleUpdateUserAccount(String msgString, ConnectionToClient client) {
+        // Expected: "UPDATE_USER_ACCOUNT;oldPhoneNumber;newName;newPhoneNumber;newPassword"
+        String[] parts = msgString.split(";");
+        if (parts.length < 5) {
+            try {
+                client.sendToClient(new Warning("UPDATE_USER_ACCOUNT_FAILURE: Invalid format"));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return;
+        }
+
+        String oldPhoneNumber = parts[1].trim();
+        String newName = parts[2].trim();
+        String newPhoneNumber = parts[3].trim();
+        String newPassword = parts[4].trim();
+
+        // Validate required fields
+        if (newName.isEmpty() || newPhoneNumber.isEmpty() || newPassword.isEmpty()) {
+            try {
+                client.sendToClient(new Warning("UPDATE_USER_ACCOUNT_FAILURE: All fields are required"));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return;
+        }
+
+        // Find the user account
+        List<UserAccount> accounts = DataManager.fetchUserAccountsByPhoneNumber(oldPhoneNumber);
+        if (accounts.isEmpty()) {
+            try {
+                client.sendToClient(new Warning("UPDATE_USER_ACCOUNT_FAILURE: User account not found"));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return;
+        }
+
+        UserAccount account = accounts.get(0);
+
+        // Check if new phone number is already taken by another user
+        if (!oldPhoneNumber.equals(newPhoneNumber)) {
+            List<UserAccount> existingAccounts = DataManager.fetchUserAccountsByPhoneNumber(newPhoneNumber);
+            if (!existingAccounts.isEmpty() && existingAccounts.get(0).getId() != account.getId()) {
+                try {
+                    client.sendToClient(new Warning("UPDATE_USER_ACCOUNT_FAILURE: Phone number already registered"));
+                } catch (IOException e) {
+                    e.printStackTrace();
+                }
+                return;
+            }
+        }
+
+        // Update the account
+        try {
+            account.setName(newName);
+            account.setPhoneNumber(newPhoneNumber);
+            account.setPassword(newPassword);
+            
+            // Use Hibernate merge to update the entity
+            org.hibernate.Session session = Database.getSessionFactoryInstance().openSession();
+            try {
+                session.beginTransaction();
+                session.merge(account);
+                session.getTransaction().commit();
+                System.out.println("Updated user account: " + newName + " with phone: " + newPhoneNumber);
+                client.sendToClient(new Warning("UPDATE_USER_ACCOUNT_SUCCESS;Account updated successfully"));
+            } catch (Exception ex) {
+                if (session.getTransaction() != null && session.getTransaction().isActive()) {
+                    session.getTransaction().rollback();
+                }
+                throw ex;
+            } finally {
+                if (session != null && session.isOpen()) {
+                    session.close();
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            try {
+                client.sendToClient(new Warning("UPDATE_USER_ACCOUNT_FAILURE: " + e.getMessage()));
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        }
     }
 }

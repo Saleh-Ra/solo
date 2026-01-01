@@ -2,17 +2,24 @@ package il.cshaifasweng.OCSFMediatorExample.client.boundary;
 
 import il.cshaifasweng.OCSFMediatorExample.client.App;
 import il.cshaifasweng.OCSFMediatorExample.client.SimpleClient;
+import il.cshaifasweng.OCSFMediatorExample.client.WarningEvent;
 import il.cshaifasweng.OCSFMediatorExample.entities.Cart;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 import javafx.geometry.Insets;
 import javafx.scene.layout.GridPane;
 import javafx.scene.control.PasswordField;
+import javafx.util.StringConverter;
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
 
 public class OrderController {
 
@@ -30,11 +37,87 @@ public class OrderController {
 
     @FXML
     public void initialize() {
+        // Register with EventBus to receive server responses (only if not already registered)
+        if (!EventBus.getDefault().isRegistered(this)) {
+            EventBus.getDefault().register(this);
+        }
+        
         paymentMethodComboBox.getItems().addAll("Credit Card", "Cash");
+        
+        // Configure DatePicker with proper date format and validation
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        datePicker.setConverter(new StringConverter<LocalDate>() {
+            @Override
+            public String toString(LocalDate date) {
+                if (date != null) {
+                    return dateFormatter.format(date);
+                } else {
+                    return "";
+                }
+            }
+
+            @Override
+            public LocalDate fromString(String string) {
+                if (string != null && !string.trim().isEmpty()) {
+                    try {
+                        return LocalDate.parse(string, dateFormatter);
+                    } catch (DateTimeParseException e) {
+                        // Return null if parsing fails - this will trigger validation
+                        return null;
+                    }
+                } else {
+                    return null;
+                }
+            }
+        });
+        datePicker.setPromptText("DD/MM/YYYY");
         
         // Use the current user's phone number if available
         if (SimpleClient.getCurrentUserPhone() != null && !SimpleClient.getCurrentUserPhone().isEmpty()) {
             idField.setText(SimpleClient.getCurrentUserPhone());
+        }
+    }
+    
+    // Handle server responses
+    @Subscribe
+    public void onWarningEvent(WarningEvent event) {
+        String message = event.getWarning().getMessage();
+        System.out.println("OrderController: Received warning event: " + message);
+        
+        if (message.startsWith("CREATE_ORDER_SUCCESS")) {
+            // Order was successful
+            javafx.application.Platform.runLater(() -> {
+                statusLabel.setText("✅ Order confirmed!");
+                
+                // Check if account credentials are included in the message
+                if (message.contains("Your account has been created")) {
+                    // Extract credentials from message
+                    showAccountCredentialsPopup(message);
+                } else {
+                    // Regular success message without account creation
+                    Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                    alert.setTitle("Order Placed Successfully");
+                    alert.setHeaderText("Your order has been placed!");
+                    alert.setContentText("Your order has been created, we are working on it.\n\nExpect delivery at your selected time.\n\nThank you for choosing us!");
+                    alert.showAndWait();
+                    
+                    // Redirect after user clicks OK
+                    try {
+                        // Unregister before redirecting to prevent duplicate handlers
+                        cleanup();
+                        App.setRoot("primary1");
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                        statusLabel.setText("❌ Failed to redirect to main page.");
+                    }
+                }
+            });
+        } else if (message.startsWith("CREATE_ORDER_FAILURE")) {
+            // Order failed
+            javafx.application.Platform.runLater(() -> {
+                String errorMsg = message.substring(message.indexOf(":") + 1).trim();
+                statusLabel.setText("❌ " + errorMsg);
+            });
         }
     }
 
@@ -47,21 +130,57 @@ public class OrderController {
         String time = timeField.getText().trim();
         String method = paymentMethodComboBox.getValue();
 
-        if (name.isEmpty() || phone.isEmpty() || address.isEmpty() || date == null || time.isEmpty() || method == null) {
+        if (name.isEmpty() || phone.isEmpty() || address.isEmpty() || time.isEmpty() || method == null) {
             statusLabel.setText("❌ Please fill out all fields.");
             return;
         }
         
-        // Validate phone number
-        if (phone.length() < 10) {
-            statusLabel.setText("❌ Please enter a valid phone number (at least 10 digits).");
+        // Validate date - must be a valid date
+        if (date == null) {
+            statusLabel.setText("❌ Invalid date format. Please enter a valid date in DD/MM/YYYY format (e.g., 11/11/2025).");
+            return;
+        }
+        
+        // Validate date - must not be in the past
+        if (date.isBefore(LocalDate.now())) {
+            statusLabel.setText("❌ Delivery date cannot be in the past. Please select today or a future date.");
+            return;
+        }
+        
+        // Validate phone number - exactly 10 digits, must start with "05", numbers only
+        if (phone.length() != 10) {
+            statusLabel.setText("❌ Phone number must be exactly 10 digits.");
+            return;
+        }
+        if (!phone.startsWith("05")) {
+            statusLabel.setText("❌ Phone number must start with '05'.");
+            return;
+        }
+        if (!phone.matches("\\d+")) {
+            statusLabel.setText("❌ Phone number can only contain numbers.");
             return;
         }
 
+        // Validate time format
+        LocalTime deliveryTime;
         try {
-            LocalTime.parse(time);
+            deliveryTime = LocalTime.parse(time);
         } catch (Exception e) {
             statusLabel.setText("❌ Invalid time format. Use HH:mm.");
+            return;
+        }
+        
+        // Validate that the combined date and time is not in the past
+        LocalDateTime deliveryDateTime = LocalDateTime.of(date, deliveryTime);
+        if (deliveryDateTime.isBefore(LocalDateTime.now())) {
+            statusLabel.setText("❌ Delivery date and time cannot be in the past. Please select a future date and time.");
+            return;
+        }
+        
+        // Validate that delivery time is within restaurant operating hours (10:00-22:00)
+        int hour = deliveryTime.getHour();
+        if (hour < 10 || hour >= 22) {
+            statusLabel.setText("❌ Delivery time must be between 10:00 and 22:00. Restaurant operating hours are 10:00-22:00.");
             return;
         }
 
@@ -109,6 +228,54 @@ public class OrderController {
                 return;
             }
 
+            // Validate card number - exactly 16 digits
+            String cardNumber = result.get()[0].trim();
+            if (!cardNumber.matches("^\\d{16}$")) {
+                statusLabel.setText("❌ Card number must be exactly 16 digits.");
+                return;
+            }
+
+            // Validate expiration format MM/YY
+            String exp = result.get()[1].trim();
+            if (!exp.matches("^(0[1-9]|1[0-2])\\/\\d{2}$")) {
+                statusLabel.setText("❌ Expiration must be in MM/YY format.");
+                return;
+            }
+            
+            // Validate expiration date is not in the past
+            try {
+                String[] expParts = exp.split("/");
+                int month = Integer.parseInt(expParts[0]);
+                int year = Integer.parseInt(expParts[1]);
+                
+                // Convert YY to full year (20YY)
+                int fullYear = 2000 + year;
+                
+                // Create expiration date (last day of the expiration month)
+                // Cards are valid through the end of the expiration month
+                LocalDate expirationDate = LocalDate.of(fullYear, month, 1)
+                    .withDayOfMonth(LocalDate.of(fullYear, month, 1).lengthOfMonth());
+                
+                // Get current date
+                LocalDate today = LocalDate.now();
+                
+                // Check if expiration date is in the past (card has expired)
+                if (expirationDate.isBefore(today)) {
+                    statusLabel.setText("❌ Credit card has expired. Please enter a valid expiration date.");
+                    return;
+                }
+            } catch (Exception e) {
+                statusLabel.setText("❌ Invalid expiration date. Please enter a valid date in MM/YY format.");
+                return;
+            }
+
+            // Validate CVV - exactly 3 digits
+            String cvv = result.get()[2].trim();
+            if (!cvv.matches("^\\d{3}$")) {
+                statusLabel.setText("❌ CVV must be exactly 3 digits.");
+                return;
+            }
+
             System.out.println("💳 Card Info: " + result.get()[0] + " | Exp: " + result.get()[1] + " | CVV: " + result.get()[2]);
         }
 
@@ -131,26 +298,11 @@ public class OrderController {
             SimpleClient.getClient().sendToServer(orderMsg);
             System.out.println("Order sent to server: " + orderMsg);
             
-            // Clear cart and show success message
+            // Clear cart
             cart.clearCart();
             
-            // Check if this response includes account credentials (new account created)
-            // The server sends a message like: "Order created successfully with ID: X! Your account has been created. Username: Y, Password: Z"
-            // We'll just show the success message as-is
-            statusLabel.setText("🎉 Order placed successfully!");
-            
-            // Show alert with full details
-            Alert alert = new Alert(Alert.AlertType.INFORMATION);
-            alert.setTitle("Order Placed Successfully");
-            alert.setHeaderText("Your order has been placed!");
-            alert.setContentText("Our kitchen has started preparing it. Expect delivery at your selected time.\n\nThank you for choosing us!");
-            alert.showAndWait();
-
-            try {
-                App.setRoot("primary1");
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
+            // The response will be handled by onWarningEvent method
+            statusLabel.setText("⏳ Processing your order...");
         } catch (IOException e) {
             e.printStackTrace();
             statusLabel.setText("❌ Failed to send order: " + e.getMessage());
@@ -160,10 +312,64 @@ public class OrderController {
     @FXML
     private void handleBack() {
         try {
+            cleanup(); // Unregister before navigating away
             App.setRoot("user_menu");
         } catch (IOException e) {
             e.printStackTrace();
             statusLabel.setText("❌ Failed to go back to menu.");
+        }
+    }
+    
+    private void showAccountCredentialsPopup(String message) {
+        // Extract username and password from message
+        // Format: "CREATE_ORDER_SUCCESS;Order created successfully with ID: X! Your account has been created. Username: Y, Password: Z"
+        String username = "";
+        String password = "";
+        
+        try {
+            int usernameIndex = message.indexOf("Username: ");
+            int passwordIndex = message.indexOf("Password: ");
+            
+            if (usernameIndex != -1 && passwordIndex != -1) {
+                username = message.substring(usernameIndex + "Username: ".length(), passwordIndex).trim();
+                password = message.substring(passwordIndex + "Password: ".length()).trim();
+                // Remove any trailing text after password
+                if (password.contains(".")) {
+                    password = password.substring(0, password.indexOf("."));
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        
+        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+        alert.setTitle("Welcome to our Restaurant!");
+        alert.setHeaderText("Welcome to our Restaurant!");
+        
+        String welcomeMessage = "Your new account has been created with:\n\n" +
+                "Username: " + username + "\n" +
+                "Password: " + password + "\n\n" +
+                "Please save these credentials for future logins.";
+        
+        alert.setContentText(welcomeMessage);
+        alert.getDialogPane().setPrefWidth(500);
+        alert.showAndWait();
+        
+        // Redirect after user clicks OK
+        try {
+            // Unregister before redirecting to prevent duplicate handlers
+            cleanup();
+            App.setRoot("primary1");
+        } catch (IOException e) {
+            e.printStackTrace();
+            statusLabel.setText("❌ Failed to redirect to main page.");
+        }
+    }
+    
+    // Clean up when controller is being destroyed
+    public void cleanup() {
+        if (EventBus.getDefault().isRegistered(this)) {
+            EventBus.getDefault().unregister(this);
         }
     }
 }

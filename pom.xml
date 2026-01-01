@@ -90,6 +90,6 @@
 			<artifactId>javassist</artifactId>
 			<version>3.24.0-GA</version>
 		</dependency>
-
 	</dependencies>
+
 </project>

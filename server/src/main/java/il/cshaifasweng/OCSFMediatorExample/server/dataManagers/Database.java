@@ -48,6 +48,8 @@ public class Database {
             configuration.addAnnotatedClass(BranchManager.class);
             configuration.addAnnotatedClass(Client.class);
             configuration.addAnnotatedClass(Complaint.class);
+            configuration.addAnnotatedClass(CustomerService.class);
+            configuration.addAnnotatedClass(GeneralMessage.class);
             configuration.addAnnotatedClass(Delivery.class);
             configuration.addAnnotatedClass(Menu.class);
             configuration.addAnnotatedClass(Order.class);

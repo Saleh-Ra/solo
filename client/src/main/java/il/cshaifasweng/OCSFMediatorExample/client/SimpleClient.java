@@ -3,6 +3,8 @@ package il.cshaifasweng.OCSFMediatorExample.client;
 import il.cshaifasweng.OCSFMediatorExample.client.ocsf.AbstractClient;
 import il.cshaifasweng.OCSFMediatorExample.entities.Branch;
 import il.cshaifasweng.OCSFMediatorExample.entities.Cart;
+import il.cshaifasweng.OCSFMediatorExample.entities.Complaint;
+import il.cshaifasweng.OCSFMediatorExample.entities.GeneralMessage;
 import il.cshaifasweng.OCSFMediatorExample.entities.MenuItem;
 import il.cshaifasweng.OCSFMediatorExample.entities.Order;
 import il.cshaifasweng.OCSFMediatorExample.entities.Reservation;
@@ -35,7 +37,11 @@ public class SimpleClient extends AbstractClient {
 
 	public static SimpleClient getClient() {
 		if (client == null) {
-			client = new SimpleClient("localhost", 3000);
+            // For local testing, use "localhost"
+            // For network connection (server-client on different computers), use the server's hotspot IP
+            // Server hotspot IP: 192.168.137.1
+            client = new SimpleClient("localhost", 3000);
+			//client = new SimpleClient("192.168.137.1", 3000);
 		}
 		return client;
 	}
@@ -173,9 +179,39 @@ public class SimpleClient extends AbstractClient {
 			// Handle signup responses
 			else if (message.startsWith("SIGNUP_SUCCESS")) {
 				try {
-					System.out.println("Signup successful, redirecting to sign-in page");
-					App.setRoot("sign_in");
-				} catch (IOException e) {
+					System.out.println("Signup successful, showing success message and redirecting to sign-in page");
+					
+					// Extract the success message if available
+					String successMessage = "Account created successfully!";
+					if (message.contains(";")) {
+						String[] parts = message.split(";", 2);
+						if (parts.length > 1) {
+							successMessage = parts[1];
+						}
+					}
+					
+					// Show success alert and redirect when user clicks OK
+					final String finalMessage = successMessage;
+					javafx.application.Platform.runLater(() -> {
+						javafx.scene.control.Alert alert = new javafx.scene.control.Alert(
+							javafx.scene.control.Alert.AlertType.INFORMATION
+						);
+						alert.setTitle("Success");
+						alert.setHeaderText("Account Created Successfully! ✅");
+						alert.setContentText(finalMessage);
+						
+						// When user clicks OK, redirect to sign-in page
+						alert.showAndWait().ifPresent(response -> {
+							if (response == javafx.scene.control.ButtonType.OK) {
+								try {
+									App.setRoot("sign_in");
+								} catch (IOException e) {
+									e.printStackTrace();
+								}
+							}
+						});
+					});
+				} catch (Exception e) {
 					e.printStackTrace();
 				}
 			}
@@ -211,6 +247,18 @@ public class SimpleClient extends AbstractClient {
                 EventBus.getDefault().post(new BranchesReceivedEvent(branches));
                 System.out.println("🟡 SimpleClient: BranchesReceivedEvent posted to EventBus");
             }
+            // Check if it's a list of complaints
+            else if (!((List<?>) msg).isEmpty() && ((List<?>) msg).get(0) instanceof Complaint) {
+                List<Complaint> complaints = (List<Complaint>) msg;
+                System.out.println("Received " + complaints.size() + " complaints from server");
+                EventBus.getDefault().post(new ComplaintsReceivedEvent(complaints));
+            }
+            // Check if it's a list of general messages
+            else if (!((List<?>) msg).isEmpty() && ((List<?>) msg).get(0) instanceof GeneralMessage) {
+                List<GeneralMessage> messages = (List<GeneralMessage>) msg;
+                System.out.println("Received " + messages.size() + " general messages from server");
+                EventBus.getDefault().post(new GeneralMessagesReceivedEvent(messages));
+            }
 			// Or it's an empty list - check the instance type from generic signature
 			else if (((List<?>) msg).isEmpty()) {
 				// Since we can't tell what type of empty list it is, post both empty events
@@ -232,7 +280,16 @@ public class SimpleClient extends AbstractClient {
 			String message = (String) msg;
 			System.out.println("Received string message: " + message);
 			
-			if (message.startsWith("REPORTS_DATA;")) {
+			// Handle order and reservation success/failure messages
+			if (message.startsWith("CREATE_ORDER_SUCCESS") || message.startsWith("CREATE_ORDER_FAILURE") ||
+				message.startsWith("RESERVATION_SUCCESS") || message.startsWith("RESERVATION_FAILURE") ||
+				message.startsWith("CANCEL_ORDER_SUCCESS") || message.startsWith("CANCEL_ORDER_FAILURE") ||
+				message.startsWith("CANCELLING_RESERVATION_SUCCESS") || message.startsWith("CANCELLING_RESERVATION_FAILURE")) {
+				// Wrap in Warning object and post as WarningEvent for controllers to handle
+				Warning warning = new Warning(message);
+				EventBus.getDefault().post(new WarningEvent(warning));
+			}
+			else if (message.startsWith("REPORTS_DATA;")) {
 				String reportData = message.substring("REPORTS_DATA;".length());
 				EventBus.getDefault().post(new ReportReceivedEvent(reportData));
 			} else if (message.startsWith("REPORT_GENERATED;")) {
@@ -241,7 +298,7 @@ public class SimpleClient extends AbstractClient {
 			} else if (message.startsWith("REPORT_ERROR;")) {
 				String errorMsg = message.substring("REPORT_ERROR;".length());
 				EventBus.getDefault().post(new ReportErrorEvent(errorMsg));
-			            } else if (message.startsWith("REPORT_EXPORTED;")) {
+			} else if (message.startsWith("REPORT_EXPORTED;")) {
                 String exportMsg = message.substring("REPORT_EXPORTED;".length());
                 EventBus.getDefault().post(new ReportExportEvent(exportMsg));
             } else if (message.equals("NAVIGATE_TO_MAIN")) {
@@ -396,6 +453,32 @@ public class SimpleClient extends AbstractClient {
 		
 		public List<Branch> getBranches() {
 			return branches;
+		}
+	}
+	
+	// Event class for complaints received
+	public static class ComplaintsReceivedEvent {
+		private final List<Complaint> complaints;
+		
+		public ComplaintsReceivedEvent(List<Complaint> complaints) {
+			this.complaints = complaints;
+		}
+		
+		public List<Complaint> getComplaints() {
+			return complaints;
+		}
+	}
+	
+	// Event class for general messages received
+	public static class GeneralMessagesReceivedEvent {
+		private final List<GeneralMessage> messages;
+		
+		public GeneralMessagesReceivedEvent(List<GeneralMessage> messages) {
+			this.messages = messages;
+		}
+		
+		public List<GeneralMessage> getMessages() {
+			return messages;
 		}
 	}
 }
