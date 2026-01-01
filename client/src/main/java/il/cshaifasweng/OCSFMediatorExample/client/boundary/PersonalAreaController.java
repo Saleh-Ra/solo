@@ -2,13 +2,16 @@ package il.cshaifasweng.OCSFMediatorExample.client.boundary;
 
 import il.cshaifasweng.OCSFMediatorExample.client.App;
 import il.cshaifasweng.OCSFMediatorExample.client.SimpleClient;
+import il.cshaifasweng.OCSFMediatorExample.client.WarningEvent;
 import il.cshaifasweng.OCSFMediatorExample.entities.Branch;
 import il.cshaifasweng.OCSFMediatorExample.entities.Order;
 import il.cshaifasweng.OCSFMediatorExample.entities.Reservation;
 import javafx.application.Platform;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
+import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox; // ✅ <-- This fixes your problem
+import javafx.geometry.Insets;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 
@@ -31,6 +34,9 @@ public class PersonalAreaController {
 
     @FXML
     private Button reportsButton;
+    
+    @FXML
+    private Hyperlink changeDetailsLink;
 
     @FXML
     public void initialize() {
@@ -264,6 +270,155 @@ public class PersonalAreaController {
             App.setRoot("reports_view");
         } catch (IOException e) {
             showError("Error opening reports: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    private void handleChangePersonalDetails() {
+        // Request current user account info from server
+        String currentPhone = SimpleClient.getCurrentUserPhone();
+        if (currentPhone == null || currentPhone.isEmpty()) {
+            showError("Unable to retrieve user information. Please log in again.");
+            return;
+        }
+
+        try {
+            SimpleClient.getClient().sendToServer("GET_USER_ACCOUNT_INFO;" + currentPhone);
+            // The response will be handled by onWarningEvent
+            statusLabel.setText("Loading your account information...");
+        } catch (IOException e) {
+            e.printStackTrace();
+            showError("Failed to retrieve account information: " + e.getMessage());
+        }
+    }
+
+    private void showChangeDetailsDialog(String currentName, String currentPhone, String currentPassword) {
+        Dialog<String[]> dialog = new Dialog<>();
+        dialog.setTitle("Change Personal Details");
+        dialog.setHeaderText("Update your personal information");
+
+        // Create form fields
+        Label nameLabel = new Label("Name:");
+        TextField nameField = new TextField(currentName);
+
+        Label phoneLabel = new Label("Username (Phone):");
+        TextField phoneField = new TextField(currentPhone);
+
+        Label passwordLabel = new Label("Password:");
+        PasswordField passwordField = new PasswordField();
+        passwordField.setText(currentPassword);
+
+        GridPane grid = new GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new Insets(20, 150, 10, 10));
+
+        grid.add(nameLabel, 0, 0);
+        grid.add(nameField, 1, 0);
+        grid.add(phoneLabel, 0, 1);
+        grid.add(phoneField, 1, 1);
+        grid.add(passwordLabel, 0, 2);
+        grid.add(passwordField, 1, 2);
+
+        dialog.getDialogPane().setContent(grid);
+
+        ButtonType saveButtonType = new ButtonType("Save", ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(saveButtonType, ButtonType.CANCEL);
+
+        // Enable/disable save button based on validation
+        dialog.getDialogPane().lookupButton(saveButtonType).setDisable(false);
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == saveButtonType) {
+                return new String[]{
+                    nameField.getText().trim(),
+                    phoneField.getText().trim(),
+                    passwordField.getText().trim()
+                };
+            }
+            return null;
+        });
+
+        var result = dialog.showAndWait();
+        if (result.isPresent() && result.get() != null) {
+            String[] newDetails = result.get();
+            String newName = newDetails[0];
+            String newPhone = newDetails[1];
+            String newPassword = newDetails[2];
+
+            // Validate fields
+            if (newName.isEmpty() || newPhone.isEmpty() || newPassword.isEmpty()) {
+                showError("All fields are required. Please fill in all information.");
+                return;
+            }
+
+            // Validate phone number format (same as order validation)
+            if (newPhone.length() != 10) {
+                showError("Phone number must be exactly 10 digits.");
+                return;
+            }
+            if (!newPhone.startsWith("05")) {
+                showError("Phone number must start with '05'.");
+                return;
+            }
+            if (!newPhone.matches("\\d+")) {
+                showError("Phone number can only contain numbers.");
+                return;
+            }
+
+            // Send update request to server
+            try {
+                String updateMsg = String.format("UPDATE_USER_ACCOUNT;%s;%s;%s;%s",
+                    currentPhone, newName, newPhone, newPassword);
+                SimpleClient.getClient().sendToServer(updateMsg);
+                statusLabel.setText("Updating your account information...");
+            } catch (IOException e) {
+                e.printStackTrace();
+                showError("Failed to update account: " + e.getMessage());
+            }
+        }
+    }
+
+    @Subscribe
+    public void onWarningEvent(WarningEvent event) {
+        String message = event.getWarning().getMessage();
+        
+        if (message.startsWith("GET_USER_ACCOUNT_INFO_SUCCESS")) {
+            Platform.runLater(() -> {
+                // Parse: "GET_USER_ACCOUNT_INFO_SUCCESS;name;phoneNumber;password"
+                String[] parts = message.split(";");
+                if (parts.length >= 4) {
+                    String name = parts[1];
+                    String phone = parts[2];
+                    String password = parts[3];
+                    showChangeDetailsDialog(name, phone, password);
+                } else {
+                    showError("Failed to retrieve account information.");
+                }
+            });
+        } else if (message.startsWith("GET_USER_ACCOUNT_INFO_FAILURE")) {
+            Platform.runLater(() -> {
+                String errorMsg = message.substring(message.indexOf(":") + 1).trim();
+                showError("Failed to retrieve account information: " + errorMsg);
+            });
+        } else if (message.startsWith("UPDATE_USER_ACCOUNT_SUCCESS")) {
+            Platform.runLater(() -> {
+                Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                alert.setTitle("Success");
+                alert.setHeaderText("Account Updated");
+                alert.setContentText("Your personal details have been updated successfully!");
+                alert.showAndWait();
+                
+                // Update SimpleClient with new phone if it changed
+                // Note: We'd need to get the new phone from the update, but for now
+                // the user will need to log in again with the new credentials
+                statusLabel.setText("Account updated successfully! Please log in again with your new credentials.");
+            });
+        } else if (message.startsWith("UPDATE_USER_ACCOUNT_FAILURE")) {
+            Platform.runLater(() -> {
+                String errorMsg = message.substring(message.indexOf(":") + 1).trim();
+                showError("Failed to update account: " + errorMsg);
+            });
         }
     }
 }

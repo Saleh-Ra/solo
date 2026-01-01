@@ -1,7 +1,6 @@
 package il.cshaifasweng.OCSFMediatorExample.server.Handlers;
 
 import il.cshaifasweng.OCSFMediatorExample.entities.*;
-import il.cshaifasweng.OCSFMediatorExample.server.SimpleServer;
 import il.cshaifasweng.OCSFMediatorExample.server.dataManagers.DataManager;
 import il.cshaifasweng.OCSFMediatorExample.server.ocsf.ConnectionToClient;
 
@@ -196,123 +195,563 @@ public class ReportHandler {
 
     /**
      * Generate a custom report based on parameters
+     * Shows actual list of orders/reservations/complaints based on report type
      */
     private static String generateCustomReport(int branchId, String branchName, 
                                             String reportType, String startDateStr, String endDateStr) {
         try {
-            // Parse dates (simplified for now)
+            // Parse dates
             LocalDateTime startDate = LocalDateTime.parse(startDateStr);
             LocalDateTime endDate = LocalDateTime.parse(endDateStr);
 
-            // Get orders in date range for this branch
-            List<Order> allOrders = DataManager.fetchAll(Order.class);
-            List<Order> branchOrders = new ArrayList<>();
-            
-            for (Order order : allOrders) {
-                if (order.getBranchId() == branchId && 
-                    order.getOrderTime().isAfter(startDate) && 
-                    order.getOrderTime().isBefore(endDate)) {
-                    branchOrders.add(order);
-                }
+            // Parse report type
+            Report.ReportType type;
+            try {
+                type = Report.ReportType.valueOf(reportType.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return "Error: Invalid report type: " + reportType;
             }
 
-            // Calculate statistics
-            int totalOrders = branchOrders.size();
-            double totalRevenue = 0.0;
-            
-            for (Order order : branchOrders) {
-                totalRevenue += order.getTotalCost();
-            }
-
-            // Format the custom report
-            String report = String.format(
-                "🏪 %s Branch - Custom Report\n" +
-                "📅 Period: %s to %s\n" +
-                "📊 Statistics:\n" +
-                "   • Orders in Period: %d\n" +
-                "   • Revenue in Period: $%.2f\n" +
-                "   • Report Type: %s\n" +
-                "   • Generated: %s",
-                branchName,
+            StringBuilder report = new StringBuilder();
+            report.append(String.format("🏪 %s Branch Report\n", branchName));
+            report.append(String.format("📅 Period: %s to %s\n", 
                 startDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")),
-                endDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")),
-                totalOrders,
-                totalRevenue,
-                reportType,
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
-            );
+                endDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))));
+            report.append(String.format("📊 Report Type: %s\n\n", type));
 
-            return report;
+            switch (type) {
+                case ORDERS:
+                    report.append(generateOrdersReport(branchId, startDate, endDate));
+                    break;
+                case RESERVATIONS:
+                    report.append(generateReservationsReport(branchId, startDate, endDate));
+                    break;
+                case COMPLAINTS:
+                    report.append(generateComplaintsReport(branchId, startDate, endDate));
+                    break;
+                default:
+                    return "Error: Report type " + type + " is not supported for branch managers.";
+            }
+
+            report.append(String.format("\n📅 Generated: %s", 
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))));
+
+            return report.toString();
         } catch (Exception e) {
+            e.printStackTrace();
             return "Error generating custom report: " + e.getMessage();
         }
     }
 
     /**
+     * Generate orders report with actual order list
+     */
+    private static String generateOrdersReport(int branchId, LocalDateTime startDate, LocalDateTime endDate) {
+        StringBuilder report = new StringBuilder();
+        
+        // Get all orders for this branch in date range
+        List<Order> allOrders = DataManager.fetchAll(Order.class);
+        List<Order> branchOrders = new ArrayList<>();
+        
+        for (Order order : allOrders) {
+            LocalDateTime orderTime = order.getOrderTime();
+            if (order.getBranchId() == branchId && 
+                !orderTime.isBefore(startDate) && 
+                !orderTime.isAfter(endDate)) {
+                branchOrders.add(order);
+            }
+        }
+
+        // Sort by date (newest first)
+        branchOrders.sort((o1, o2) -> o2.getOrderTime().compareTo(o1.getOrderTime()));
+
+        // Calculate statistics
+        int totalOrders = branchOrders.size();
+        double totalRevenue = 0.0;
+        int pendingOrders = 0;
+        int completedOrders = 0;
+        
+        for (Order order : branchOrders) {
+            totalRevenue += order.getTotalCost();
+            if ("Pending".equals(order.getStatus())) {
+                pendingOrders++;
+            } else {
+                completedOrders++;
+            }
+        }
+
+        report.append("📦 Orders Report\n");
+        report.append(String.format("   • Total Orders: %d\n", totalOrders));
+        report.append(String.format("   • Pending: %d\n", pendingOrders));
+        report.append(String.format("   • Completed: %d\n", completedOrders));
+        report.append(String.format("   • Total Revenue: $%.2f\n\n", totalRevenue));
+
+        if (branchOrders.isEmpty()) {
+            report.append("No orders found in this period.\n");
+        } else {
+            report.append("📋 Order Details:\n");
+            for (Order order : branchOrders) {
+                String orderTime = order.getOrderTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+                report.append(String.format("   • Order #%d - %s - $%.2f - %s - %s\n",
+                    order.getId(),
+                    order.getCustomerName(),
+                    order.getTotalCost(),
+                    order.getStatus(),
+                    orderTime));
+            }
+        }
+
+        return report.toString();
+    }
+
+    /**
+     * Generate reservations report with actual reservation list
+     */
+    private static String generateReservationsReport(int branchId, LocalDateTime startDate, LocalDateTime endDate) {
+        StringBuilder report = new StringBuilder();
+
+        // Get all reservations for this branch in date range
+        List<Reservation> allReservations = DataManager.fetchAll(Reservation.class);
+        List<Reservation> branchReservations = new ArrayList<>();
+        
+        for (Reservation reservation : allReservations) {
+            if (reservation.getBranch() != null && reservation.getBranch().getId() == branchId) {
+                LocalDateTime resTime = reservation.getReservationTime();
+                if (!resTime.isBefore(startDate) && !resTime.isAfter(endDate)) {
+                    branchReservations.add(reservation);
+                }
+            }
+        }
+
+        // Sort by date (newest first)
+        branchReservations.sort((r1, r2) -> r2.getReservationTime().compareTo(r1.getReservationTime()));
+
+        // Calculate statistics
+        int totalReservations = branchReservations.size();
+        int activeReservations = 0;
+        int pastReservations = 0;
+        LocalDateTime now = LocalDateTime.now();
+        
+        for (Reservation reservation : branchReservations) {
+            if (reservation.getReservationTime().isAfter(now)) {
+                activeReservations++;
+            } else {
+                pastReservations++;
+            }
+        }
+
+        report.append("📅 Reservations Report\n");
+        report.append(String.format("   • Total Reservations: %d\n", totalReservations));
+        report.append(String.format("   • Active (Future): %d\n", activeReservations));
+        report.append(String.format("   • Past: %d\n\n", pastReservations));
+
+        if (branchReservations.isEmpty()) {
+            report.append("No reservations found in this period.\n");
+        } else {
+            report.append("📋 Reservation Details:\n");
+            for (Reservation reservation : branchReservations) {
+                String resTime = reservation.getReservationTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+                String clientName = reservation.getClient() != null ? reservation.getClient().getName() : "Unknown";
+                report.append(String.format("   • Reservation #%d - %s - %d guests - %s\n",
+                    reservation.getId(),
+                    clientName,
+                    reservation.getNumberOfGuests(),
+                    resTime));
+            }
+        }
+
+        return report.toString();
+    }
+
+    /**
+     * Generate complaints report with actual complaint list
+     */
+    private static String generateComplaintsReport(int branchId, LocalDateTime startDate, LocalDateTime endDate) {
+        StringBuilder report = new StringBuilder();
+        
+        // Get all complaints for this branch
+        // Note: Complaints don't have a timestamp field, so we'll use all complaints for the branch
+        // If you want date filtering, we'd need to add a timestamp to Complaint entity
+        List<Complaint> allComplaints = DataManager.fetchAll(Complaint.class);
+        List<Complaint> branchComplaints = new ArrayList<>();
+        
+        for (Complaint complaint : allComplaints) {
+            if (complaint.getBranch() != null && complaint.getBranch().getId() == branchId) {
+                branchComplaints.add(complaint);
+            }
+        }
+
+        // Sort by ID (newest first, assuming higher ID = newer)
+        branchComplaints.sort((c1, c2) -> Integer.compare(c2.getId(), c1.getId()));
+
+        // Calculate statistics
+        int totalComplaints = branchComplaints.size();
+        int pendingComplaints = 0;
+        int resolvedComplaints = 0;
+        int rejectedComplaints = 0;
+        
+        for (Complaint complaint : branchComplaints) {
+            switch (complaint.getStatus()) {
+                case PENDING:
+                    pendingComplaints++;
+                    break;
+                case RESOLVED:
+                    resolvedComplaints++;
+                    break;
+                case REJECTED:
+                    rejectedComplaints++;
+                    break;
+            }
+        }
+
+        report.append("📝 Complaints Report\n");
+        report.append(String.format("   • Total Complaints: %d\n", totalComplaints));
+        report.append(String.format("   • Pending: %d\n", pendingComplaints));
+        report.append(String.format("   • Resolved: %d\n", resolvedComplaints));
+        report.append(String.format("   • Rejected: %d\n\n", rejectedComplaints));
+
+        if (branchComplaints.isEmpty()) {
+            report.append("No complaints found for this branch.\n");
+        } else {
+            report.append("📋 Complaint Details:\n");
+            for (Complaint complaint : branchComplaints) {
+                String clientName = complaint.getClient() != null ? complaint.getClient().getName() : "Unknown";
+                String description = complaint.getDescription();
+                if (description.length() > 50) {
+                    description = description.substring(0, 50) + "...";
+                }
+                report.append(String.format("   • Complaint #%d - %s - %s - %s\n",
+                    complaint.getId(),
+                    clientName,
+                    complaint.getStatus(),
+                    description));
+                if (complaint.getManagerNotes() != null && !complaint.getManagerNotes().isEmpty()) {
+                    report.append(String.format("      Response: %s\n", complaint.getManagerNotes()));
+                }
+            }
+        }
+
+        return report.toString();
+    }
+
+    /**
      * Generate a chain-wide report for chain managers
+     * Shows actual list of orders/reservations/complaints across all branches
      */
     private static String generateChainReport(String reportType, String startDateStr, String endDateStr) {
         try {
-            // Parse dates (simplified for now)
+            // Parse dates
             LocalDateTime startDate = LocalDateTime.parse(startDateStr);
             LocalDateTime endDate = LocalDateTime.parse(endDateStr);
 
-            // Get all orders in date range across all branches
-            List<Order> allOrders = DataManager.fetchAll(Order.class);
-            List<Order> periodOrders = new ArrayList<>();
-            
-            for (Order order : allOrders) {
-                if (order.getOrderTime().isAfter(startDate) && 
-                    order.getOrderTime().isBefore(endDate)) {
-                    periodOrders.add(order);
-                }
+            // Parse report type
+            Report.ReportType type;
+            try {
+                type = Report.ReportType.valueOf(reportType.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return "Error: Invalid report type: " + reportType;
             }
 
-            // Calculate chain-wide statistics
-            int totalOrders = periodOrders.size();
-            double totalRevenue = 0.0;
-            int pendingOrders = 0;
-            
-            for (Order order : periodOrders) {
-                totalRevenue += order.getTotalCost();
-                if ("Pending".equals(order.getStatus())) {
-                    pendingOrders++;
-                }
-            }
-
-            // Get all branches for visitor count
-            List<Branch> allBranches = DataManager.fetchAll(Branch.class);
-            int totalVisitors = 0;
-            for (Branch branch : allBranches) {
-                totalVisitors += branch.getMonthlyVisitCount();
-            }
-
-            // Format the chain report
-            String report = String.format(
-                "🏢 Restaurant Chain Report\n" +
-                "📅 Period: %s to %s\n" +
-                "📊 Chain-wide Statistics:\n" +
-                "   • Total Orders: %d\n" +
-                "   • Pending Orders: %d\n" +
-                "   • Total Revenue: $%.2f\n" +
-                "   • Total Monthly Visitors: %d\n" +
-                "   • Number of Branches: %d\n" +
-                "   • Report Type: %s\n" +
-                "   • Generated: %s",
+            StringBuilder report = new StringBuilder();
+            report.append("🏢 Restaurant Chain Report\n");
+            report.append(String.format("📅 Period: %s to %s\n", 
                 startDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")),
-                endDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd")),
-                totalOrders,
-                pendingOrders,
-                totalRevenue,
-                totalVisitors,
-                allBranches.size(),
-                reportType,
-                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))
-            );
+                endDate.format(DateTimeFormatter.ofPattern("yyyy-MM-dd"))));
+            report.append(String.format("📊 Report Type: %s\n\n", type));
 
-            return report;
+            switch (type) {
+                case ORDERS:
+                    report.append(generateChainOrdersReport(startDate, endDate));
+                    break;
+                case RESERVATIONS:
+                    report.append(generateChainReservationsReport(startDate, endDate));
+                    break;
+                case COMPLAINTS:
+                    report.append(generateChainComplaintsReport());
+                    break;
+                default:
+                    return "Error: Report type " + type + " is not yet supported.";
+            }
+
+            report.append(String.format("\n📅 Generated: %s", 
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"))));
+
+            return report.toString();
         } catch (Exception e) {
+            e.printStackTrace();
             return "Error generating chain report: " + e.getMessage();
         }
+    }
+
+    /**
+     * Generate chain-wide orders report
+     */
+    private static String generateChainOrdersReport(LocalDateTime startDate, LocalDateTime endDate) {
+        StringBuilder report = new StringBuilder();
+        
+        // Get all orders in date range across all branches
+        List<Order> allOrders = DataManager.fetchAll(Order.class);
+        List<Order> periodOrders = new ArrayList<>();
+        
+        for (Order order : allOrders) {
+            LocalDateTime orderTime = order.getOrderTime();
+            if (!orderTime.isBefore(startDate) && !orderTime.isAfter(endDate)) {
+                periodOrders.add(order);
+            }
+        }
+
+        // Sort by date (newest first)
+        periodOrders.sort((o1, o2) -> o2.getOrderTime().compareTo(o1.getOrderTime()));
+
+        // Calculate chain-wide statistics
+        int totalOrders = periodOrders.size();
+        double totalRevenue = 0.0;
+        int pendingOrders = 0;
+        int completedOrders = 0;
+        
+        // Group by branch
+        Map<Integer, Integer> ordersByBranch = new HashMap<>();
+        Map<Integer, Double> revenueByBranch = new HashMap<>();
+        
+        for (Order order : periodOrders) {
+            totalRevenue += order.getTotalCost();
+            if ("Pending".equals(order.getStatus())) {
+                pendingOrders++;
+            } else {
+                completedOrders++;
+            }
+            
+            int branchId = order.getBranchId();
+            ordersByBranch.put(branchId, ordersByBranch.getOrDefault(branchId, 0) + 1);
+            revenueByBranch.put(branchId, revenueByBranch.getOrDefault(branchId, 0.0) + order.getTotalCost());
+        }
+
+        // Get all branches
+        List<Branch> allBranches = DataManager.fetchAll(Branch.class);
+        int totalVisitors = 0;
+        for (Branch branch : allBranches) {
+            totalVisitors += branch.getMonthlyVisitCount();
+        }
+
+        report.append("📦 Chain-wide Orders Report\n");
+        report.append(String.format("   • Total Orders: %d\n", totalOrders));
+        report.append(String.format("   • Pending: %d\n", pendingOrders));
+        report.append(String.format("   • Completed: %d\n", completedOrders));
+        report.append(String.format("   • Total Revenue: $%.2f\n", totalRevenue));
+        report.append(String.format("   • Total Monthly Visitors: %d\n", totalVisitors));
+        report.append(String.format("   • Number of Branches: %d\n\n", allBranches.size()));
+
+        // Show breakdown by branch
+        report.append("📊 Orders by Branch:\n");
+        for (Branch branch : allBranches) {
+            int branchOrders = ordersByBranch.getOrDefault(branch.getId(), 0);
+            double branchRevenue = revenueByBranch.getOrDefault(branch.getId(), 0.0);
+            if (branchOrders > 0) {
+                report.append(String.format("   • %s: %d orders, $%.2f revenue\n",
+                    branch.getLocation(), branchOrders, branchRevenue));
+            }
+        }
+
+        if (periodOrders.isEmpty()) {
+            report.append("\nNo orders found in this period.\n");
+        } else {
+            report.append("\n📋 Order Details (showing first 50):\n");
+            int count = 0;
+            for (Order order : periodOrders) {
+                if (count >= 50) {
+                    report.append(String.format("   ... and %d more orders\n", periodOrders.size() - 50));
+                    break;
+                }
+                String orderTime = order.getOrderTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+                Branch branch = allBranches.stream()
+                    .filter(b -> b.getId() == order.getBranchId())
+                    .findFirst()
+                    .orElse(null);
+                String branchName = branch != null ? branch.getLocation() : "Unknown";
+                report.append(String.format("   • Order #%d [%s] - %s - $%.2f - %s - %s\n",
+                    order.getId(),
+                    branchName,
+                    order.getCustomerName(),
+                    order.getTotalCost(),
+                    order.getStatus(),
+                    orderTime));
+                count++;
+            }
+        }
+
+        return report.toString();
+    }
+
+    /**
+     * Generate chain-wide reservations report
+     */
+    private static String generateChainReservationsReport(LocalDateTime startDate, LocalDateTime endDate) {
+        StringBuilder report = new StringBuilder();
+        
+        // Get all reservations in date range across all branches
+        List<Reservation> allReservations = DataManager.fetchAll(Reservation.class);
+        List<Reservation> periodReservations = new ArrayList<>();
+        
+        for (Reservation reservation : allReservations) {
+            if (reservation.getBranch() != null) {
+                LocalDateTime resTime = reservation.getReservationTime();
+                if (!resTime.isBefore(startDate) && !resTime.isAfter(endDate)) {
+                    periodReservations.add(reservation);
+                }
+            }
+        }
+
+        // Sort by date (newest first)
+        periodReservations.sort((r1, r2) -> r2.getReservationTime().compareTo(r1.getReservationTime()));
+
+        // Calculate statistics
+        int totalReservations = periodReservations.size();
+        int activeReservations = 0;
+        int pastReservations = 0;
+        LocalDateTime now = LocalDateTime.now();
+        
+        // Group by branch
+        Map<Integer, Integer> reservationsByBranch = new HashMap<>();
+        
+        for (Reservation reservation : periodReservations) {
+            if (reservation.getReservationTime().isAfter(now)) {
+                activeReservations++;
+            } else {
+                pastReservations++;
+            }
+            
+            int branchId = reservation.getBranch().getId();
+            reservationsByBranch.put(branchId, reservationsByBranch.getOrDefault(branchId, 0) + 1);
+        }
+
+        report.append("📅 Chain-wide Reservations Report\n");
+        report.append(String.format("   • Total Reservations: %d\n", totalReservations));
+        report.append(String.format("   • Active (Future): %d\n", activeReservations));
+        report.append(String.format("   • Past: %d\n\n", pastReservations));
+
+        // Show breakdown by branch
+        List<Branch> allBranches = DataManager.fetchAll(Branch.class);
+        report.append("📊 Reservations by Branch:\n");
+        for (Branch branch : allBranches) {
+            int branchReservations = reservationsByBranch.getOrDefault(branch.getId(), 0);
+            if (branchReservations > 0) {
+                report.append(String.format("   • %s: %d reservations\n",
+                    branch.getLocation(), branchReservations));
+            }
+        }
+
+        if (periodReservations.isEmpty()) {
+            report.append("\nNo reservations found in this period.\n");
+        } else {
+            report.append("\n📋 Reservation Details (showing first 50):\n");
+            int count = 0;
+            for (Reservation reservation : periodReservations) {
+                if (count >= 50) {
+                    report.append(String.format("   ... and %d more reservations\n", periodReservations.size() - 50));
+                    break;
+                }
+                String resTime = reservation.getReservationTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+                String clientName = reservation.getClient() != null ? reservation.getClient().getName() : "Unknown";
+                String branchName = reservation.getBranch() != null ? reservation.getBranch().getLocation() : "Unknown";
+                report.append(String.format("   • Reservation #%d [%s] - %s - %d guests - %s\n",
+                    reservation.getId(),
+                    branchName,
+                    clientName,
+                    reservation.getNumberOfGuests(),
+                    resTime));
+                count++;
+            }
+        }
+
+        return report.toString();
+    }
+
+    /**
+     * Generate chain-wide complaints report
+     */
+    private static String generateChainComplaintsReport() {
+        StringBuilder report = new StringBuilder();
+        
+        // Get all complaints across all branches
+        List<Complaint> allComplaints = DataManager.fetchAll(Complaint.class);
+
+        // Sort by ID (newest first)
+        allComplaints.sort((c1, c2) -> Integer.compare(c2.getId(), c1.getId()));
+
+        // Calculate statistics
+        int totalComplaints = allComplaints.size();
+        int pendingComplaints = 0;
+        int resolvedComplaints = 0;
+        int rejectedComplaints = 0;
+        
+        // Group by branch
+        Map<Integer, Integer> complaintsByBranch = new HashMap<>();
+        
+        for (Complaint complaint : allComplaints) {
+            switch (complaint.getStatus()) {
+                case PENDING:
+                    pendingComplaints++;
+                    break;
+                case RESOLVED:
+                    resolvedComplaints++;
+                    break;
+                case REJECTED:
+                    rejectedComplaints++;
+                    break;
+            }
+            
+            if (complaint.getBranch() != null) {
+                int branchId = complaint.getBranch().getId();
+                complaintsByBranch.put(branchId, complaintsByBranch.getOrDefault(branchId, 0) + 1);
+            }
+        }
+
+        report.append("📝 Chain-wide Complaints Report\n");
+        report.append(String.format("   • Total Complaints: %d\n", totalComplaints));
+        report.append(String.format("   • Pending: %d\n", pendingComplaints));
+        report.append(String.format("   • Resolved: %d\n", resolvedComplaints));
+        report.append(String.format("   • Rejected: %d\n\n", rejectedComplaints));
+
+        // Show breakdown by branch
+        List<Branch> allBranches = DataManager.fetchAll(Branch.class);
+        report.append("📊 Complaints by Branch:\n");
+        for (Branch branch : allBranches) {
+            int branchComplaints = complaintsByBranch.getOrDefault(branch.getId(), 0);
+            if (branchComplaints > 0) {
+                report.append(String.format("   • %s: %d complaints\n",
+                    branch.getLocation(), branchComplaints));
+            }
+        }
+
+        if (allComplaints.isEmpty()) {
+            report.append("\nNo complaints found.\n");
+        } else {
+            report.append("\n📋 Complaint Details (showing first 50):\n");
+            int count = 0;
+            for (Complaint complaint : allComplaints) {
+                if (count >= 50) {
+                    report.append(String.format("   ... and %d more complaints\n", allComplaints.size() - 50));
+                    break;
+                }
+                String clientName = complaint.getClient() != null ? complaint.getClient().getName() : "Unknown";
+                String description = complaint.getDescription();
+                if (description.length() > 50) {
+                    description = description.substring(0, 50) + "...";
+                }
+                String branchName = complaint.getBranch() != null ? complaint.getBranch().getLocation() : "Unknown";
+                report.append(String.format("   • Complaint #%d [%s] - %s - %s - %s\n",
+                    complaint.getId(),
+                    branchName,
+                    clientName,
+                    complaint.getStatus(),
+                    description));
+                if (complaint.getManagerNotes() != null && !complaint.getManagerNotes().isEmpty()) {
+                    report.append(String.format("      Response: %s\n", complaint.getManagerNotes()));
+                }
+                count++;
+            }
+        }
+
+        return report.toString();
     }
 }

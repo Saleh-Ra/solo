@@ -361,9 +361,20 @@ public class TablesMapController {
     private void handleBack() {
         try {
             cleanup();
-            App.setRoot("reservation_branch_selection");
+            // Check user role to determine where to go back
+            String userRole = SimpleClient.getCurrentUserRole();
+            if ("chain_manager".equalsIgnoreCase(userRole)) {
+                // Chain managers can choose branches, so go to branch selection
+                App.setRoot("reservation_branch_selection");
+            } else if ("manager".equalsIgnoreCase(userRole)) {
+                // Regular managers should go back to their dashboard
+                App.setRoot("secondary2");
+            } else {
+                // Default fallback for other users
+                App.setRoot("reservation_branch_selection");
+            }
         } catch (IOException e) {
-            statusLabel.setText("❌ Error returning to branch selection.");
+            statusLabel.setText("❌ Error returning to previous page.");
             e.printStackTrace();
         }
     }

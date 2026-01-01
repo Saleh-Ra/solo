@@ -2,6 +2,7 @@ il\cshaifasweng\OCSFMediatorExample\client\ocsf\AbstractClient.class
 il\cshaifasweng\OCSFMediatorExample\client\boundary\ReservationController.class
 il\cshaifasweng\OCSFMediatorExample\client\Main.class
 il\cshaifasweng\OCSFMediatorExample\client\boundary\ContactUsController.class
+il\cshaifasweng\OCSFMediatorExample\client\SimpleClient$ComplaintsReceivedEvent.class
 il\cshaifasweng\OCSFMediatorExample\client\SimpleClient$OrdersReceivedEvent.class
 il\cshaifasweng\OCSFMediatorExample\client\boundary\PersonalAreaController.class
 il\cshaifasweng\OCSFMediatorExample\client\boundary\OrderController.class
@@ -9,6 +10,7 @@ il\cshaifasweng\OCSFMediatorExample\client\ocsf\ObservableClient.class
 il\cshaifasweng\OCSFMediatorExample\client\boundary\CartController.class
 il\cshaifasweng\OCSFMediatorExample\client\SimpleClient$ReportExportEvent.class
 il\cshaifasweng\OCSFMediatorExample\client\boundary\SignInController.class
+il\cshaifasweng\OCSFMediatorExample\client\boundary\OrderController$1.class
 il\cshaifasweng\OCSFMediatorExample\client\UserTypeSelectionController.class
 il\cshaifasweng\OCSFMediatorExample\client\ocsf\AdaptableClient.class
 il\cshaifasweng\OCSFMediatorExample\client\boundary\TablesMapController.class
@@ -17,6 +19,7 @@ il\cshaifasweng\OCSFMediatorExample\client\SimpleClient$TablesReceivedEvent.clas
 il\cshaifasweng\OCSFMediatorExample\client\App.class
 il\cshaifasweng\OCSFMediatorExample\client\SimpleClient$ReportErrorEvent.class
 il\cshaifasweng\OCSFMediatorExample\client\SimpleClient$ReservationsReceivedEvent.class
+il\cshaifasweng\OCSFMediatorExample\client\boundary\ReservationController$1.class
 il\cshaifasweng\OCSFMediatorExample\client\boundary\TablesMapController$1.class
 il\cshaifasweng\OCSFMediatorExample\client\boundary\UserMenuController.class
 il\cshaifasweng\OCSFMediatorExample\client\boundary\SignUpController.class
@@ -31,3 +34,4 @@ il\cshaifasweng\OCSFMediatorExample\client\boundary\ReportsViewController.class
 il\cshaifasweng\OCSFMediatorExample\client\boundary\BranchSelectionController.class
 il\cshaifasweng\OCSFMediatorExample\client\SecondaryController.class
 il\cshaifasweng\OCSFMediatorExample\client\SimpleClient$BranchesReceivedEvent.class
+il\cshaifasweng\OCSFMediatorExample\client\SimpleClient$GeneralMessagesReceivedEvent.class

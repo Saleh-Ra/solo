@@ -25,14 +25,11 @@
          <Button fx:id="userMenuButton" onAction="#handleUserMenu" text="User Menu" 
                  style="-fx-min-width: 200px; -fx-min-height: 40px; -fx-font-size: 16px;" />
          
-         <Button fx:id="reservationButton" onAction="#handleMakeReservation" text="Simple Reservation" 
+         <Button fx:id="reservationButton" onAction="#handleMakeReservation" text="Reservation" 
                  style="-fx-min-width: 200px; -fx-min-height: 40px; -fx-font-size: 16px;" />
          
          
          <Button fx:id="personalAreaButton" onAction="#handlePersonalArea" text="Personal Area" 
-                 style="-fx-min-width: 200px; -fx-min-height: 40px; -fx-font-size: 16px;" />
-         
-         <Button fx:id="cancelReservationButton" onAction="#handleCancelReservation" text="Cancel Reservation" 
                  style="-fx-min-width: 200px; -fx-min-height: 40px; -fx-font-size: 16px;" />
          
          <Button fx:id="backToUserTypeButton" onAction="#handleBackToUserType" text="← Back to User Type Selection" 

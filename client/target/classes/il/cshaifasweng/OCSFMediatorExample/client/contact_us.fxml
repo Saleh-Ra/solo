@@ -12,23 +12,32 @@
         <Label text="📬 Contact Us" style="-fx-font-size: 22px; -fx-font-weight: bold;" />
 
         <HBox spacing="10">
-            <Label text="Complaint Type:" />
-            <ComboBox fx:id="complaintCategoryComboBox" prefWidth="200"/>
+            <Label text="Message Type:" />
+            <ComboBox fx:id="messageTypeComboBox" prefWidth="200" onAction="#handleMessageTypeChanged"/>
         </HBox>
 
-        <Label text="Additional Details:" />
-        <TextArea fx:id="complaintMessageArea" prefRowCount="3" prefWidth="600"/>
+        <HBox spacing="10" fx:id="branchHBox">
+            <Label text="Branch:" />
+            <ComboBox fx:id="branchComboBox" prefWidth="200"/>
+        </HBox>
 
-        <Button fx:id="submitComplaintButton" text="Submit Complaint" onAction="#handleSubmitComplaint"
+        <HBox spacing="10">
+            <Label fx:id="categoryLabel" text="Category:" />
+            <ComboBox fx:id="categoryComboBox" prefWidth="200"/>
+        </HBox>
+
+        <Label text="Message:" />
+        <TextArea fx:id="messageArea" prefRowCount="3" prefWidth="600"/>
+
+        <Button fx:id="submitButton" text="Submit" onAction="#handleSubmit"
                 style="-fx-background-color: #4CAF50; -fx-text-fill: white;" />
+
+        <Label fx:id="statusLabel" text="" style="-fx-text-fill: #333;" />
 
         <Separator/>
 
-        <Label text="📄 Past Complaints" style="-fx-font-weight: bold;" />
-        <VBox fx:id="pastComplaintsBox" spacing="5" prefWidth="600" style="-fx-border-color: lightgray; -fx-padding: 10;" />
-
-        <Label text="📢 Server Messages" style="-fx-font-weight: bold;" />
-        <TextArea fx:id="serverMessagesArea" editable="false" prefRowCount="6" prefWidth="600" />
+        <Label fx:id="historyLabel" text="📄 Past Messages" style="-fx-font-weight: bold;" />
+        <VBox fx:id="pastMessagesBox" spacing="5" prefWidth="600" style="-fx-border-color: lightgray; -fx-padding: 10;" />
 
         <Button text="⬅ Back" onAction="#handleBack" />
     </VBox>

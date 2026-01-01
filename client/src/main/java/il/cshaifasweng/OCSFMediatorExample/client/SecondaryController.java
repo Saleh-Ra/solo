@@ -7,12 +7,17 @@ import javafx.scene.control.ComboBox;
 import javafx.scene.control.Label;
 import javafx.scene.control.TextInputDialog;
 import javafx.scene.control.TextField;
+import javafx.scene.control.TitledPane;
 import javafx.scene.layout.VBox;
 import javafx.scene.layout.HBox;
 import java.io.IOException;
 import java.util.List;
 import il.cshaifasweng.OCSFMediatorExample.entities.MenuItem;
+import il.cshaifasweng.OCSFMediatorExample.entities.Complaint;
+import il.cshaifasweng.OCSFMediatorExample.client.WarningEvent;
 import javafx.scene.control.Alert;
+import org.greenrobot.eventbus.EventBus;
+import org.greenrobot.eventbus.Subscribe;
 
 public class SecondaryController implements MenuUpdateListener {
 
@@ -47,6 +52,9 @@ public class SecondaryController implements MenuUpdateListener {
     private TextField newItemPriceField;
 
     @FXML
+    private ComboBox<String> newItemCategoryComboBox;
+
+    @FXML
     private Label branchNameLabel;
 
     @FXML
@@ -56,9 +64,26 @@ public class SecondaryController implements MenuUpdateListener {
     private Button tableManagementButton;
 
     @FXML
+    private Button complaintsButton;
+
+    @FXML
+    private VBox complaintsDisplayVBox;
+    
+    @FXML
+    private TitledPane complaintsTitledPane;
+
+    @FXML
     private void initialize() {
         SimpleClient.getClient().setMenuUpdateListener(this);
         mealComboBox.setValue(null);
+        
+        // Register with EventBus to receive complaints and warnings
+        if (!EventBus.getDefault().isRegistered(this)) {
+            EventBus.getDefault().register(this);
+        }
+        
+        // Initialize category ComboBox with available categories
+        newItemCategoryComboBox.getItems().addAll("Main course", "Appetizer", "Desert", "Beverages");
         
         // Display welcome message and branch name for each role
         String role = SimpleClient.getCurrentUserRole();
@@ -214,10 +239,11 @@ public class SecondaryController implements MenuUpdateListener {
             String name = newItemNameField.getText();
             String ingredients = newItemIngredientsField.getText();
             String preferences = newItemPreferencesField.getText();
+            String category = newItemCategoryComboBox.getValue();
             String priceText = newItemPriceField.getText();
 
-            if (name.isEmpty() || priceText.isEmpty()) {
-                statusLabel.setText("Name and Price are required fields.");
+            if (name.isEmpty() || priceText.isEmpty() || category == null || category.isEmpty()) {
+                statusLabel.setText("Name, Category, and Price are required fields.");
                 return;
             }
 
@@ -280,7 +306,7 @@ public class SecondaryController implements MenuUpdateListener {
                 return;
             }
 
-            String request = String.format("ADD_ITEM;%s;%s;%s;%.2f;%d", name, ingredients, preferences, price, branchId);
+            String request = String.format("ADD_ITEM;%s;%s;%s;%s;%.2f;%d", name, ingredients, preferences, category, price, branchId);
             System.out.println("Sending add item request: " + request);
             SimpleClient.getClient().sendToServer(request);
 
@@ -288,6 +314,7 @@ public class SecondaryController implements MenuUpdateListener {
             newItemNameField.clear();
             newItemIngredientsField.clear();
             newItemPreferencesField.clear();
+            newItemCategoryComboBox.setValue(null);
             newItemPriceField.clear();
         } catch (NumberFormatException e) {
             statusLabel.setText("Invalid price format. Please enter a valid number.");
@@ -308,9 +335,62 @@ public class SecondaryController implements MenuUpdateListener {
     @FXML
     private void handleTableManagement() {
         try {
-            App.setRoot("reservation_branch_selection");
+            String userRole = SimpleClient.getCurrentUserRole();
+            
+            // If user is a regular manager, automatically use their branch
+            if ("manager".equalsIgnoreCase(userRole)) {
+                String managerBranchName = SimpleClient.getBranchName();
+                if (managerBranchName != null) {
+                    // Map branch name to branch ID
+                    Integer branchId = getBranchIdFromName(managerBranchName);
+                    if (branchId != null) {
+                        // Set the branch and go directly to table management
+                        SimpleClient.setSelectedBranchId(branchId);
+                        SimpleClient.setSelectedBranchName(managerBranchName);
+                        App.setRoot("tables_map");
+                        return;
+                    }
+                }
+                showError("Unable to determine your branch. Please contact support.");
+            } else if ("chain_manager".equalsIgnoreCase(userRole)) {
+                // Chain managers can choose any branch
+                App.setRoot("reservation_branch_selection");
+            } else {
+                showError("Table management is only available for managers.");
+            }
         } catch (IOException e) {
             showError("Error opening table management: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Helper method to get branch ID from branch name
+     */
+    private Integer getBranchIdFromName(String branchName) {
+        if (branchName == null) {
+            return null;
+        }
+        
+        switch (branchName) {
+            case "Tel-Aviv":
+                return 1;
+            case "Haifa":
+                return 2;
+            case "Jerusalem":
+                return 3;
+            case "Beer-Sheva":
+                return 4;
+            default:
+                // Try to extract number from branch name
+                String[] parts = branchName.split("\\D+");
+                for (String part : parts) {
+                    if (!part.isEmpty()) {
+                        try {
+                            return Integer.parseInt(part);
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+                return null;
         }
     }
 
@@ -445,5 +525,204 @@ public class SecondaryController implements MenuUpdateListener {
         alert.setHeaderText(null);
         alert.setContentText(message);
         alert.showAndWait();
+    }
+
+    @FXML
+    private void handleViewComplaints() {
+        try {
+            String role = SimpleClient.getCurrentUserRole();
+            if ("chain_manager".equalsIgnoreCase(role)) {
+                // Chain manager can see all complaints
+                SimpleClient.getClient().sendToServer("GET_ALL_COMPLAINTS");
+                statusLabel.setText("Loading all complaints...");
+            } else if ("manager".equalsIgnoreCase(role)) {
+                // Branch manager can see complaints for their branch
+                Integer branchId = getBranchId();
+                if (branchId != null) {
+                    SimpleClient.getClient().sendToServer("GET_BRANCH_COMPLAINTS;" + branchId);
+                    statusLabel.setText("Loading complaints for your branch...");
+                } else {
+                    statusLabel.setText("Could not determine branch ID.");
+                }
+            } else {
+                statusLabel.setText("You don't have permission to view complaints.");
+            }
+        } catch (IOException e) {
+            statusLabel.setText("Failed to request complaints: " + e.getMessage());
+        }
+    }
+
+    private Integer getBranchId() {
+        String branchName = SimpleClient.getBranchName();
+        if (branchName == null) {
+            return null;
+        }
+        switch (branchName) {
+            case "Tel-Aviv": return 1;
+            case "Haifa": return 2;
+            case "Jerusalem": return 3;
+            case "Beer-Sheva": return 4;
+            default: return null;
+        }
+    }
+
+    @Subscribe
+    public void onComplaintsReceived(SimpleClient.ComplaintsReceivedEvent event) {
+        Platform.runLater(() -> {
+            List<Complaint> complaints = event.getComplaints();
+            displayComplaints(complaints);
+        });
+    }
+
+    @Subscribe
+    public void onWarningEvent(WarningEvent event) {
+        String message = event.getWarning().getMessage();
+        
+        if (message.startsWith("RESPOND_TO_COMPLAINT_SUCCESS")) {
+            Platform.runLater(() -> {
+                String successMsg = message.substring(message.indexOf(":") + 1).trim();
+                statusLabel.setText("✅ " + successMsg);
+                // Refresh complaints list
+                handleViewComplaints();
+            });
+        } else if (message.startsWith("RESPOND_TO_COMPLAINT_FAILURE")) {
+            Platform.runLater(() -> {
+                String errorMsg = message.substring(message.indexOf(":") + 1).trim();
+                statusLabel.setText("❌ " + errorMsg);
+                showError("Failed to respond to complaint: " + errorMsg);
+            });
+        }
+    }
+
+    private void displayComplaints(List<Complaint> complaints) {
+        complaintsDisplayVBox.getChildren().clear();
+        
+        // Expand the complaints TitledPane so user can see the complaints
+        if (complaintsTitledPane != null) {
+            complaintsTitledPane.setExpanded(true);
+        }
+        
+        if (complaints == null || complaints.isEmpty()) {
+            Label noComplaintsLabel = new Label("No complaints found.");
+            noComplaintsLabel.setStyle("-fx-font-size: 14px; -fx-text-fill: #666;");
+            complaintsDisplayVBox.getChildren().add(noComplaintsLabel);
+            statusLabel.setText("No complaints to display.");
+            return;
+        }
+
+        statusLabel.setText("Found " + complaints.size() + " complaint(s).");
+        
+        for (Complaint complaint : complaints) {
+            VBox complaintBox = new VBox(10);
+            complaintBox.setStyle("-fx-background-color: #fff; -fx-padding: 15px; -fx-border-color: #ddd; -fx-border-radius: 5px;");
+            
+            // Complaint info
+            Label idLabel = new Label("Complaint #" + complaint.getId());
+            idLabel.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+            
+            Label clientLabel = new Label("From: " + complaint.getClient().getName() + 
+                " (" + complaint.getClient().getAccount().getPhoneNumber() + ")");
+            clientLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #666;");
+            
+            Label branchLabel = new Label("Branch: " + complaint.getBranch().getLocation());
+            branchLabel.setStyle("-fx-font-size: 12px; -fx-text-fill: #666;");
+            
+            Label statusLabel = new Label("Status: " + complaint.getStatus());
+            String statusColor = complaint.getStatus() == Complaint.Status.PENDING ? "#e74c3c" : 
+                                complaint.getStatus() == Complaint.Status.RESOLVED ? "#27ae60" : "#95a5a6";
+            statusLabel.setStyle("-fx-font-size: 12px; -fx-font-weight: bold; -fx-text-fill: " + statusColor + ";");
+            
+            Label descriptionLabel = new Label("Description: " + complaint.getDescription());
+            descriptionLabel.setWrapText(true);
+            descriptionLabel.setStyle("-fx-font-size: 14px;");
+            
+            // Show manager notes if exists
+            if (complaint.getManagerNotes() != null && !complaint.getManagerNotes().isEmpty()) {
+                Label notesLabel = new Label("Response: " + complaint.getManagerNotes());
+                notesLabel.setWrapText(true);
+                notesLabel.setStyle("-fx-font-size: 13px; -fx-text-fill: #2c3e50; -fx-font-style: italic;");
+                complaintBox.getChildren().add(notesLabel);
+            }
+            
+            // Response button (only for PENDING complaints)
+            if (complaint.getStatus() == Complaint.Status.PENDING) {
+                Button respondButton = new Button("Respond");
+                respondButton.setStyle("-fx-background-color: #3498db; -fx-text-fill: white;");
+                respondButton.setOnAction(e -> showRespondDialog(complaint));
+                complaintBox.getChildren().add(respondButton);
+            }
+            
+            complaintBox.getChildren().addAll(idLabel, clientLabel, branchLabel, statusLabel, descriptionLabel);
+            complaintsDisplayVBox.getChildren().add(complaintBox);
+        }
+    }
+
+    private void showRespondDialog(Complaint complaint) {
+        javafx.scene.control.Dialog<String[]> dialog = new javafx.scene.control.Dialog<>();
+        dialog.setTitle("Respond to Complaint");
+        dialog.setHeaderText("Complaint #" + complaint.getId() + " from " + complaint.getClient().getName());
+
+        javafx.scene.control.Label responseLabel = new javafx.scene.control.Label("Response:");
+        javafx.scene.control.TextArea responseField = new javafx.scene.control.TextArea();
+        responseField.setPromptText("Enter your response...");
+        responseField.setPrefRowCount(5);
+        responseField.setWrapText(true);
+
+        javafx.scene.control.Label statusLabelDialog = new javafx.scene.control.Label("Status:");
+        ComboBox<String> statusComboBox = new ComboBox<>();
+        statusComboBox.getItems().addAll("RESOLVED", "REJECTED", "PENDING");
+        statusComboBox.setValue("RESOLVED");
+
+        javafx.scene.layout.GridPane grid = new javafx.scene.layout.GridPane();
+        grid.setHgap(10);
+        grid.setVgap(10);
+        grid.setPadding(new javafx.geometry.Insets(20, 150, 10, 10));
+
+        grid.add(responseLabel, 0, 0);
+        grid.add(responseField, 1, 0);
+        grid.add(statusLabelDialog, 0, 1);
+        grid.add(statusComboBox, 1, 1);
+
+        dialog.getDialogPane().setContent(grid);
+
+        javafx.scene.control.ButtonType saveButtonType = new javafx.scene.control.ButtonType("Save", javafx.scene.control.ButtonBar.ButtonData.OK_DONE);
+        dialog.getDialogPane().getButtonTypes().addAll(saveButtonType, javafx.scene.control.ButtonType.CANCEL);
+
+        dialog.setResultConverter(dialogButton -> {
+            if (dialogButton == saveButtonType) {
+                return new String[]{responseField.getText().trim(), statusComboBox.getValue()};
+            }
+            return null;
+        });
+
+        var result = dialog.showAndWait();
+        if (result.isPresent() && result.get() != null) {
+            String[] responseData = result.get();
+            String response = responseData[0];
+            String status = responseData[1];
+
+            if (response.isEmpty()) {
+                showError("Response cannot be empty.");
+                return;
+            }
+
+            try {
+                String request = String.format("RESPOND_TO_COMPLAINT;%d;%s;%s", 
+                    complaint.getId(), response, status);
+                SimpleClient.getClient().sendToServer(request);
+                this.statusLabel.setText("Response sent. Refreshing complaints...");
+                // Refresh complaints after a short delay
+                Platform.runLater(() -> {
+                    try {
+                        Thread.sleep(500);
+                        handleViewComplaints();
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                });
+            } catch (IOException e) {
+                showError("Failed to send response: " + e.getMessage());
+            }
+        }
     }
 }

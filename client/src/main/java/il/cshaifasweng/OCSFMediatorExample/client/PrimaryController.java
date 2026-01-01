@@ -14,6 +14,8 @@ import javafx.application.Platform;
 
 public class PrimaryController implements Initializable {
 
+	private boolean isRequestingOpeningHours = false;
+
 	@FXML
 	void handleUserMenu() {
 		try {
@@ -46,18 +48,6 @@ public class PrimaryController implements Initializable {
 	}
 
 	@FXML
-	void handleCancelReservation() {
-		try {
-			// For now, navigate to personal area where users can see and cancel their reservations
-			// This is a simple approach - users can see their reservations and cancel them there
-			App.setRoot("sign_in");
-		} catch (IOException e) {
-			showError("Failed to load personal area for reservation management.");
-			e.printStackTrace();
-		}
-	}
-
-	@FXML
 	void handleNewUserHelp() {
 		String helpMessage = "📱 New User Guide\n\n" +
 				"Welcome to Restaurant Kitchen!\n\n" +
@@ -76,14 +66,20 @@ public class PrimaryController implements Initializable {
 
 	@FXML
 	void handleOpeningHours() {
+		// Prevent multiple simultaneous requests
+		if (isRequestingOpeningHours) {
+			System.out.println("🔵 Opening hours request already in progress, ignoring duplicate click");
+			return;
+		}
+		
 		System.out.println("🔵 handleOpeningHours() method called!");
-		System.out.println("🔵 Button click detected!");
 		try {
-			System.out.println("🔵 Opening Hours button clicked!");
+			isRequestingOpeningHours = true;
 			// Request all branches with opening hours from server
 			SimpleClient.getClient().sendToServer("GET_ALL_BRANCHES");
 			System.out.println("🔵 GET_ALL_BRANCHES request sent to server");
 		} catch (IOException e) {
+			isRequestingOpeningHours = false;
 			System.out.println("🔵 Error in handleOpeningHours: " + e.getMessage());
 			showError("Failed to request opening hours: " + e.getMessage());
 			e.printStackTrace();
@@ -105,6 +101,9 @@ public class PrimaryController implements Initializable {
 	 * Display opening hours for all branches
 	 */
 	public void displayOpeningHours(List<Branch> branches) {
+		// Reset the flag when we receive the response
+		isRequestingOpeningHours = false;
+		
 		if (branches == null || branches.isEmpty()) {
 			Platform.runLater(() -> showInfo("No branch information available."));
 			return;
@@ -127,7 +126,10 @@ public class PrimaryController implements Initializable {
 	 */
 	@Subscribe
 	public void onBranchesReceived(SimpleClient.BranchesReceivedEvent event) {
-		displayOpeningHours(event.getBranches());
+		// Use Platform.runLater to ensure thread safety and prevent duplicate dialogs
+		Platform.runLater(() -> {
+			displayOpeningHours(event.getBranches());
+		});
 	}
 
 	@Override
@@ -140,8 +142,13 @@ public class PrimaryController implements Initializable {
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
-		EventBus.getDefault().register(this);
-		System.out.println("🔵 PrimaryController: EventBus registered");
+		// Only register if not already registered to prevent duplicate registrations
+		if (!EventBus.getDefault().isRegistered(this)) {
+			EventBus.getDefault().register(this);
+			System.out.println("🔵 PrimaryController: EventBus registered");
+		} else {
+			System.out.println("🔵 PrimaryController: Already registered with EventBus, skipping");
+		}
 	}
 
 	@Override

@@ -192,40 +192,114 @@ public class OrderHandler {
     }
 
     public static void handleCancelOrder(String msgString, ConnectionToClient client) {
-        //the message
         String[] parts = msgString.split(";");
         if (parts.length < 2) {
-            SimpleServer.sendFailureResponse(client, "CREATE_ITEM_FAILURE", "Invalid format");
+            SimpleServer.sendFailureResponse(client, "CANCEL_ORDER_FAILURE", "Invalid format");
             return;
         }
-        List<Order> orders = DataManager.fetchByField(Order.class, "id", Integer.parseInt(parts[1]));
-        if (orders.isEmpty()) {
-            SimpleServer.sendFailureResponse(client, "CANCEL_ORDER_FAILURE", "Order not found");
-            return;
+
+        Session session = null;
+        try {
+            int orderId = Integer.parseInt(parts[1]);
+            System.out.println("🗑️ Processing cancellation for order ID: " + orderId);
+
+            // Open a single session for all operations
+            session = Database.getSessionFactoryInstance().openSession();
+            session.beginTransaction();
+
+            // Load the order in this session
+            Order order = session.get(Order.class, orderId);
+            if (order == null) {
+                session.getTransaction().rollback();
+                SimpleServer.sendFailureResponse(client, "CANCEL_ORDER_FAILURE", "Order not found");
+                return;
+            }
+
+            // Calculate refund percentage
+            LocalDateTime orderTime = order.getOrderTime();
+            LocalDateTime now = LocalDateTime.now();
+            Duration diff = Duration.between(orderTime, now);
+            long minutesAfter = diff.toMinutes();
+
+            // Calculate how many minutes BEFORE the order time (negative if order is in the past)
+            // For future orders: minutesBefore = -minutesAfter
+            // For past orders: minutesBefore is negative (no refund)
+            double refundPercentage;
+            if (minutesAfter < 0) {
+                // Order is in the future
+                long minutesBefore = -minutesAfter;
+                if (minutesBefore >= 180) {
+                    refundPercentage = 1.0; // Full refund
+                } else if (minutesBefore >= 60) {
+                    refundPercentage = 0.5; // Half refund
+                } else {
+                    refundPercentage = 0.0; // No refund
+                }
+            } else {
+                // Order is in the past - no refund
+                refundPercentage = 0.0;
+            }
+
+            System.out.println("💰 Refund percentage: " + (refundPercentage * 100) + "%");
+
+            // Remove the order from the client's list (if client exists)
+            Client customer = order.getClient();
+            if (customer != null) {
+                // Reload client in this session to ensure it's attached
+                customer = session.get(Client.class, customer.getId());
+                if (customer != null && customer.getOrders() != null) {
+                    customer.getOrders().remove(order);
+                    System.out.println("✅ Removed order from client's list");
+                }
+            }
+
+            // Delete associated Payment if it exists (cascade should handle this, but being explicit)
+            if (order.getPayment() != null) {
+                session.delete(order.getPayment());
+                System.out.println("✅ Deleted associated payment");
+            }
+
+            // Delete associated Delivery if it exists (cascade should handle this, but being explicit)
+            if (order.getDelivery() != null) {
+                session.delete(order.getDelivery());
+                System.out.println("✅ Deleted associated delivery");
+            }
+
+            // Delete the order (it's attached to the session, so this will work)
+            session.delete(order);
+            System.out.println("✅ Deleted order from database");
+
+            // Commit all changes in one transaction
+            session.getTransaction().commit();
+            System.out.println("✅ Transaction committed successfully");
+
+            SimpleServer.sendSuccessResponse(client, "CANCEL_ORDER_SUCCESS",
+                    "Order cancelled. Refund: " + (int)(refundPercentage * 100) + "%");
+            System.out.println("🎉 Order cancelled successfully: " + orderId);
+
+        } catch (NumberFormatException e) {
+            if (session != null && session.getTransaction() != null && session.getTransaction().isActive()) {
+                session.getTransaction().rollback();
+            }
+            SimpleServer.sendFailureResponse(client, "CANCEL_ORDER_FAILURE", "Invalid order ID");
+        } catch (Exception e) {
+            System.err.println("❌ Error cancelling order: " + e.getMessage());
+            e.printStackTrace();
+            if (session != null && session.getTransaction() != null && session.getTransaction().isActive()) {
+                session.getTransaction().rollback();
+                System.err.println("❌ Transaction rolled back due to error");
+            }
+            try {
+                SimpleServer.sendFailureResponse(client, "CANCEL_ORDER_FAILURE", "Error cancelling order: " + e.getMessage());
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        } finally {
+            if (session != null && session.isOpen()) {
+                session.close();
+                System.out.println("✅ Session closed");
+            }
         }
-        Order order = orders.get(0);
-        LocalDateTime now = LocalDateTime.now();
-
-        Duration diff = Duration.between(now, order.getOrderTime());
-        long minutesBefore = diff.toMinutes();
-
-        double refundPercentage;
-        if (minutesBefore >= 180) {
-            refundPercentage = 1.0; // Full refund
-        } else if (minutesBefore >= 60) {
-            refundPercentage = 0.5; // Half refund
-        } else {
-            refundPercentage = 0.0; // No refund
-        }
-
-        System.out.println("Refund for client: " + (refundPercentage * 100) + "%");
-        Client customer=order.getClient();
-        customer.getOrders().remove(order);
-        DataManager.delete(order);
-
-        SimpleServer.sendSuccessResponse(client, "CANCEL_ORDER_SUCCESS",
-                "Order cancelled. Refund: " + (int)(refundPercentage * 100) + "%");
-        System.out.println("Received order cancel request: " + msgString);
     }
 
 

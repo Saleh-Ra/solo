@@ -15,6 +15,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import javafx.util.StringConverter;
 
 public class ReservationController {
 
@@ -40,6 +42,34 @@ public class ReservationController {
         branchComboBox.getItems().addAll(branchNames);
         areaComboBox.getItems().addAll("Inside", "Outside", "Bar");
         paymentMethodComboBox.getItems().addAll("Credit Card", "Cash");
+        
+        // Configure DatePicker with proper date format and validation
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        datePicker.setConverter(new StringConverter<LocalDate>() {
+            @Override
+            public String toString(LocalDate date) {
+                if (date != null) {
+                    return dateFormatter.format(date);
+                } else {
+                    return "";
+                }
+            }
+
+            @Override
+            public LocalDate fromString(String string) {
+                if (string != null && !string.trim().isEmpty()) {
+                    try {
+                        return LocalDate.parse(string, dateFormatter);
+                    } catch (DateTimeParseException e) {
+                        // Return null if parsing fails - this will trigger validation
+                        return null;
+                    }
+                } else {
+                    return null;
+                }
+            }
+        });
+        datePicker.setPromptText("DD/MM/YYYY");
     }
     
     // Handle server responses
@@ -89,8 +119,20 @@ public class ReservationController {
         String customerName = nameField.getText().trim();
         String paymentMethod = paymentMethodComboBox.getValue();
 
-        if (branchName == null || guestsText.isEmpty() || area == null || date == null || timeText.isEmpty() || phone.isEmpty() || customerName.isEmpty() || paymentMethod == null) {
+        if (branchName == null || guestsText.isEmpty() || area == null || timeText.isEmpty() || phone.isEmpty() || customerName.isEmpty() || paymentMethod == null) {
             statusLabel.setText("⚠ Please fill in all fields.");
+            return;
+        }
+        
+        // Validate date - must be a valid date
+        if (date == null) {
+            statusLabel.setText("❌ Invalid date format. Please enter a valid date in DD/MM/YYYY format (e.g., 11/11/2025).");
+            return;
+        }
+        
+        // Validate date - must not be in the past
+        if (date.isBefore(LocalDate.now())) {
+            statusLabel.setText("❌ Reservation date cannot be in the past. Please select today or a future date.");
             return;
         }
 
@@ -184,6 +226,33 @@ public class ReservationController {
                 statusLabel.setText("❌ Expiration must be in MM/YY format.");
                 return;
             }
+            
+            // Validate expiration date is not in the past
+            try {
+                String[] expParts = exp.split("/");
+                int month = Integer.parseInt(expParts[0]);
+                int year = Integer.parseInt(expParts[1]);
+                
+                // Convert YY to full year (20YY)
+                int fullYear = 2000 + year;
+                
+                // Create expiration date (last day of the month)
+                // Cards are valid through the end of the expiration month
+                LocalDate expirationDate = LocalDate.of(fullYear, month, 1)
+                    .withDayOfMonth(LocalDate.of(fullYear, month, 1).lengthOfMonth());
+                
+                // Get current date
+                LocalDate today = LocalDate.now();
+                
+                // Check if expiration date is in the past (card has expired)
+                if (expirationDate.isBefore(today)) {
+                    statusLabel.setText("❌ Credit card has expired. Please enter a valid expiration date.");
+                    return;
+                }
+            } catch (Exception e) {
+                statusLabel.setText("❌ Invalid expiration date. Please enter a valid date in MM/YY format.");
+                return;
+            }
 
             // Validate CVV - exactly 3 digits
             String cvv = result.get()[2].trim();
@@ -195,11 +264,29 @@ public class ReservationController {
             System.out.println("💳 Card Info: " + result.get()[0] + " | Exp: " + result.get()[1] + " | CVV: " + result.get()[2]);
         }
 
-        // Convert date and time to LocalDateTime for the reservation
+        // Validate that the combined date and time is not in the past
         LocalDateTime dateTime = LocalDateTime.of(date, time);
+        if (dateTime.isBefore(LocalDateTime.now())) {
+            statusLabel.setText("❌ Reservation date and time cannot be in the past. Please select a future date and time.");
+            return;
+        }
+        
+        // Validate that reservation time is within restaurant operating hours (10:00-22:00)
+        int hour = time.getHour();
+        if (hour < 10 || hour >= 22) {
+            statusLabel.setText("❌ Reservation time must be between 10:00 and 22:00. Restaurant operating hours are 10:00-22:00.");
+            return;
+        }
         
         // Calculate end time (1.5 hours after start time, as per Reservation entity)
         LocalDateTime endDateTime = dateTime.plusMinutes(90);
+        
+        // Also validate that the reservation doesn't end after closing time
+        int endHour = endDateTime.getHour();
+        if (endHour > 22 || (endHour == 22 && endDateTime.getMinute() > 0)) {
+            statusLabel.setText("❌ Reservation cannot extend past 22:00. Please choose an earlier time.");
+            return;
+        }
         
         // Get branch ID (position + 1 as simple mapping)
         int branchId = getBranchId(branchName);

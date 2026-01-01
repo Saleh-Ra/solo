@@ -9,11 +9,15 @@ import javafx.scene.control.*;
 
 import java.io.IOException;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 
 import javafx.geometry.Insets;
 import javafx.scene.layout.GridPane;
 import javafx.scene.control.PasswordField;
+import javafx.util.StringConverter;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 
@@ -39,6 +43,34 @@ public class OrderController {
         }
         
         paymentMethodComboBox.getItems().addAll("Credit Card", "Cash");
+        
+        // Configure DatePicker with proper date format and validation
+        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        datePicker.setConverter(new StringConverter<LocalDate>() {
+            @Override
+            public String toString(LocalDate date) {
+                if (date != null) {
+                    return dateFormatter.format(date);
+                } else {
+                    return "";
+                }
+            }
+
+            @Override
+            public LocalDate fromString(String string) {
+                if (string != null && !string.trim().isEmpty()) {
+                    try {
+                        return LocalDate.parse(string, dateFormatter);
+                    } catch (DateTimeParseException e) {
+                        // Return null if parsing fails - this will trigger validation
+                        return null;
+                    }
+                } else {
+                    return null;
+                }
+            }
+        });
+        datePicker.setPromptText("DD/MM/YYYY");
         
         // Use the current user's phone number if available
         if (SimpleClient.getCurrentUserPhone() != null && !SimpleClient.getCurrentUserPhone().isEmpty()) {
@@ -98,8 +130,20 @@ public class OrderController {
         String time = timeField.getText().trim();
         String method = paymentMethodComboBox.getValue();
 
-        if (name.isEmpty() || phone.isEmpty() || address.isEmpty() || date == null || time.isEmpty() || method == null) {
+        if (name.isEmpty() || phone.isEmpty() || address.isEmpty() || time.isEmpty() || method == null) {
             statusLabel.setText("❌ Please fill out all fields.");
+            return;
+        }
+        
+        // Validate date - must be a valid date
+        if (date == null) {
+            statusLabel.setText("❌ Invalid date format. Please enter a valid date in DD/MM/YYYY format (e.g., 11/11/2025).");
+            return;
+        }
+        
+        // Validate date - must not be in the past
+        if (date.isBefore(LocalDate.now())) {
+            statusLabel.setText("❌ Delivery date cannot be in the past. Please select today or a future date.");
             return;
         }
         
@@ -117,10 +161,26 @@ public class OrderController {
             return;
         }
 
+        // Validate time format
+        LocalTime deliveryTime;
         try {
-            LocalTime.parse(time);
+            deliveryTime = LocalTime.parse(time);
         } catch (Exception e) {
             statusLabel.setText("❌ Invalid time format. Use HH:mm.");
+            return;
+        }
+        
+        // Validate that the combined date and time is not in the past
+        LocalDateTime deliveryDateTime = LocalDateTime.of(date, deliveryTime);
+        if (deliveryDateTime.isBefore(LocalDateTime.now())) {
+            statusLabel.setText("❌ Delivery date and time cannot be in the past. Please select a future date and time.");
+            return;
+        }
+        
+        // Validate that delivery time is within restaurant operating hours (10:00-22:00)
+        int hour = deliveryTime.getHour();
+        if (hour < 10 || hour >= 22) {
+            statusLabel.setText("❌ Delivery time must be between 10:00 and 22:00. Restaurant operating hours are 10:00-22:00.");
             return;
         }
 
@@ -179,6 +239,33 @@ public class OrderController {
             String exp = result.get()[1].trim();
             if (!exp.matches("^(0[1-9]|1[0-2])\\/\\d{2}$")) {
                 statusLabel.setText("❌ Expiration must be in MM/YY format.");
+                return;
+            }
+            
+            // Validate expiration date is not in the past
+            try {
+                String[] expParts = exp.split("/");
+                int month = Integer.parseInt(expParts[0]);
+                int year = Integer.parseInt(expParts[1]);
+                
+                // Convert YY to full year (20YY)
+                int fullYear = 2000 + year;
+                
+                // Create expiration date (last day of the expiration month)
+                // Cards are valid through the end of the expiration month
+                LocalDate expirationDate = LocalDate.of(fullYear, month, 1)
+                    .withDayOfMonth(LocalDate.of(fullYear, month, 1).lengthOfMonth());
+                
+                // Get current date
+                LocalDate today = LocalDate.now();
+                
+                // Check if expiration date is in the past (card has expired)
+                if (expirationDate.isBefore(today)) {
+                    statusLabel.setText("❌ Credit card has expired. Please enter a valid expiration date.");
+                    return;
+                }
+            } catch (Exception e) {
+                statusLabel.setText("❌ Invalid expiration date. Please enter a valid date in MM/YY format.");
                 return;
             }
 

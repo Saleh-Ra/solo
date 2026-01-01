@@ -19,6 +19,11 @@ public class Payment implements Serializable {
     @JoinColumn(name = "client_id", nullable = true)
     private Client client;
 
+    // ✅ One-to-One Association: One Payment is for one Order.
+    @OneToOne
+    @JoinColumn(name = "order_id", unique = true, nullable = true)
+    private Order order;
+
     public Payment() {}
 
     public Payment(double amount, String paymentMethod, String status, Client client) {
@@ -26,6 +31,14 @@ public class Payment implements Serializable {
         this.paymentMethod = paymentMethod;
         this.status = status;
         this.client = client;
+    }
+
+    public Payment(double amount, String paymentMethod, String status, Client client, Order order) {
+        this.amount = amount;
+        this.paymentMethod = paymentMethod;
+        this.status = status;
+        this.client = client;
+        this.order = order;
     }
 
     // ✅ Getters and Setters
@@ -67,5 +80,16 @@ public class Payment implements Serializable {
 
     public void setClient(Client client) {
         this.client = client;
+    }
+
+    public Order getOrder() {
+        return order;
+    }
+
+    public void setOrder(Order order) {
+        this.order = order;
+        if (order != null && order.getPayment() != this) {
+            order.setPayment(this);
+        }
     }
 }

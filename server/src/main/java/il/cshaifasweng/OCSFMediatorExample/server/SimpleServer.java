@@ -172,8 +172,28 @@ public class SimpleServer extends AbstractServer {
 			ClientHandler.handleGetClientInfo(msgString, client);
 		} else if (msgString.startsWith("UPDATE_CLIENT_EMAIL")) {
 			ClientHandler.handleUpdateClientEmail(msgString, client);
+		} else if (msgString.startsWith("GET_USER_ACCOUNT_INFO")) {
+			ClientHandler.handleGetUserAccountInfo(msgString, client);
+		} else if (msgString.startsWith("UPDATE_USER_ACCOUNT")) {
+			ClientHandler.handleUpdateUserAccount(msgString, client);
 		} else if (msgString.startsWith("GET_ALL_BRANCHES")) {
 			handleGetAllBranches(client);
+		}
+		//complaint
+		else if (msgString.startsWith("CREATE_COMPLAINT")) {
+			ComplaintHandler.handleCreateComplaint(msgString, client);
+		} else if (msgString.startsWith("GET_USER_COMPLAINTS")) {
+			ComplaintHandler.handleGetUserComplaints(msgString, client);
+		} else if (msgString.startsWith("CREATE_GENERAL_MESSAGE")) {
+			ComplaintHandler.handleCreateGeneralMessage(msgString, client);
+		} else if (msgString.startsWith("GET_USER_GENERAL_MESSAGES")) {
+			ComplaintHandler.handleGetUserGeneralMessages(msgString, client);
+		} else if (msgString.startsWith("GET_BRANCH_COMPLAINTS")) {
+			ComplaintHandler.handleGetBranchComplaints(msgString, client);
+		} else if (msgString.startsWith("GET_ALL_COMPLAINTS")) {
+			ComplaintHandler.handleGetAllComplaints(msgString, client);
+		} else if (msgString.startsWith("RESPOND_TO_COMPLAINT")) {
+			ComplaintHandler.handleRespondToComplaint(msgString, client);
 		}
 	}
 

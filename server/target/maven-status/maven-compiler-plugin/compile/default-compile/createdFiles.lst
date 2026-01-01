@@ -9,10 +9,12 @@ il\cshaifasweng\OCSFMediatorExample\server\ocsf\AdaptableServer.class
 il\cshaifasweng\OCSFMediatorExample\server\SimpleServer.class
 il\cshaifasweng\OCSFMediatorExample\server\dataManagers\DataManager.class
 il\cshaifasweng\OCSFMediatorExample\server\ocsf\OriginatorMessage.class
+il\cshaifasweng\OCSFMediatorExample\server\Handlers\ComplaintHandler.class
 il\cshaifasweng\OCSFMediatorExample\server\App.class
 il\cshaifasweng\OCSFMediatorExample\server\ocsf\SubscribedClient.class
 il\cshaifasweng\OCSFMediatorExample\server\Handlers\OrderHandler.class
 il\cshaifasweng\OCSFMediatorExample\server\dataManagers\DatabaseInitializer.class
+il\cshaifasweng\OCSFMediatorExample\server\Handlers\ReportHandler$1.class
 il\cshaifasweng\OCSFMediatorExample\server\Handlers\ClientHandler.class
 il\cshaifasweng\OCSFMediatorExample\server\ocsf\AbstractServer.class
 il\cshaifasweng\OCSFMediatorExample\server\Handlers\MenuHandler.class

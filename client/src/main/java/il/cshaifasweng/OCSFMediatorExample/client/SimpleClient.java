@@ -3,6 +3,8 @@ package il.cshaifasweng.OCSFMediatorExample.client;
 import il.cshaifasweng.OCSFMediatorExample.client.ocsf.AbstractClient;
 import il.cshaifasweng.OCSFMediatorExample.entities.Branch;
 import il.cshaifasweng.OCSFMediatorExample.entities.Cart;
+import il.cshaifasweng.OCSFMediatorExample.entities.Complaint;
+import il.cshaifasweng.OCSFMediatorExample.entities.GeneralMessage;
 import il.cshaifasweng.OCSFMediatorExample.entities.MenuItem;
 import il.cshaifasweng.OCSFMediatorExample.entities.Order;
 import il.cshaifasweng.OCSFMediatorExample.entities.Reservation;
@@ -35,8 +37,11 @@ public class SimpleClient extends AbstractClient {
 
 	public static SimpleClient getClient() {
 		if (client == null) {
+            // For local testing, use "localhost"
+            // For network connection (server-client on different computers), use the server's hotspot IP
+            // Server hotspot IP: 192.168.137.1
             client = new SimpleClient("localhost", 3000);
-			//client = new SimpleClient("192.168.61.50", 3000);
+			//client = new SimpleClient("192.168.137.1", 3000);
 		}
 		return client;
 	}
@@ -242,6 +247,18 @@ public class SimpleClient extends AbstractClient {
                 EventBus.getDefault().post(new BranchesReceivedEvent(branches));
                 System.out.println("🟡 SimpleClient: BranchesReceivedEvent posted to EventBus");
             }
+            // Check if it's a list of complaints
+            else if (!((List<?>) msg).isEmpty() && ((List<?>) msg).get(0) instanceof Complaint) {
+                List<Complaint> complaints = (List<Complaint>) msg;
+                System.out.println("Received " + complaints.size() + " complaints from server");
+                EventBus.getDefault().post(new ComplaintsReceivedEvent(complaints));
+            }
+            // Check if it's a list of general messages
+            else if (!((List<?>) msg).isEmpty() && ((List<?>) msg).get(0) instanceof GeneralMessage) {
+                List<GeneralMessage> messages = (List<GeneralMessage>) msg;
+                System.out.println("Received " + messages.size() + " general messages from server");
+                EventBus.getDefault().post(new GeneralMessagesReceivedEvent(messages));
+            }
 			// Or it's an empty list - check the instance type from generic signature
 			else if (((List<?>) msg).isEmpty()) {
 				// Since we can't tell what type of empty list it is, post both empty events
@@ -436,6 +453,32 @@ public class SimpleClient extends AbstractClient {
 		
 		public List<Branch> getBranches() {
 			return branches;
+		}
+	}
+	
+	// Event class for complaints received
+	public static class ComplaintsReceivedEvent {
+		private final List<Complaint> complaints;
+		
+		public ComplaintsReceivedEvent(List<Complaint> complaints) {
+			this.complaints = complaints;
+		}
+		
+		public List<Complaint> getComplaints() {
+			return complaints;
+		}
+	}
+	
+	// Event class for general messages received
+	public static class GeneralMessagesReceivedEvent {
+		private final List<GeneralMessage> messages;
+		
+		public GeneralMessagesReceivedEvent(List<GeneralMessage> messages) {
+			this.messages = messages;
+		}
+		
+		public List<GeneralMessage> getMessages() {
+			return messages;
 		}
 	}
 }

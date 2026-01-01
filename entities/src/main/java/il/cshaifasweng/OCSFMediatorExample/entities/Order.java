@@ -29,6 +29,16 @@ public class Order implements Serializable {
     @JoinColumn(name = "client_id", nullable = true)
     private Client client;
 
+    // ✅ One-to-One Association: One Order has one Payment.
+    // Payment owns the relationship via its `order` field.
+    @OneToOne(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Payment payment;
+
+    // ✅ One-to-One Association: One Order has one Delivery.
+    // Delivery owns the relationship via its `order` field.
+    @OneToOne(mappedBy = "order", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    private Delivery delivery;
+
     public Order() {}
 
     public Order(int branchid, double totalCost, LocalDateTime time, Client client) {
@@ -78,6 +88,28 @@ public class Order implements Serializable {
 
     public void setClient(Client client) {
         this.client = client;
+    }
+
+    public Payment getPayment() {
+        return payment;
+    }
+
+    public void setPayment(Payment payment) {
+        this.payment = payment;
+        if (payment != null && payment.getOrder() != this) {
+            payment.setOrder(this);
+        }
+    }
+
+    public Delivery getDelivery() {
+        return delivery;
+    }
+
+    public void setDelivery(Delivery delivery) {
+        this.delivery = delivery;
+        if (delivery != null && delivery.getOrder() != this) {
+            delivery.setOrder(this);
+        }
     }
 
     public LocalDateTime getOrderTime() {return this.orderTime;}
