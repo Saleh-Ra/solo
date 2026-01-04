@@ -11,6 +11,8 @@ import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.GridPane;
 import javafx.scene.layout.HBox; // ✅ <-- This fixes your problem
+import javafx.scene.layout.VBox;
+import javafx.scene.Node;
 import javafx.geometry.Insets;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -24,7 +26,7 @@ import java.util.List;
 public class PersonalAreaController {
 
     @FXML
-    private ListView<HBox> ordersListView;
+    private ListView<Node> ordersListView;
 
     @FXML
     private ListView<HBox> reservationsListView;
@@ -36,12 +38,32 @@ public class PersonalAreaController {
     private Button reportsButton;
     
     @FXML
+    private Button tableManagementButton;
+    
+    @FXML
+    private Button contactUsButton;
+    
+    @FXML
     private Hyperlink changeDetailsLink;
+    
+    @FXML
+    private Label ordersLabel;
+    
+    @FXML
+    private Label reservationsLabel;
 
     @FXML
     public void initialize() {
         // Register with EventBus to receive order updates
         EventBus.getDefault().register(this);
+        
+        // Ensure client is subscribed to receive broadcasts
+        try {
+            SimpleClient.getClient().sendToServer("add client");
+            System.out.println("🔵 PersonalAreaController: Ensured client is subscribed");
+        } catch (IOException e) {
+            System.err.println("Failed to subscribe client: " + e.getMessage());
+        }
         
         // Clear the lists
         ordersListView.getItems().clear();
@@ -50,14 +72,51 @@ public class PersonalAreaController {
         // Show loading message
         statusLabel.setText("Loading your data...");
         
-        // Show reports button only for managers
+        // Check user role
         String userRole = SimpleClient.getCurrentUserRole();
-        reportsButton.setVisible("manager".equalsIgnoreCase(userRole));
+        boolean isWorker = "worker".equalsIgnoreCase(userRole);
+        boolean isManager = "manager".equalsIgnoreCase(userRole);
+        
+        // Show reports button only for managers
+        reportsButton.setVisible(isManager);
+        
+        // Show table management button for workers
+        if (tableManagementButton != null) {
+            tableManagementButton.setVisible(isWorker);
+        }
+        
+        // Hide "Contact Us" button for workers (they don't make complaints)
+        if (contactUsButton != null) {
+            contactUsButton.setVisible(!isWorker);
+        }
+        
+        // Hide "Change Personal Details" for workers (they don't need it)
+        if (isWorker && changeDetailsLink != null) {
+            changeDetailsLink.setVisible(false);
+        }
+        
+        // Update labels for workers
+        if (isWorker) {
+            if (ordersLabel != null) {
+                ordersLabel.setText("🧾 All Upcoming Orders");
+            }
+            if (reservationsLabel != null) {
+                reservationsLabel.setText("📅 All Upcoming Reservations");
+            }
+        }
         
         // Request orders and reservations from server
         try {
-            SimpleClient.getClient().getUserOrders();
-            SimpleClient.getClient().getUserReservations();
+            if (isWorker) {
+                // Workers see all upcoming orders and reservations
+                SimpleClient.getClient().getUpcomingOrders();
+                SimpleClient.getClient().getUpcomingReservations();
+                statusLabel.setText("Loading upcoming orders and reservations...");
+            } else {
+                // Regular clients see their own orders and reservations
+                SimpleClient.getClient().getUserOrders();
+                SimpleClient.getClient().getUserReservations();
+            }
         } catch (IOException e) {
             e.printStackTrace();
             statusLabel.setText("Error loading data: " + e.getMessage());
@@ -69,19 +128,36 @@ public class PersonalAreaController {
         // This runs on background thread, so use Platform.runLater
         System.out.println("🔵 PersonalAreaController: Received OrdersReceivedEvent with " + event.getOrders().size() + " orders");
         Platform.runLater(() -> {
-            List<Order> orders = event.getOrders();
-            System.out.println("🔵 PersonalAreaController: Displaying " + orders.size() + " orders");
+            String userRole = SimpleClient.getCurrentUserRole();
+            boolean isWorker = "worker".equalsIgnoreCase(userRole);
+            String currentUserPhone = SimpleClient.getCurrentUserPhone();
             
-            // Only clear and update if we actually have orders or this is the first load
-            if (!orders.isEmpty() || ordersListView.getItems().isEmpty()) {
-                displayUserOrders(orders);
-                if (orders.isEmpty()) {
-                    statusLabel.setText("You have no orders");
-                } else {
-                    statusLabel.setText("Found " + orders.size() + " orders");
+            List<Order> orders = event.getOrders();
+            
+            // For regular clients: only process if all orders belong to them (direct request)
+            // If any order doesn't belong to them, it's a broadcast meant for workers - ignore it
+            if (!isWorker && currentUserPhone != null && !orders.isEmpty()) {
+                boolean allOrdersBelongToUser = true;
+                for (Order order : orders) {
+                    if (order.getPhoneNumber() == null || !order.getPhoneNumber().equals(currentUserPhone)) {
+                        allOrdersBelongToUser = false;
+                        break;
+                    }
                 }
+                if (!allOrdersBelongToUser) {
+                    System.out.println("🔵 PersonalAreaController: Ignoring broadcast update (not a worker, and orders don't all belong to user)");
+                    return; // Ignore broadcast updates for non-workers
+                }
+            }
+            
+            System.out.println("🔵 PersonalAreaController: Displaying " + orders.size() + " orders (isWorker: " + isWorker + ")");
+            
+            // Always update the display with new data (real-time updates)
+            displayUserOrders(orders);
+            if (orders.isEmpty()) {
+                statusLabel.setText(isWorker ? "No upcoming orders" : "You have no orders");
             } else {
-                System.out.println("🔵 PersonalAreaController: Ignoring empty orders event (already have orders displayed)");
+                statusLabel.setText(isWorker ? "Found " + orders.size() + " upcoming orders" : "Found " + orders.size() + " orders");
             }
         });
     }
@@ -90,12 +166,34 @@ public class PersonalAreaController {
     public void onReservationsReceived(SimpleClient.ReservationsReceivedEvent event) {
         // This runs on background thread, so use Platform.runLater
         Platform.runLater(() -> {
+            String userRole = SimpleClient.getCurrentUserRole();
+            boolean isWorker = "worker".equalsIgnoreCase(userRole);
+            String currentUserPhone = SimpleClient.getCurrentUserPhone();
+            
             List<Reservation> reservations = event.getReservations();
+            
+            // For regular clients: only process if all reservations belong to them (direct request)
+            // If any reservation doesn't belong to them, it's a broadcast meant for workers - ignore it
+            if (!isWorker && currentUserPhone != null && !reservations.isEmpty()) {
+                boolean allReservationsBelongToUser = true;
+                for (Reservation reservation : reservations) {
+                    // Check if reservation phone number matches current user's phone
+                    if (reservation.getPhoneNumber() == null || !reservation.getPhoneNumber().equals(currentUserPhone)) {
+                        allReservationsBelongToUser = false;
+                        break;
+                    }
+                }
+                if (!allReservationsBelongToUser) {
+                    System.out.println("🔵 PersonalAreaController: Ignoring broadcast update for reservations (not a worker)");
+                    return; // Ignore broadcast updates for non-workers
+                }
+            }
+            
             displayUserReservations(reservations);
             if (reservations.isEmpty()) {
-                statusLabel.setText(statusLabel.getText() + " and no reservations");
+                statusLabel.setText(statusLabel.getText() + (isWorker ? " and no upcoming reservations" : " and no reservations"));
             } else {
-                statusLabel.setText(statusLabel.getText() + " and " + reservations.size() + " reservations");
+                statusLabel.setText(statusLabel.getText() + (isWorker ? " and " + reservations.size() + " upcoming reservations" : " and " + reservations.size() + " reservations"));
             }
         });
     }
@@ -110,19 +208,28 @@ public class PersonalAreaController {
             return;
         }
         
+        String userRole = SimpleClient.getCurrentUserRole();
+        boolean isWorker = "worker".equalsIgnoreCase(userRole);
+        
         for (Order order : orders) {
             System.out.println("🔵 PersonalAreaController: Processing order ID: " + order.getId() + ", Total: $" + order.getTotalCost());
-            // Format order details
-            String orderTime = order.getOrderTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
-            String details = String.format("Order #%d - $%.2f - %s", 
-                order.getId(), 
-                order.getTotalCost(),
-                orderTime);
             
-            // Check if order is active (pending)
-            boolean isActive = "Pending".equals(order.getStatus());
-            
-            addOrderItem(details, isActive);
+            if (isWorker) {
+                // For workers, show detailed order information
+                addWorkerOrderItem(order);
+            } else {
+                // For regular customers, show simple format
+                String orderTime = order.getOrderTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+                String details = String.format("Order #%d - $%.2f - %s", 
+                    order.getId(), 
+                    order.getTotalCost(),
+                    orderTime);
+                
+                // Check if order is active (pending)
+                boolean isActive = "Pending".equals(order.getStatus());
+                
+                addOrderItem(details, isActive);
+            }
             System.out.println("🔵 PersonalAreaController: Added order item to list");
         }
         System.out.println("🔵 PersonalAreaController: ListView now has " + ordersListView.getItems().size() + " items");
@@ -178,7 +285,16 @@ public class PersonalAreaController {
                 try {
                     int orderId = Integer.parseInt(idStr);
                     cancelOrder(orderId);
-                    ordersListView.getItems().removeIf(row -> ((Label) row.getChildren().get(0)).getText().equals(label.getText()));
+                    ordersListView.getItems().removeIf(row -> {
+                        if (row instanceof HBox) {
+                            HBox hbox = (HBox) row;
+                            if (!hbox.getChildren().isEmpty() && hbox.getChildren().get(0) instanceof Label) {
+                                Label lbl = (Label) hbox.getChildren().get(0);
+                                return lbl.getText().equals(label.getText());
+                            }
+                        }
+                        return false;
+                    });
                 } catch (NumberFormatException ex) {
                     showError("Could not parse order ID");
                 }
@@ -190,6 +306,188 @@ public class PersonalAreaController {
         System.out.println("🔵 PersonalAreaController: Added HBox to ListView. ListView size: " + ordersListView.getItems().size());
     }
     
+    private void addWorkerOrderItem(Order order) {
+        // Create expandable order display for workers
+        String statusIcon = "Pending".equals(order.getStatus()) ? "🟡" : 
+                           "Preparing".equals(order.getStatus()) ? "🟠" : 
+                           "Ready".equals(order.getStatus()) ? "🟢" : "⚪";
+        
+        String orderTime = order.getOrderTime().format(DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+        String headerText = String.format("%s Order #%d - $%.2f - %s", 
+            statusIcon, order.getId(), order.getTotalCost(), orderTime);
+        
+        Label headerLabel = new Label(headerText);
+        headerLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+        
+        // Create expandable details section
+        VBox detailsBox = new VBox(5);
+        detailsBox.setStyle("-fx-padding: 10; -fx-background-color: #f9f9f9; -fx-border-color: #ddd; -fx-border-radius: 5;");
+        detailsBox.setVisible(false);
+        
+        // Customer info
+        Label customerLabel = new Label("👤 Customer: " + order.getCustomerName() + " (" + order.getPhoneNumber() + ")");
+        customerLabel.setStyle("-fx-font-size: 12px;");
+        detailsBox.getChildren().add(customerLabel);
+        
+        // Delivery/Pickup info
+        String deliveryInfo;
+        if ("PICKUP".equals(order.getDeliveryLocation())) {
+            deliveryInfo = String.format("📍 Pickup: %s at %s", order.getDeliveryDate(), order.getDeliveryTime());
+        } else {
+            deliveryInfo = String.format("📍 Delivery: %s at %s to %s", 
+                order.getDeliveryDate(), order.getDeliveryTime(), order.getDeliveryLocation());
+        }
+        Label deliveryLabel = new Label(deliveryInfo);
+        deliveryLabel.setStyle("-fx-font-size: 12px;");
+        detailsBox.getChildren().add(deliveryLabel);
+        
+        // Payment method
+        Label paymentLabel = new Label("💳 Payment: " + order.getPaymentMethod());
+        paymentLabel.setStyle("-fx-font-size: 12px;");
+        detailsBox.getChildren().add(paymentLabel);
+        
+        // Order items and customizations with full meal details
+        String orderItemsStr = order.getOrderItems();
+        if (orderItemsStr != null && !orderItemsStr.isEmpty()) {
+            Label itemsHeader = new Label("🍽️ Items:");
+            itemsHeader.setStyle("-fx-font-weight: bold; -fx-font-size: 12px; -fx-padding: 5 0 0 0;");
+            detailsBox.getChildren().add(itemsHeader);
+            
+            // Parse order items: "itemName:quantity:note:ingredients:preferences:category:price|..."
+            String[] items = orderItemsStr.split("\\|");
+            for (String item : items) {
+                if (item.isEmpty()) continue;
+                String[] parts = item.split(":", 7);
+                if (parts.length >= 2) {
+                    // Unescape special characters
+                    String itemName = parts[0].replace("::", ":").replace("||", "|");
+                    int quantity = Integer.parseInt(parts[1]);
+                    String note = parts.length > 2 ? parts[2].replace("::", ":").replace("||", "|") : "";
+                    String ingredients = parts.length > 3 ? parts[3].replace("::", ":").replace("||", "|") : "";
+                    String preferences = parts.length > 4 ? parts[4].replace("::", ":").replace("||", "|") : "";
+                    String category = parts.length > 5 ? parts[5].replace("::", ":").replace("||", "|") : "";
+                    double price = parts.length > 6 ? Double.parseDouble(parts[6]) : 0.0;
+                    
+                    // Create a container for each menu item with full details
+                    VBox itemBox = new VBox(3);
+                    itemBox.setStyle("-fx-padding: 8; -fx-background-color: #f5f5f5; -fx-border-color: #ddd; -fx-border-radius: 3; -fx-spacing: 3;");
+                    
+                    // Item name and quantity
+                    Label nameLabel = new Label(String.format("  📋 %s x%d - $%.2f", itemName, quantity, price * quantity));
+                    nameLabel.setStyle("-fx-font-weight: bold; -fx-font-size: 12px; -fx-text-fill: #2c3e50;");
+                    itemBox.getChildren().add(nameLabel);
+                    
+                    // Category
+                    if (!category.isEmpty()) {
+                        Label categoryLabel = new Label("     Category: " + category);
+                        categoryLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #666;");
+                        itemBox.getChildren().add(categoryLabel);
+                    }
+                    
+                    // Ingredients
+                    if (!ingredients.isEmpty()) {
+                        Label ingredientsLabel = new Label("     🥘 Ingredients: " + ingredients);
+                        ingredientsLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #555;");
+                        ingredientsLabel.setWrapText(true);
+                        itemBox.getChildren().add(ingredientsLabel);
+                    }
+                    
+                    // Preferences
+                    if (!preferences.isEmpty()) {
+                        Label preferencesLabel = new Label("     ⚙️ Preferences: " + preferences);
+                        preferencesLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #555;");
+                        preferencesLabel.setWrapText(true);
+                        itemBox.getChildren().add(preferencesLabel);
+                    }
+                    
+                    // Customer note/customization
+                    if (!note.isEmpty()) {
+                        Label noteLabel = new Label("     📝 Customer Note: " + note);
+                        noteLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #d9534f; -fx-font-weight: bold;");
+                        noteLabel.setWrapText(true);
+                        itemBox.getChildren().add(noteLabel);
+                    }
+                    
+                    detailsBox.getChildren().add(itemBox);
+                }
+            }
+        } else {
+            Label noItemsLabel = new Label("  (No items details available)");
+            noItemsLabel.setStyle("-fx-font-size: 11px; -fx-text-fill: #999;");
+            detailsBox.getChildren().add(noItemsLabel);
+        }
+        
+        // Toggle button to expand/collapse details
+        Button toggleButton = new Button("▼ Details");
+        toggleButton.setStyle("-fx-font-size: 10px; -fx-padding: 2 5;");
+        toggleButton.setOnAction(e -> {
+            boolean isVisible = detailsBox.isVisible();
+            detailsBox.setVisible(!isVisible);
+            toggleButton.setText(isVisible ? "▼ Details" : "▲ Hide");
+        });
+        
+        // Action buttons
+        HBox buttonBox = new HBox(5);
+        boolean canCancel = "Pending".equals(order.getStatus()) || "Preparing".equals(order.getStatus());
+        boolean canMarkReady = "Pending".equals(order.getStatus()) || "Preparing".equals(order.getStatus());
+        
+        Button cancelButton = new Button("Cancel");
+        cancelButton.setStyle("-fx-background-color: #dc3545; -fx-text-fill: white; -fx-font-size: 11px;");
+        cancelButton.setVisible(canCancel);
+        cancelButton.setOnAction(e -> {
+            boolean confirmed = showCancelConfirmation();
+            if (confirmed) {
+                cancelOrder(order.getId());
+                // Remove this order from the list
+                ordersListView.getItems().removeIf(row -> {
+                    if (row instanceof VBox) {
+                        VBox vbox = (VBox) row;
+                        if (!vbox.getChildren().isEmpty() && vbox.getChildren().get(0) instanceof HBox) {
+                            HBox hbox = (HBox) vbox.getChildren().get(0);
+                            if (!hbox.getChildren().isEmpty() && hbox.getChildren().get(0) instanceof Label) {
+                                Label lbl = (Label) hbox.getChildren().get(0);
+                                return lbl.getText().contains("Order #" + order.getId());
+                            }
+                        }
+                    }
+                    return false;
+                });
+            }
+        });
+        
+        Button readyButton = new Button("Ready");
+        readyButton.setStyle("-fx-background-color: #28a745; -fx-text-fill: white; -fx-font-size: 11px;");
+        readyButton.setVisible(canMarkReady);
+        readyButton.setOnAction(e -> {
+            markOrderReady(order.getId());
+            // Remove this order from the list immediately
+            ordersListView.getItems().removeIf(row -> {
+                if (row instanceof VBox) {
+                    VBox vbox = (VBox) row;
+                    if (!vbox.getChildren().isEmpty() && vbox.getChildren().get(0) instanceof HBox) {
+                        HBox hbox = (HBox) vbox.getChildren().get(0);
+                        if (!hbox.getChildren().isEmpty() && hbox.getChildren().get(0) instanceof Label) {
+                            Label lbl = (Label) hbox.getChildren().get(0);
+                            return lbl.getText().contains("Order #" + order.getId());
+                        }
+                    }
+                }
+                return false;
+            });
+        });
+        
+        buttonBox.getChildren().addAll(toggleButton, cancelButton, readyButton);
+        
+        // Main container
+        HBox headerBox = new HBox(10, headerLabel, buttonBox);
+        headerBox.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
+        
+        VBox orderContainer = new VBox(5, headerBox, detailsBox);
+        orderContainer.setStyle("-fx-padding: 5; -fx-background-color: white; -fx-border-color: #ccc; -fx-border-radius: 5;");
+        
+        ordersListView.getItems().add(orderContainer);
+    }
+    
     private void cancelOrder(int orderId) {
         try {
             SimpleClient.getClient().sendToServer("CANCEL_ORDER;" + orderId);
@@ -197,6 +495,17 @@ public class PersonalAreaController {
         } catch (IOException e) {
             e.printStackTrace();
             showError("Failed to cancel order: " + e.getMessage());
+        }
+    }
+    
+    private void markOrderReady(int orderId) {
+        try {
+            SimpleClient.getClient().sendToServer("MARK_ORDER_READY;" + orderId);
+            System.out.println("Sent mark ready request for order: " + orderId);
+            statusLabel.setText("Order #" + orderId + " marked as ready!");
+        } catch (IOException e) {
+            e.printStackTrace();
+            showError("Failed to mark order as ready: " + e.getMessage());
         }
     }
 
@@ -243,6 +552,30 @@ public class PersonalAreaController {
 
     @FXML
     private void handleLogout() {
+        // Send logout message to server to set isOnline flag to false
+        try {
+            String phoneNumber = SimpleClient.getCurrentUserPhone();
+            if (phoneNumber != null && !phoneNumber.isEmpty()) {
+                SimpleClient.getClient().sendToServer("LOGOUT;" + phoneNumber);
+                System.out.println("Sent logout message for: " + phoneNumber);
+            } else {
+                SimpleClient.getClient().sendToServer("LOGOUT");
+                System.out.println("Sent logout message (no phone number)");
+            }
+            // Give server a moment to process logout
+            Thread.sleep(100);
+        } catch (Exception e) {
+            System.err.println("Error sending logout message: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        // Clear client-side user data
+        SimpleClient.setCurrentUserPhone(null);
+        SimpleClient.setCurrentUserRole(null);
+        SimpleClient.setBranchName(null);
+        SimpleClient.setSelectedBranchId(0); // Reset to 0 (no branch selected)
+        SimpleClient.setSelectedBranchName(null);
+        
         // Unregister from EventBus
         EventBus.getDefault().unregister(this);
         
@@ -270,6 +603,65 @@ public class PersonalAreaController {
             App.setRoot("reports_view");
         } catch (IOException e) {
             showError("Error opening reports: " + e.getMessage());
+        }
+    }
+
+    @FXML
+    private void handleTableManagement() {
+        try {
+            String userRole = SimpleClient.getCurrentUserRole();
+            
+            // If user is a worker, automatically use their branch
+            if ("worker".equalsIgnoreCase(userRole)) {
+                String workerBranchName = SimpleClient.getBranchName();
+                if (workerBranchName != null) {
+                    // Map branch name to branch ID
+                    Integer branchId = getBranchIdFromName(workerBranchName);
+                    if (branchId != null) {
+                        // Set the branch and go directly to table management
+                        SimpleClient.setSelectedBranchId(branchId);
+                        SimpleClient.setSelectedBranchName(workerBranchName);
+                        App.setRoot("tables_map");
+                        return;
+                    }
+                }
+                showError("Unable to determine your branch. Please contact support.");
+            } else {
+                showError("Table management is only available for workers.");
+            }
+        } catch (IOException e) {
+            showError("Error opening table management: " + e.getMessage());
+        }
+    }
+    
+    /**
+     * Helper method to get branch ID from branch name
+     */
+    private Integer getBranchIdFromName(String branchName) {
+        if (branchName == null) {
+            return null;
+        }
+        
+        switch (branchName) {
+            case "Tel-Aviv":
+                return 1;
+            case "Haifa":
+                return 2;
+            case "Jerusalem":
+                return 3;
+            case "Beer-Sheva":
+                return 4;
+            default:
+                // Try to extract number from branch name
+                String[] parts = branchName.split("\\D+");
+                for (String part : parts) {
+                    if (!part.isEmpty()) {
+                        try {
+                            return Integer.parseInt(part);
+                        } catch (NumberFormatException ignored) {}
+                    }
+                }
+                return null;
         }
     }
 
@@ -383,7 +775,22 @@ public class PersonalAreaController {
     public void onWarningEvent(WarningEvent event) {
         String message = event.getWarning().getMessage();
         
-        if (message.startsWith("GET_USER_ACCOUNT_INFO_SUCCESS")) {
+        if (message.startsWith("MARK_ORDER_READY_SUCCESS")) {
+            Platform.runLater(() -> {
+                String successMsg = message.substring(message.indexOf(":") + 1).trim();
+                statusLabel.setText("✅ " + successMsg);
+                // Refresh orders to show updated status
+                String userRole = SimpleClient.getCurrentUserRole();
+                boolean isWorker = "worker".equalsIgnoreCase(userRole);
+                if (isWorker) {
+                    try {
+                        SimpleClient.getClient().getUpcomingOrders();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
+                }
+            });
+        } else if (message.startsWith("GET_USER_ACCOUNT_INFO_SUCCESS")) {
             Platform.runLater(() -> {
                 // Parse: "GET_USER_ACCOUNT_INFO_SUCCESS;name;phoneNumber;password"
                 String[] parts = message.split(";");

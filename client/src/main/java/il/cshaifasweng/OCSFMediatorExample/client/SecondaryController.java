@@ -82,6 +82,14 @@ public class SecondaryController implements MenuUpdateListener {
             EventBus.getDefault().register(this);
         }
         
+        // Ensure client is subscribed to receive broadcasts
+        try {
+            SimpleClient.getClient().sendToServer("add client");
+            System.out.println("🔵 SecondaryController: Ensured client is subscribed");
+        } catch (IOException e) {
+            System.err.println("Failed to subscribe client: " + e.getMessage());
+        }
+        
         // Initialize category ComboBox with available categories
         newItemCategoryComboBox.getItems().addAll("Main course", "Appetizer", "Desert", "Beverages");
         
@@ -199,6 +207,35 @@ public class SecondaryController implements MenuUpdateListener {
 
     @FXML
     private void switchToPrimary() throws IOException {
+        // Send logout message to server to set isOnline flag to false
+        try {
+            String phoneNumber = SimpleClient.getCurrentUserPhone();
+            if (phoneNumber != null && !phoneNumber.isEmpty()) {
+                SimpleClient.getClient().sendToServer("LOGOUT;" + phoneNumber);
+                System.out.println("Sent logout message for: " + phoneNumber);
+            } else {
+                SimpleClient.getClient().sendToServer("LOGOUT");
+                System.out.println("Sent logout message (no phone number)");
+            }
+            // Give server a moment to process logout
+            Thread.sleep(100);
+        } catch (Exception e) {
+            System.err.println("Error sending logout message: " + e.getMessage());
+            e.printStackTrace();
+        }
+        
+        // Clear client-side user data
+        SimpleClient.setCurrentUserPhone(null);
+        SimpleClient.setCurrentUserRole(null);
+        SimpleClient.setBranchName(null);
+        SimpleClient.setSelectedBranchId(0); // Reset to 0 (no branch selected)
+        SimpleClient.setSelectedBranchName(null);
+        
+        // Unregister from EventBus
+        if (EventBus.getDefault().isRegistered(this)) {
+            EventBus.getDefault().unregister(this);
+        }
+        
         App.setRoot("primary1");
     }
 
@@ -568,9 +605,11 @@ public class SecondaryController implements MenuUpdateListener {
 
     @Subscribe
     public void onComplaintsReceived(SimpleClient.ComplaintsReceivedEvent event) {
+        List<Complaint> complaints = event.getComplaints();
+        System.out.println("📥 SecondaryController: Received " + complaints.size() + " complaints (real-time update)");
         Platform.runLater(() -> {
-            List<Complaint> complaints = event.getComplaints();
             displayComplaints(complaints);
+            System.out.println("📥 SecondaryController: Updated complaint display");
         });
     }
 

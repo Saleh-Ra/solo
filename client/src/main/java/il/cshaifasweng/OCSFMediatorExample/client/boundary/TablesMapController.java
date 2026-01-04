@@ -363,14 +363,14 @@ public class TablesMapController {
             cleanup();
             // Check user role to determine where to go back
             String userRole = SimpleClient.getCurrentUserRole();
-            if ("chain_manager".equalsIgnoreCase(userRole)) {
+            if ("manager".equalsIgnoreCase(userRole) || "worker".equalsIgnoreCase(userRole)) {
+                // Managers and workers should go back to their personal area
+                App.setRoot("personal_area");
+            } else if ("chain_manager".equalsIgnoreCase(userRole)) {
                 // Chain managers can choose branches, so go to branch selection
                 App.setRoot("reservation_branch_selection");
-            } else if ("manager".equalsIgnoreCase(userRole)) {
-                // Regular managers should go back to their dashboard
-                App.setRoot("secondary2");
             } else {
-                // Default fallback for other users
+                // Default fallback for other users (regular clients)
                 App.setRoot("reservation_branch_selection");
             }
         } catch (IOException e) {

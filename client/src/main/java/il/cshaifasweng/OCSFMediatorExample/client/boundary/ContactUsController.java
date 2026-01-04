@@ -36,6 +36,14 @@ public class ContactUsController {
         if (!EventBus.getDefault().isRegistered(this)) {
             EventBus.getDefault().register(this);
         }
+        
+        // Ensure client is subscribed to receive broadcasts
+        try {
+            SimpleClient.getClient().sendToServer("add client");
+            System.out.println("🔵 ContactUsController: Ensured client is subscribed");
+        } catch (IOException e) {
+            System.err.println("Failed to subscribe client: " + e.getMessage());
+        }
 
         // Setup message type selection
         messageTypeComboBox.getItems().addAll("General", "Complaint");
@@ -235,9 +243,11 @@ public class ContactUsController {
     @Subscribe
     public void onComplaintsReceived(SimpleClient.ComplaintsReceivedEvent event) {
         List<Complaint> complaints = event.getComplaints();
+        System.out.println("📥 ContactUsController: Received " + complaints.size() + " complaints (real-time update)");
         javafx.application.Platform.runLater(() -> {
             cachedComplaints = complaints != null ? complaints : new java.util.ArrayList<>();
             refreshMessageDisplay();
+            System.out.println("📥 ContactUsController: Updated complaint display");
         });
     }
 

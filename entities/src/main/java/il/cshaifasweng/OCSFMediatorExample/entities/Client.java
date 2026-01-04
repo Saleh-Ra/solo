@@ -33,9 +33,9 @@ public class Client implements Serializable {
     @OneToMany(mappedBy = "client", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
     private List<Reservation> reservations;
 
-    // ✅ One-to-One Association: A Client can have ONLY ONE active Complaint at a time.
-    @OneToOne(mappedBy = "client", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
-    private Complaint complaint;
+    // ✅ One-to-Many Association: A Client can have multiple Complaints, but only one PENDING at a time (enforced by application logic).
+    @OneToMany(mappedBy = "client", cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
+    private List<Complaint> complaints;
 
     public Client() {}
 
@@ -96,11 +96,11 @@ public class Client implements Serializable {
         this.reservations = reservations;
     }
 
-    public Complaint getComplaint() {
-        return complaint;
+    public List<Complaint> getComplaints() {
+        return complaints;
     }
 
-    public void setComplaint(Complaint complaint) {
-        this.complaint = complaint;
+    public void setComplaints(List<Complaint> complaints) {
+        this.complaints = complaints;
     }
 }

@@ -23,6 +23,11 @@ public class Order implements Serializable {
     private String deliveryTime;
     private String deliveryLocation;
     private String paymentMethod;
+    
+    // Order items and customizations (stored as formatted string)
+    // Format: "itemName1:quantity1:note1|itemName2:quantity2:note2|..."
+    @Column(length = 2000)
+    private String orderItems;
 
     // ✅ Many-to-One Association: Many Orders belong to one Client.
     @ManyToOne
@@ -162,5 +167,13 @@ public class Order implements Serializable {
 
     public void setPaymentMethod(String paymentMethod) {
         this.paymentMethod = paymentMethod;
+    }
+    
+    public String getOrderItems() {
+        return orderItems;
+    }
+    
+    public void setOrderItems(String orderItems) {
+        this.orderItems = orderItems;
     }
 }

@@ -32,8 +32,11 @@ public class OrderController {
     @FXML private Button confirmButton;
     @FXML private Button backButton;
     @FXML private Label statusLabel;
+    @FXML private Label headerLabel;
+    @FXML private javafx.scene.layout.HBox dateTimeBox;
 
     private final Cart cart = SimpleClient.getCart();
+    private boolean isPickup = false;
 
     @FXML
     public void initialize() {
@@ -43,6 +46,27 @@ public class OrderController {
         }
         
         paymentMethodComboBox.getItems().addAll("Credit Card", "Cash");
+        
+        // Check order type (pickup or delivery)
+        String orderType = SimpleClient.getCurrentOrderType();
+        isPickup = "pickup".equalsIgnoreCase(orderType);
+        
+        // Configure UI based on order type
+        if (isPickup) {
+            // Hide delivery-specific fields
+            addressField.setVisible(false);
+            addressField.setManaged(false);
+            dateTimeBox.setVisible(false);
+            dateTimeBox.setManaged(false);
+            headerLabel.setText("📝 Enter Your Payment Info (Pickup Order)");
+        } else {
+            // Show all fields for delivery
+            addressField.setVisible(true);
+            addressField.setManaged(true);
+            dateTimeBox.setVisible(true);
+            dateTimeBox.setManaged(true);
+            headerLabel.setText("📝 Enter Your Delivery And Payment Info");
+        }
         
         // Configure DatePicker with proper date format and validation
         DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("dd/MM/yyyy");
@@ -98,7 +122,10 @@ public class OrderController {
                     Alert alert = new Alert(Alert.AlertType.INFORMATION);
                     alert.setTitle("Order Placed Successfully");
                     alert.setHeaderText("Your order has been placed!");
-                    alert.setContentText("Your order has been created, we are working on it.\n\nExpect delivery at your selected time.\n\nThank you for choosing us!");
+                    String successMessage = isPickup 
+                        ? "Your pickup order has been created, we are working on it.\n\nPlease pick up your order at the selected time.\n\nThank you for choosing us!"
+                        : "Your order has been created, we are working on it.\n\nExpect delivery at your selected time.\n\nThank you for choosing us!";
+                    alert.setContentText(successMessage);
                     alert.showAndWait();
                     
                     // Redirect after user clicks OK
@@ -125,26 +152,69 @@ public class OrderController {
     private void handleConfirm() {
         String name = nameField.getText().trim();
         String phone = idField.getText().trim();
-        String address = addressField.getText().trim();
+        String address = isPickup ? "PICKUP" : addressField.getText().trim();
         LocalDate date = datePicker.getValue();
         String time = timeField.getText().trim();
         String method = paymentMethodComboBox.getValue();
 
-        if (name.isEmpty() || phone.isEmpty() || address.isEmpty() || time.isEmpty() || method == null) {
-            statusLabel.setText("❌ Please fill out all fields.");
+        // Validate required fields based on order type
+        if (name.isEmpty() || phone.isEmpty() || method == null) {
+            statusLabel.setText("❌ Please fill out all required fields.");
             return;
         }
         
-        // Validate date - must be a valid date
-        if (date == null) {
-            statusLabel.setText("❌ Invalid date format. Please enter a valid date in DD/MM/YYYY format (e.g., 11/11/2025).");
-            return;
-        }
-        
-        // Validate date - must not be in the past
-        if (date.isBefore(LocalDate.now())) {
-            statusLabel.setText("❌ Delivery date cannot be in the past. Please select today or a future date.");
-            return;
+        // For delivery, validate address, date, and time
+        if (!isPickup) {
+            if (address.isEmpty() || time.isEmpty()) {
+                statusLabel.setText("❌ Please fill out all fields.");
+                return;
+            }
+            
+            // Validate date - must be a valid date
+            if (date == null) {
+                statusLabel.setText("❌ Invalid date format. Please enter a valid date in DD/MM/YYYY format (e.g., 11/11/2025).");
+                return;
+            }
+            
+            // Validate date - must not be in the past
+            if (date.isBefore(LocalDate.now())) {
+                statusLabel.setText("❌ Delivery date cannot be in the past. Please select today or a future date.");
+                return;
+            }
+
+            // Validate time format
+            LocalTime deliveryTime;
+            try {
+                deliveryTime = LocalTime.parse(time);
+            } catch (Exception e) {
+                statusLabel.setText("❌ Invalid time format. Use HH:mm.");
+                return;
+            }
+            
+            // Validate that the combined date and time is not in the past
+            LocalDateTime deliveryDateTime = LocalDateTime.of(date, deliveryTime);
+            if (deliveryDateTime.isBefore(LocalDateTime.now())) {
+                statusLabel.setText("❌ Delivery date and time cannot be in the past. Please select a future date and time.");
+                return;
+            }
+            
+            // Validate that delivery time is within restaurant operating hours (10:00-22:00)
+            int hour = deliveryTime.getHour();
+            if (hour < 10 || hour >= 22) {
+                statusLabel.setText("❌ Delivery time must be between 10:00 and 22:00. Restaurant operating hours are 10:00-22:00.");
+                return;
+            }
+        } else {
+            // For pickup, set default values
+            date = LocalDate.now();
+            time = LocalTime.now().plusHours(1).format(java.time.format.DateTimeFormatter.ofPattern("HH:mm"));
+            // Ensure pickup time is within operating hours
+            LocalTime pickupTime = LocalTime.parse(time);
+            if (pickupTime.getHour() < 10) {
+                time = "10:00";
+            } else if (pickupTime.getHour() >= 22) {
+                time = "21:00";
+            }
         }
         
         // Validate phone number - exactly 10 digits, must start with "05", numbers only
@@ -158,29 +228,6 @@ public class OrderController {
         }
         if (!phone.matches("\\d+")) {
             statusLabel.setText("❌ Phone number can only contain numbers.");
-            return;
-        }
-
-        // Validate time format
-        LocalTime deliveryTime;
-        try {
-            deliveryTime = LocalTime.parse(time);
-        } catch (Exception e) {
-            statusLabel.setText("❌ Invalid time format. Use HH:mm.");
-            return;
-        }
-        
-        // Validate that the combined date and time is not in the past
-        LocalDateTime deliveryDateTime = LocalDateTime.of(date, deliveryTime);
-        if (deliveryDateTime.isBefore(LocalDateTime.now())) {
-            statusLabel.setText("❌ Delivery date and time cannot be in the past. Please select a future date and time.");
-            return;
-        }
-        
-        // Validate that delivery time is within restaurant operating hours (10:00-22:00)
-        int hour = deliveryTime.getHour();
-        if (hour < 10 || hour >= 22) {
-            statusLabel.setText("❌ Delivery time must be between 10:00 and 22:00. Restaurant operating hours are 10:00-22:00.");
             return;
         }
 
@@ -280,7 +327,7 @@ public class OrderController {
         }
 
         System.out.println("Customer: " + name + " | Phone: " + phone);
-        System.out.println("Delivery: " + date + " at " + time + " to " + address);
+        System.out.println((isPickup ? "Pickup" : "Delivery") + ": " + date + " at " + time + (isPickup ? "" : " to " + address));
         System.out.println("Payment: " + method + " | Total: $" + cart.calculateTotal());
 
         // Send order to server
@@ -289,10 +336,47 @@ public class OrderController {
             int selectedBranchId = SimpleClient.getSelectedBranchId();
             System.out.println("Creating order for branch ID: " + selectedBranchId);
             
+            // Serialize cart items with full details for workers to prepare meals
+            // Format: "itemName:quantity:note:ingredients:preferences:category:price|..."
+            StringBuilder itemsBuilder = new StringBuilder();
+            for (var entry : cart.getItems().entrySet()) {
+                if (itemsBuilder.length() > 0) {
+                    itemsBuilder.append("|");
+                }
+                var menuItem = entry.getKey();
+                String itemName = menuItem.getName();
+                int quantity = entry.getValue();
+                String note = cart.getNote(entry.getKey());
+                if (note == null || note.isEmpty()) {
+                    note = ""; // Empty note
+                }
+                String ingredients = menuItem.getIngredients() != null ? menuItem.getIngredients() : "";
+                String preferences = menuItem.getPreferences() != null ? menuItem.getPreferences() : "";
+                String category = menuItem.getCategory() != null ? menuItem.getCategory() : "";
+                double price = menuItem.getPrice();
+                
+                // Escape special characters that might break the format
+                itemName = itemName.replace(":", "::").replace("|", "||");
+                note = note.replace(":", "::").replace("|", "||");
+                ingredients = ingredients.replace(":", "::").replace("|", "||");
+                preferences = preferences.replace(":", "::").replace("|", "||");
+                category = category.replace(":", "::").replace("|", "||");
+                
+                itemsBuilder.append(itemName).append(":")
+                           .append(quantity).append(":")
+                           .append(note).append(":")
+                           .append(ingredients).append(":")
+                           .append(preferences).append(":")
+                           .append(category).append(":")
+                           .append(price);
+            }
+            String orderItemsStr = itemsBuilder.toString();
+            
             // Format the order message matching server expectations
-            // Format: CREATE_ORDER;customerName;phone;deliveryDate;deliveryTime;deliveryLocation;paymentMethod;totalCost;branchId
-            String orderMsg = String.format("CREATE_ORDER;%s;%s;%s;%s;%s;%s;%.2f;%d", 
-                name, phone, date.toString(), time, address, method, cart.calculateTotal(), selectedBranchId);
+            // Format: CREATE_ORDER;customerName;phone;deliveryDate;deliveryTime;deliveryLocation;paymentMethod;totalCost;branchId;orderType;orderItems
+            String orderType = isPickup ? "pickup" : "delivery";
+            String orderMsg = String.format("CREATE_ORDER;%s;%s;%s;%s;%s;%s;%.2f;%d;%s;%s", 
+                name, phone, date.toString(), time, address, method, cart.calculateTotal(), selectedBranchId, orderType, orderItemsStr);
             
             // Send to server
             SimpleClient.getClient().sendToServer(orderMsg);

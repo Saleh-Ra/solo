@@ -12,6 +12,7 @@ import il.cshaifasweng.OCSFMediatorExample.server.ocsf.ConnectionToClient;
 import org.hibernate.Hibernate;
 import org.hibernate.Session;
 
+import java.io.IOException;
 import java.time.Duration;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -174,6 +175,9 @@ public class ReservationHandler {
                 successMessage = String.format("Table reserved successfully! Your account has been created. Username: %s, Password: %s. Redirecting to main page.", 
                     username, password);
             }
+            
+            // Broadcast updated reservations to all workers (real-time update)
+            SimpleServer.sendUpdatedReservationsToAllWorkers();
             
             SimpleServer.sendSuccessResponse(client, "RESERVATION_SUCCESS", successMessage);
 
@@ -467,6 +471,42 @@ public class ReservationHandler {
             System.err.println("Error getting user reservations: " + e.getMessage());
             e.printStackTrace();
             SimpleServer.sendFailureResponse(client, "GET_USER_RESERVATIONS_FAILURE", "Server error: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Get all upcoming reservations (for workers to prepare)
+     * Returns reservations scheduled for today or future
+     */
+    public static void handleGetUpcomingReservations(ConnectionToClient client) {
+        try (Session session = Database.getSessionFactoryInstance().openSession()) {
+            // Get current date/time
+            LocalDateTime now = LocalDateTime.now();
+            
+            // Query for upcoming reservations: reservation time is in the future
+            String hql = "FROM Reservation r WHERE r.reservationTime >= :now " +
+                        "ORDER BY r.reservationTime ASC";
+            
+            List<Reservation> reservations = session.createQuery(hql, Reservation.class)
+                    .setParameter("now", now)
+                    .getResultList();
+            
+            System.out.println("Found " + reservations.size() + " upcoming reservations for worker");
+            client.sendToClient(reservations);
+        } catch (IOException e) {
+            e.printStackTrace();
+            try {
+                client.sendToClient(new ArrayList<Reservation>());
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            try {
+                client.sendToClient(new ArrayList<Reservation>());
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
         }
     }
     

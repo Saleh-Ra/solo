@@ -4,6 +4,7 @@ il\cshaifasweng\OCSFMediatorExample\entities\Delivery.class
 il\cshaifasweng\OCSFMediatorExample\entities\Cart.class
 il\cshaifasweng\OCSFMediatorExample\entities\Order.class
 il\cshaifasweng\OCSFMediatorExample\entities\Warning.class
+il\cshaifasweng\OCSFMediatorExample\entities\Worker.class
 il\cshaifasweng\OCSFMediatorExample\entities\GeneralMessage.class
 il\cshaifasweng\OCSFMediatorExample\entities\MenuItem.class
 il\cshaifasweng\OCSFMediatorExample\entities\Complaint$Status.class

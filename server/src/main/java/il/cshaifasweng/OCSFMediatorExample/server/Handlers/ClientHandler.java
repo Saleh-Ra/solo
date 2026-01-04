@@ -3,6 +3,7 @@ package il.cshaifasweng.OCSFMediatorExample.server.Handlers;
 import il.cshaifasweng.OCSFMediatorExample.entities.Client;
 import il.cshaifasweng.OCSFMediatorExample.entities.UserAccount;
 import il.cshaifasweng.OCSFMediatorExample.entities.Warning;
+import il.cshaifasweng.OCSFMediatorExample.entities.Worker;
 import il.cshaifasweng.OCSFMediatorExample.server.dataManagers.DataManager;
 import il.cshaifasweng.OCSFMediatorExample.server.dataManagers.Database;
 import il.cshaifasweng.OCSFMediatorExample.server.ocsf.ConnectionToClient;
@@ -168,6 +169,46 @@ public class ClientHandler {
             return;
         }
 
+        // Check if account is already online (prevent duplicate logins)
+        if (account.isOnline()) {
+            try {
+                client.sendToClient(new Warning("LOGIN_FAILURE: This account is already logged in on another device"));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return;
+        }
+
+        // Set account to online and update database
+        try {
+            account.setOnline(true);
+            org.hibernate.Session session = Database.getSessionFactoryInstance().openSession();
+            try {
+                session.beginTransaction();
+                session.merge(account);
+                session.getTransaction().commit();
+                System.out.println("Account set to online: " + account.getPhoneNumber());
+            } catch (Exception ex) {
+                if (session.getTransaction() != null && session.getTransaction().isActive()) {
+                    session.getTransaction().rollback();
+                }
+                throw ex;
+            } finally {
+                if (session != null && session.isOpen()) {
+                    session.close();
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Error setting account to online: " + e.getMessage());
+            e.printStackTrace();
+            try {
+                client.sendToClient(new Warning("LOGIN_FAILURE: Error updating account status"));
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+            return;
+        }
+
         // Store the user account in the client connection for future use
         client.setInfo("user", account);
 
@@ -177,12 +218,29 @@ public class ClientHandler {
             String role = account.getRole();
             String branchName = account.getBranchName(); // This might be null for non-managers
             
+            // For workers, get branch from Worker entity
+            if ("worker".equalsIgnoreCase(role) && branchName == null) {
+                try (org.hibernate.Session session = Database.getSessionFactoryInstance().openSession()) {
+                    session.beginTransaction();
+                    String hql = "FROM Worker w WHERE w.account.id = :accountId";
+                    List<Worker> workers = session.createQuery(hql, Worker.class)
+                            .setParameter("accountId", account.getId())
+                            .getResultList();
+                    if (!workers.isEmpty() && workers.get(0).getBranch() != null) {
+                        branchName = workers.get(0).getBranch().getLocation();
+                    }
+                    session.getTransaction().commit();
+                } catch (Exception e) {
+                    System.err.println("Error fetching worker branch: " + e.getMessage());
+                }
+            }
+            
             StringBuilder successMessage = new StringBuilder("LOGIN_SUCCESS;")
                 .append(phoneNumber).append(";")
                 .append(role);
             
-            // Add branch name for managers if available
-            if ("manager".equalsIgnoreCase(role) && branchName != null) {
+            // Add branch name for managers and workers if available
+            if (("manager".equalsIgnoreCase(role) || "worker".equalsIgnoreCase(role)) && branchName != null) {
                 successMessage.append(";").append(branchName);
             }
             
@@ -190,6 +248,55 @@ public class ClientHandler {
             System.out.println("User logged in: " + username + " with phone: " + phoneNumber + 
                 ", role: " + role + (branchName != null ? ", branch: " + branchName : ""));
         } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public static void handleLogout(String msgString, ConnectionToClient client) {
+        // Expected: "LOGOUT" or "LOGOUT;phoneNumber"
+        try {
+            String phoneNumber = null;
+            if (msgString.contains(";")) {
+                phoneNumber = msgString.split(";")[1].trim();
+            } else {
+                // Try to get phone from client connection info
+                Object userObj = client.getInfo("user");
+                if (userObj instanceof UserAccount) {
+                    phoneNumber = ((UserAccount) userObj).getPhoneNumber();
+                }
+            }
+            
+            if (phoneNumber != null && !phoneNumber.isEmpty()) {
+                // Fetch account and set to offline
+                List<UserAccount> accounts = DataManager.fetchUserAccountsByPhoneNumber(phoneNumber);
+                if (!accounts.isEmpty()) {
+                    UserAccount account = accounts.get(0);
+                    account.setOnline(false);
+                    
+                    org.hibernate.Session session = Database.getSessionFactoryInstance().openSession();
+                    try {
+                        session.beginTransaction();
+                        session.merge(account);
+                        session.getTransaction().commit();
+                        System.out.println("Account logged out and set to offline: " + phoneNumber);
+                        // No need to send success message - client already handles logout UI
+                    } catch (Exception ex) {
+                        if (session.getTransaction() != null && session.getTransaction().isActive()) {
+                            session.getTransaction().rollback();
+                        }
+                        throw ex;
+                    } finally {
+                        if (session != null && session.isOpen()) {
+                            session.close();
+                        }
+                    }
+                }
+            }
+            
+            // Clear user info from connection
+            client.setInfo("user", null);
+        } catch (Exception e) {
+            System.err.println("Error during logout: " + e.getMessage());
             e.printStackTrace();
         }
     }
@@ -367,6 +474,96 @@ public class ClientHandler {
             e.printStackTrace();
             try {
                 client.sendToClient(new Warning("UPDATE_USER_ACCOUNT_FAILURE: " + e.getMessage()));
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        }
+    }
+
+    public static void handleForgotPasswordReset(String msgString, ConnectionToClient client) {
+        // Expected: "FORGOT_PASSWORD_RESET;name;phoneNumber;newPassword"
+        String[] parts = msgString.split(";");
+        if (parts.length < 4) {
+            try {
+                client.sendToClient(new Warning("FORGOT_PASSWORD_RESET_FAILURE: Invalid format"));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return;
+        }
+
+        String name = parts[1].trim();
+        String phoneNumber = parts[2].trim();
+        String newPassword = parts[3].trim();
+
+        // Validate required fields
+        if (name.isEmpty() || phoneNumber.isEmpty() || newPassword.isEmpty()) {
+            try {
+                client.sendToClient(new Warning("FORGOT_PASSWORD_RESET_FAILURE: All fields are required"));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return;
+        }
+
+        if (newPassword.length() < 3) {
+            try {
+                client.sendToClient(new Warning("FORGOT_PASSWORD_RESET_FAILURE: Password must be at least 3 characters long"));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return;
+        }
+
+        // Find the user account by phone number
+        List<UserAccount> accounts = DataManager.fetchUserAccountsByPhoneNumber(phoneNumber);
+        if (accounts.isEmpty()) {
+            try {
+                client.sendToClient(new Warning("FORGOT_PASSWORD_RESET_FAILURE: No account found with this phone number"));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return;
+        }
+
+        UserAccount account = accounts.get(0);
+
+        // Verify that the name matches
+        if (!account.getName().equalsIgnoreCase(name)) {
+            try {
+                client.sendToClient(new Warning("FORGOT_PASSWORD_RESET_FAILURE: Name does not match the account"));
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            return;
+        }
+
+        // Update the password
+        try {
+            account.setPassword(newPassword);
+            
+            // Use Hibernate merge to update the entity
+            org.hibernate.Session session = Database.getSessionFactoryInstance().openSession();
+            try {
+                session.beginTransaction();
+                session.merge(account);
+                session.getTransaction().commit();
+                System.out.println("Password reset for user: " + name + " with phone: " + phoneNumber);
+                client.sendToClient(new Warning("FORGOT_PASSWORD_RESET_SUCCESS;Password reset successfully"));
+            } catch (Exception ex) {
+                if (session.getTransaction() != null && session.getTransaction().isActive()) {
+                    session.getTransaction().rollback();
+                }
+                throw ex;
+            } finally {
+                if (session != null && session.isOpen()) {
+                    session.close();
+                }
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            try {
+                client.sendToClient(new Warning("FORGOT_PASSWORD_RESET_FAILURE: " + e.getMessage()));
             } catch (IOException ex) {
                 ex.printStackTrace();
             }

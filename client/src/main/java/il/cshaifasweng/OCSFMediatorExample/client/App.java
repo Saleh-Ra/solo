@@ -57,9 +57,27 @@ public class App extends Application {
     @Override
     public void stop() throws Exception {
         // Cleanup on application stop
+        try {
+            // Send logout message to server before closing
+            if (client != null && client.isConnected()) {
+                String phoneNumber = SimpleClient.getCurrentUserPhone();
+                if (phoneNumber != null && !phoneNumber.isEmpty()) {
+                    client.sendToServer("LOGOUT;" + phoneNumber);
+                    System.out.println("Sent logout message for: " + phoneNumber);
+                } else {
+                    client.sendToServer("LOGOUT");
+                }
+                // Give server a moment to process logout
+                Thread.sleep(100);
+            }
+        } catch (Exception e) {
+            System.err.println("Error sending logout message: " + e.getMessage());
+        }
+        
         EventBus.getDefault().unregister(this);
-        client.sendToServer("remove client");
-        client.closeConnection();
+        if (client != null) {
+            client.closeConnection();
+        }
         super.stop();
     }
 

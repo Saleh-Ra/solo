@@ -10,13 +10,13 @@
             prefWidth="600" prefHeight="500">
 
     <VBox layoutX="50.0" layoutY="30.0" spacing="15" prefWidth="500">
-        <Label text="📝 Enter Your Delivery And Payment Info" style="-fx-font-size: 18px; -fx-font-weight: bold;" />
+        <Label fx:id="headerLabel" text="📝 Enter Your Delivery And Payment Info" style="-fx-font-size: 18px; -fx-font-weight: bold;" />
 
         <TextField fx:id="nameField" promptText="Full Name" />
         <TextField fx:id="idField" promptText="Phone Number" />
         <TextField fx:id="addressField" promptText="Delivery Address" />
 
-        <HBox spacing="10">
+        <HBox fx:id="dateTimeBox" spacing="10">
             <DatePicker fx:id="datePicker" promptText="Delivery Date" />
             <TextField fx:id="timeField" promptText="HH:mm (24-hour format)" />
         </HBox>

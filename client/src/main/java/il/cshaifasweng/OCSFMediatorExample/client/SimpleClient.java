@@ -28,6 +28,7 @@ public class SimpleClient extends AbstractClient {
 	private static String branchName;
 	private static int selectedBranchId;
 	private static String selectedBranchName;
+	private static String currentOrderType; // "pickup" or "delivery"
 	private MenuUpdateListener menuUpdateListener;
 
 	private SimpleClient(String host, int port) {
@@ -40,8 +41,8 @@ public class SimpleClient extends AbstractClient {
             // For local testing, use "localhost"
             // For network connection (server-client on different computers), use the server's hotspot IP
             // Server hotspot IP: 192.168.137.1
-            client = new SimpleClient("localhost", 3000);
-			//client = new SimpleClient("192.168.137.1", 3000);
+            //client = new SimpleClient("localhost", 3000);
+			client = new SimpleClient("192.168.137.1", 3000);
 		}
 		return client;
 	}
@@ -97,6 +98,15 @@ public class SimpleClient extends AbstractClient {
 	public static void setSelectedBranchName(String branchName) {
 		selectedBranchName = branchName;
 		System.out.println("Set selected branch name to: " + branchName);
+	}
+
+	public static String getCurrentOrderType() {
+		return currentOrderType;
+	}
+
+	public static void setCurrentOrderType(String orderType) {
+		currentOrderType = orderType;
+		System.out.println("Set current order type to: " + orderType);
 	}
 
 	@Override
@@ -167,6 +177,7 @@ public class SimpleClient extends AbstractClient {
 							case "nutritionist":
 								App.setRoot("secondary2");
 								break;
+							case "worker":
 							default: // client
 								App.setRoot("personal_area");
 								break;
@@ -223,14 +234,16 @@ public class SimpleClient extends AbstractClient {
 			// Check if it's a list of orders
 			if (!((List<?>) msg).isEmpty() && ((List<?>) msg).get(0) instanceof Order) {
 				List<Order> orders = (List<Order>) msg;
-				System.out.println("Received " + orders.size() + " orders from server");
+				System.out.println("📥 SimpleClient: Received " + orders.size() + " orders from server (broadcast or direct)");
 				EventBus.getDefault().post(new OrdersReceivedEvent(orders));
+				System.out.println("📥 SimpleClient: Posted OrdersReceivedEvent to EventBus");
 			}
 			// Check if it's a list of reservations
 			else if (!((List<?>) msg).isEmpty() && ((List<?>) msg).get(0) instanceof Reservation) {
 				List<Reservation> reservations = (List<Reservation>) msg;
-				System.out.println("Received " + reservations.size() + " reservations from server");
+				System.out.println("📥 SimpleClient: Received " + reservations.size() + " reservations from server (broadcast or direct)");
 				EventBus.getDefault().post(new ReservationsReceivedEvent(reservations));
+				System.out.println("📥 SimpleClient: Posted ReservationsReceivedEvent to EventBus");
 			}
 			            // Check if it's a list of restaurant tables
             else if (!((List<?>) msg).isEmpty() && ((List<?>) msg).get(0) instanceof RestaurantTable) {
@@ -250,8 +263,9 @@ public class SimpleClient extends AbstractClient {
             // Check if it's a list of complaints
             else if (!((List<?>) msg).isEmpty() && ((List<?>) msg).get(0) instanceof Complaint) {
                 List<Complaint> complaints = (List<Complaint>) msg;
-                System.out.println("Received " + complaints.size() + " complaints from server");
+                System.out.println("📥 SimpleClient: Received " + complaints.size() + " complaints from server (broadcast or direct)");
                 EventBus.getDefault().post(new ComplaintsReceivedEvent(complaints));
+                System.out.println("📥 SimpleClient: Posted ComplaintsReceivedEvent to EventBus");
             }
             // Check if it's a list of general messages
             else if (!((List<?>) msg).isEmpty() && ((List<?>) msg).get(0) instanceof GeneralMessage) {
@@ -357,6 +371,16 @@ public class SimpleClient extends AbstractClient {
 		} else {
 			System.out.println("Cannot get reservations - no current user phone number");
 		}
+	}
+
+	public void getUpcomingOrders() throws IOException {
+		sendToServer("GET_UPCOMING_ORDERS");
+		System.out.println("Requesting upcoming orders for worker");
+	}
+
+	public void getUpcomingReservations() throws IOException {
+		sendToServer("GET_UPCOMING_RESERVATIONS");
+		System.out.println("Requesting upcoming reservations for worker");
 	}
 
 	@Override

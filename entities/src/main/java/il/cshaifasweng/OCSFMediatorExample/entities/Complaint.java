@@ -17,9 +17,9 @@ public class Complaint implements Serializable {
     @Column(nullable = false)
     private Status status;
 
-    // ✅ One-to-One Association: A Client can have only ONE active Complaint at a time.
-    @OneToOne
-    @JoinColumn(name = "client_id", unique = true, nullable = false)
+    // ✅ Many-to-One Association: A Client can have multiple Complaints, but only one PENDING at a time (enforced by application logic)
+    @ManyToOne
+    @JoinColumn(name = "client_id", nullable = false)
     private Client client;
 
     // ✅ Many Complaints belong to ONE Branch.

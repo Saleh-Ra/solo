@@ -25,6 +25,7 @@
         <mapping class="il.cshaifasweng.OCSFMediatorExample.entities.Branch"/>
         <mapping class="il.cshaifasweng.OCSFMediatorExample.entities.RestaurantTable"/>
         <mapping class="il.cshaifasweng.OCSFMediatorExample.entities.Client"/>
+        <mapping class="il.cshaifasweng.OCSFMediatorExample.entities.Worker"/>
         <mapping class="il.cshaifasweng.OCSFMediatorExample.entities.BranchManager"/>
         <mapping class="il.cshaifasweng.OCSFMediatorExample.entities.RestaurantChainManager"/>
         <mapping class="il.cshaifasweng.OCSFMediatorExample.entities.Menu"/>

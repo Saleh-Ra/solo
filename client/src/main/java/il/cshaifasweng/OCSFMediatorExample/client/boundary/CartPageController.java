@@ -7,6 +7,9 @@ import il.cshaifasweng.OCSFMediatorExample.entities.MenuItem;
 import javafx.fxml.FXML;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
+import javafx.geometry.Insets;
+import javafx.geometry.Pos;
 
 import java.io.IOException;
 import java.util.Map;
@@ -123,11 +126,64 @@ public class CartPageController {
             return;
         }
 
-        try {
-            App.setRoot("order");
-        } catch (IOException e) {
-            e.printStackTrace();
-            showAlert("Navigation Error", "Could not open the order screen.");
+        // Create custom dialog with two square buttons
+        Dialog<String> dialog = new Dialog<>();
+        dialog.setTitle("Order Type");
+        dialog.setHeaderText("How would you like to receive your order?");
+        
+        // Create two square buttons
+        Button pickupButton = new Button("Pickup");
+        Button deliveryButton = new Button("Delivery");
+        
+        // Style the buttons to be square and prominent
+        pickupButton.setPrefSize(150, 150);
+        deliveryButton.setPrefSize(150, 150);
+        pickupButton.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-background-color: black; -fx-text-fill: white;");
+        deliveryButton.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-background-color: black; -fx-text-fill: white;");
+        
+        // Add hover effects
+        pickupButton.setOnMouseEntered(e -> pickupButton.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-background-color: #333333; -fx-text-fill: white;"));
+        pickupButton.setOnMouseExited(e -> pickupButton.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-background-color: black; -fx-text-fill: white;"));
+        deliveryButton.setOnMouseEntered(e -> deliveryButton.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-background-color: #333333; -fx-text-fill: white;"));
+        deliveryButton.setOnMouseExited(e -> deliveryButton.setStyle("-fx-font-size: 18px; -fx-font-weight: bold; -fx-background-color: black; -fx-text-fill: white;"));
+        
+        // Create HBox to hold the buttons
+        HBox buttonBox = new HBox(20);
+        buttonBox.setAlignment(Pos.CENTER);
+        buttonBox.getChildren().addAll(pickupButton, deliveryButton);
+        
+        // Set button actions
+        pickupButton.setOnAction(e -> {
+            dialog.setResult("pickup");
+            dialog.close();
+        });
+        
+        deliveryButton.setOnAction(e -> {
+            dialog.setResult("delivery");
+            dialog.close();
+        });
+        
+        // Set dialog content
+        VBox content = new VBox(15);
+        content.setAlignment(Pos.CENTER);
+        content.setPadding(new Insets(20));
+        content.getChildren().add(buttonBox);
+        
+        dialog.getDialogPane().setContent(content);
+        dialog.getDialogPane().getButtonTypes().add(ButtonType.CANCEL);
+        
+        // Show dialog and handle result
+        var result = dialog.showAndWait();
+        if (result.isPresent()) {
+            String orderType = result.get().toLowerCase();
+            SimpleClient.setCurrentOrderType(orderType);
+            
+            try {
+                App.setRoot("order");
+            } catch (IOException e) {
+                e.printStackTrace();
+                showAlert("Navigation Error", "Could not open the order screen.");
+            }
         }
     }
 

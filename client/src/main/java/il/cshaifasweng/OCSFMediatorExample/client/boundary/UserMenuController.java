@@ -16,6 +16,7 @@ import javafx.geometry.Insets;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class UserMenuController {
 
@@ -32,6 +33,7 @@ public class UserMenuController {
     private ComboBox<String> categoryFilterCombo;
 
     private Cart cart;
+    private boolean isUpdatingCategoryFilter = false; // Flag to prevent recursive menu requests
 
     @FXML
     public void initialize() {
@@ -53,19 +55,34 @@ public class UserMenuController {
 
         SimpleClient.getClient().setMenuUpdateListener(menuItems ->
                 Platform.runLater(() -> {
-                    // Populate category filter once we have items
-                    if (categoryFilterCombo != null && categoryFilterCombo.getItems().isEmpty()) {
-                        categoryFilterCombo.getItems().clear();
-                        categoryFilterCombo.getItems().add("All");
-                        for (MenuItem item : SimpleClient.getMenuItems()) {
-                            String cat = item.getCategory();
-                            if (cat != null && !categoryFilterCombo.getItems().contains(cat)) {
-                                categoryFilterCombo.getItems().add(cat);
+                    System.out.println("Menu update received! Updating UI with " + menuItems.size() + " items");
+                    
+                    // Always update category filter options when menu updates (not just when empty)
+                    if (categoryFilterCombo != null) {
+                        isUpdatingCategoryFilter = true; // Prevent handleCategoryChanged from firing
+                        try {
+                            String currentSelection = categoryFilterCombo.getValue();
+                            categoryFilterCombo.getItems().clear();
+                            categoryFilterCombo.getItems().add("All");
+                            for (MenuItem item : SimpleClient.getMenuItems()) {
+                                String cat = item.getCategory();
+                                if (cat != null && !categoryFilterCombo.getItems().contains(cat)) {
+                                    categoryFilterCombo.getItems().add(cat);
+                                }
                             }
+                            // Restore previous selection if it still exists, otherwise select "All"
+                            if (currentSelection != null && categoryFilterCombo.getItems().contains(currentSelection)) {
+                                categoryFilterCombo.setValue(currentSelection);
+                            } else {
+                                categoryFilterCombo.getSelectionModel().selectFirst();
+                            }
+                        } finally {
+                            isUpdatingCategoryFilter = false; // Re-enable category change handler
                         }
-                        categoryFilterCombo.getSelectionModel().selectFirst();
                     }
+                    // Reload menu (will respect current category filter)
                     loadMenu();
+                    updateCartCount(); // Also update cart count in case items were removed
                 })
         );
         
@@ -74,8 +91,8 @@ public class UserMenuController {
 
     @FXML
     private void handleCategoryChanged() {
-        if (categoryFilterCombo == null) {
-            return;
+        if (categoryFilterCombo == null || isUpdatingCategoryFilter) {
+            return; // Don't send request if we're programmatically updating the filter
         }
         String selected = categoryFilterCombo.getValue();
         try {
@@ -103,7 +120,20 @@ public class UserMenuController {
         menuDisplayVBox.getChildren().clear();
         List<MenuItem> items = SimpleClient.getMenuItems();
 
-        System.out.println("Loading menu with " + items.size() + " items");
+        // Apply category filter if one is selected
+        if (categoryFilterCombo != null) {
+            String selectedCategory = categoryFilterCombo.getValue();
+            if (selectedCategory != null && !selectedCategory.isEmpty() && !"All".equalsIgnoreCase(selectedCategory)) {
+                items = items.stream()
+                    .filter(item -> selectedCategory.equals(item.getCategory()))
+                    .collect(Collectors.toList());
+            }
+        }
+
+        System.out.println("Loading menu with " + items.size() + " items" + 
+            (categoryFilterCombo != null && categoryFilterCombo.getValue() != null && 
+             !"All".equalsIgnoreCase(categoryFilterCombo.getValue()) ? 
+             " (filtered by category: " + categoryFilterCombo.getValue() + ")" : ""));
         
         // Debug: Print all menu items to check if branch information is available
         for (MenuItem item : items) {
