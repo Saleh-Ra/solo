@@ -76,6 +76,9 @@ public class MenuHandler {
                 }
             }
 
+            // Store the branchId in SubscribedClient for future broadcasts
+            updateClientBranchId(client, branchId);
+
             List<MenuItem> menuItems;
             if (branchId == null) {
                 System.out.println("Sending ONLY universal menu items (branch_id IS NULL) to client");
@@ -99,6 +102,24 @@ public class MenuHandler {
             e.printStackTrace();
         }
     }
+    
+    /**
+     * Updates the branchId for a client in the SubscribersList
+     */
+    private static void updateClientBranchId(ConnectionToClient client, Integer branchId) {
+        for (SubscribedClient sc : SubscribersList) {
+            if (sc.getClient().equals(client)) {
+                sc.setBranchId(branchId);
+                System.out.println("Updated branchId for client: " + (branchId != null ? branchId : "null (universal)"));
+                return;
+            }
+        }
+        // If client not in list, add them
+        SubscribedClient newClient = new SubscribedClient(client);
+        newClient.setBranchId(branchId);
+        SubscribersList.add(newClient);
+        System.out.println("Added new client to SubscribersList with branchId: " + (branchId != null ? branchId : "null (universal)"));
+    }
 
     public static void sendMenuByCategoryToClient(String msgString, ConnectionToClient client) {
         try {
@@ -115,6 +136,9 @@ public class MenuHandler {
                 } catch (NumberFormatException ignored) {
                 }
             }
+
+            // Store the branchId in SubscribedClient for future broadcasts
+            updateClientBranchId(client, branchId);
 
             SessionFactory factory = Database.getSessionFactoryInstance();
             Session session = factory.openSession();

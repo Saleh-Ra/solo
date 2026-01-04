@@ -41,11 +41,11 @@ public class OrderHandler {
         System.out.println("Received order request: " + msgString);
         LocalDateTime now = LocalDateTime.now();
         
-        // Format: CREATE_ORDER;customerName;phone;deliveryDate;deliveryTime;deliveryLocation;paymentMethod;totalCost;branchId
+        // Format: CREATE_ORDER;customerName;phone;deliveryDate;deliveryTime;deliveryLocation;paymentMethod;totalCost;branchId;orderType;orderItems
         String[] parts = msgString.split(";");
         if (parts.length < 9) {
             System.out.println("Invalid order format: " + msgString);
-            SimpleServer.sendFailureResponse(client, "CREATE_ORDER_FAILURE", "Invalid format. Expected 9 parts, got " + parts.length);
+            SimpleServer.sendFailureResponse(client, "CREATE_ORDER_FAILURE", "Invalid format. Expected at least 9 parts, got " + parts.length);
             return;
         }
 
@@ -58,6 +58,9 @@ public class OrderHandler {
             String paymentMethod = parts[6];
             double totalCost = Double.parseDouble(parts[7]);
             int branchId = Integer.parseInt(parts[8]);
+            String orderType = parts.length > 9 ? parts[9] : "delivery"; // Default to delivery for backward compatibility
+            String orderItems = parts.length > 10 ? parts[10] : ""; // Order items and notes
+            boolean isPickup = "pickup".equalsIgnoreCase(orderType);
             
             // Validate branch ID
             if (branchId < 1 || branchId > 4) {
@@ -66,9 +69,13 @@ public class OrderHandler {
                 return;
             }
             
-            System.out.println("Creating order for customer: " + customerName);
+            System.out.println("Creating " + (isPickup ? "PICKUP" : "DELIVERY") + " order for customer: " + customerName);
             System.out.println("Phone: " + phone);
-            System.out.println("Delivery: " + deliveryDate + " at " + deliveryTime + " to " + deliveryLocation);
+            if (isPickup) {
+                System.out.println("Pickup: " + deliveryDate + " at " + deliveryTime);
+            } else {
+                System.out.println("Delivery: " + deliveryDate + " at " + deliveryTime + " to " + deliveryLocation);
+            }
             System.out.println("Payment method: " + paymentMethod);
             System.out.println("Total cost: $" + totalCost);
             System.out.println("Branch ID: " + branchId);
@@ -130,8 +137,14 @@ public class OrderHandler {
             order.setPhoneNumber(phone);
             order.setDeliveryDate(deliveryDate);
             order.setDeliveryTime(deliveryTime);
-            order.setDeliveryLocation(deliveryLocation);
+            // For pickup orders, set location to "PICKUP" or leave as is
+            if (isPickup) {
+                order.setDeliveryLocation("PICKUP");
+            } else {
+                order.setDeliveryLocation(deliveryLocation);
+            }
             order.setPaymentMethod(paymentMethod);
+            order.setOrderItems(orderItems); // Store order items and customizations
             
             // Save both order and update client in a single transaction
             Session saveSession = Database.getSessionFactoryInstance().openSession();
@@ -172,13 +185,17 @@ public class OrderHandler {
             //now change the client's order list
             SimpleServer.sendUpdatedOrdersToClient(phone, client);
             
+            // Broadcast updated orders to all workers (real-time update)
+            SimpleServer.sendUpdatedOrdersToAllWorkers();
+            
             // Send success response with account credentials if new account was created
-            String successMessage = "Order created successfully with ID: " + order.getId();
+            String orderTypeText = isPickup ? "Pickup" : "Delivery";
+            String successMessage = String.format("%s order created successfully with ID: %d", orderTypeText, order.getId());
             if (isNewAccount) {
                 String username = phone;
                 String password = customerName.toLowerCase() + "123";
-                successMessage = String.format("Order created successfully with ID: %d! Your account has been created. Username: %s, Password: %s", 
-                    order.getId(), username, password);
+                successMessage = String.format("%s order created successfully with ID: %d! Your account has been created. Username: %s, Password: %s", 
+                    orderTypeText, order.getId(), username, password);
             }
             SimpleServer.sendSuccessResponse(client, "CREATE_ORDER_SUCCESS", successMessage);
         } catch (NumberFormatException e) {
@@ -302,6 +319,69 @@ public class OrderHandler {
         }
     }
 
+    public static void handleMarkOrderReady(String msgString, ConnectionToClient client) {
+        String[] parts = msgString.split(";");
+        if (parts.length < 2) {
+            SimpleServer.sendFailureResponse(client, "MARK_ORDER_READY_FAILURE", "Invalid format");
+            return;
+        }
+
+        Session session = null;
+        try {
+            int orderId = Integer.parseInt(parts[1]);
+            System.out.println("✅ Processing mark ready for order ID: " + orderId);
+
+            // Open a session for the operation
+            session = Database.getSessionFactoryInstance().openSession();
+            session.beginTransaction();
+
+            // Load the order in this session
+            Order order = session.get(Order.class, orderId);
+            if (order == null) {
+                session.getTransaction().rollback();
+                SimpleServer.sendFailureResponse(client, "MARK_ORDER_READY_FAILURE", "Order not found");
+                return;
+            }
+
+            // Update order status to "Ready"
+            order.setStatus("Ready");
+            session.merge(order);
+            
+            // Commit the transaction
+            session.getTransaction().commit();
+            System.out.println("✅ Order marked as ready: " + orderId);
+
+            // Broadcast updated orders to all workers (real-time update)
+            SimpleServer.sendUpdatedOrdersToAllWorkers();
+
+            SimpleServer.sendSuccessResponse(client, "MARK_ORDER_READY_SUCCESS",
+                    "Order #" + orderId + " marked as ready!");
+            System.out.println("🎉 Order marked as ready successfully: " + orderId);
+
+        } catch (NumberFormatException e) {
+            if (session != null && session.getTransaction() != null && session.getTransaction().isActive()) {
+                session.getTransaction().rollback();
+            }
+            SimpleServer.sendFailureResponse(client, "MARK_ORDER_READY_FAILURE", "Invalid order ID");
+        } catch (Exception e) {
+            System.err.println("❌ Error marking order as ready: " + e.getMessage());
+            e.printStackTrace();
+            if (session != null && session.getTransaction() != null && session.getTransaction().isActive()) {
+                session.getTransaction().rollback();
+                System.err.println("❌ Transaction rolled back due to error");
+            }
+            try {
+                SimpleServer.sendFailureResponse(client, "MARK_ORDER_READY_FAILURE", "Error marking order as ready: " + e.getMessage());
+            } catch (Exception ex) {
+                ex.printStackTrace();
+            }
+        } finally {
+            if (session != null && session.isOpen()) {
+                session.close();
+                System.out.println("✅ Session closed");
+            }
+        }
+    }
 
     public static void handleGetAllOrders(ConnectionToClient client) {
         try {
@@ -309,6 +389,61 @@ public class OrderHandler {
             client.sendToClient(orders);
         }catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    /**
+     * Get all upcoming orders (for workers to prepare)
+     * Returns orders with status "Pending" or "Preparing" that are scheduled for today or future
+     */
+    public static void handleGetUpcomingOrders(ConnectionToClient client) {
+        try (Session session = Database.getSessionFactoryInstance().openSession()) {
+            // Get current date/time
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            java.time.LocalDate today = now.toLocalDate();
+            
+            // Query for orders with status Pending or Preparing
+            // Note: deliveryDate is stored as String, so we'll filter in Java
+            String hql = "FROM Order o WHERE (o.status = 'Pending' OR o.status = 'Preparing') " +
+                        "ORDER BY o.deliveryDate ASC, o.deliveryTime ASC";
+            
+            List<Order> allOrders = session.createQuery(hql, Order.class).getResultList();
+            
+            // Filter orders by date: deliveryDate is stored as String in ISO format (YYYY-MM-DD)
+            List<Order> upcomingOrders = new ArrayList<>();
+            for (Order order : allOrders) {
+                String deliveryDateStr = order.getDeliveryDate();
+                if (deliveryDateStr != null && !deliveryDateStr.isEmpty()) {
+                    try {
+                        // Parse the date string (format: YYYY-MM-DD from LocalDate.toString())
+                        java.time.LocalDate deliveryDate = java.time.LocalDate.parse(deliveryDateStr);
+                        // Include orders for today or future
+                        if (!deliveryDate.isBefore(today)) {
+                            upcomingOrders.add(order);
+                        }
+                    } catch (java.time.format.DateTimeParseException e) {
+                        // If date format is unexpected, log and skip
+                        System.err.println("Warning: Could not parse deliveryDate '" + deliveryDateStr + "' for order ID " + order.getId());
+                    }
+                }
+            }
+            
+            System.out.println("Found " + upcomingOrders.size() + " upcoming orders for worker (out of " + allOrders.size() + " pending/preparing orders)");
+            client.sendToClient(upcomingOrders);
+        } catch (IOException e) {
+            e.printStackTrace();
+            try {
+                client.sendToClient(new ArrayList<Order>());
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+            try {
+                client.sendToClient(new ArrayList<Order>());
+            } catch (IOException ex) {
+                ex.printStackTrace();
+            }
         }
     }
 

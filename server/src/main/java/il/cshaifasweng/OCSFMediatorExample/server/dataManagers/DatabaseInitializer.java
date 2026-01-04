@@ -108,6 +108,15 @@ public class DatabaseInitializer {
                 System.out.println("✓ Nutritionists already exist\n");
             }
             
+            // Check if we have any workers
+            if (!roleExists("worker")) {
+                System.out.println("Initializing workers...");
+                initializeWorkers();
+                System.out.println("✓ Workers initialized\n");
+            } else {
+                System.out.println("✓ Workers already exist\n");
+            }
+            
             System.out.println("\n=== Database initialization completed successfully! ===\n");
             
             // Verify final state with more detailed logging
@@ -749,6 +758,78 @@ public class DatabaseInitializer {
             System.out.println("Nutritionist initialization completed");
         } catch (Exception e) {
             System.err.println("Failed to initialize nutritionists: " + e.getMessage());
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * Initialize workers for each branch
+     */
+    private static void initializeWorkers() {
+        try (Session session = factory.openSession()) {
+            session.beginTransaction();
+            
+            // Get all branches
+            List<Branch> branches = session.createQuery("from Branch", Branch.class).getResultList();
+            if (branches.isEmpty()) {
+                System.out.println("No branches found for worker assignment");
+                session.getTransaction().commit();
+                return;
+            }
+            
+            // Worker data per branch (multiple per branch)
+            String[][][] workerData = {
+                // Tel-Aviv branch workers
+                {
+                    {"David Cohen", "0541111001", "david123"},
+                    {"Sarah Levi", "0541111002", "sarah123"}
+                },
+                // Haifa branch workers
+                {
+                    {"Michael Ben-David", "0542222001", "michael123"},
+                    {"Ruth Avraham", "0542222002", "ruth123"}
+                },
+                // Jerusalem branch workers
+                {
+                    {"Daniel Shalom", "0543333001", "daniel123"},
+                    {"Esther Mizrahi", "0543333002", "esther123"}
+                },
+                // Beer-Sheva branch workers
+                {
+                    {"Yosef Yitzhak", "0544444001", "yosef123"},
+                    {"Miriam Gold", "0544444002", "miriam123"}
+                }
+            };
+            
+            // Create worker accounts and entities for each branch
+            for (int i = 0; i < Math.min(branches.size(), workerData.length); i++) {
+                Branch branch = branches.get(i);
+                String[][] branchWorkerData = workerData[i];
+                
+                for (String[] data : branchWorkerData) {
+                    if (!userExists(session, data[1])) {
+                        // Create UserAccount with worker role
+                        UserAccount account = new UserAccount(
+                            data[0], data[1], "worker", data[2],
+                            branch.getId(), branch.getLocation()
+                        );
+                        session.save(account);
+                        
+                        // Create Worker entity
+                        Worker worker = new Worker(data[0], account, branch);
+                        session.save(worker);
+                        
+                        System.out.println("Added worker: " + data[0] + " for branch: " + branch.getLocation());
+                    } else {
+                        System.out.println("Worker with phone " + data[1] + " already exists, skipped.");
+                    }
+                }
+            }
+
+            session.getTransaction().commit();
+            System.out.println("Worker initialization completed");
+        } catch (Exception e) {
+            System.err.println("Error initializing workers: " + e.getMessage());
             e.printStackTrace();
         }
     }

@@ -126,9 +126,18 @@ public class PrimaryController implements Initializable {
 	 */
 	@Subscribe
 	public void onBranchesReceived(SimpleClient.BranchesReceivedEvent event) {
+		// Only process if we're actually requesting opening hours (prevent processing unrelated branch events)
+		if (!isRequestingOpeningHours) {
+			System.out.println("🔵 Received branches event but not requesting opening hours, ignoring");
+			return;
+		}
+		
 		// Use Platform.runLater to ensure thread safety and prevent duplicate dialogs
 		Platform.runLater(() -> {
-			displayOpeningHours(event.getBranches());
+			// Double-check flag to prevent multiple dialogs (in case event is received multiple times)
+			if (isRequestingOpeningHours) {
+				displayOpeningHours(event.getBranches());
+			}
 		});
 	}
 

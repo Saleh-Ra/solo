@@ -22,6 +22,10 @@ public class UserAccount implements Serializable {
     // Added branch information
     private Integer branchId;
     private String branchName;
+    
+    // Online status flag to prevent multiple simultaneous logins
+    @Column(name = "is_online", nullable = false)
+    private boolean isOnline = false;
 
     public UserAccount() {}
 
@@ -89,5 +93,13 @@ public class UserAccount implements Serializable {
     
     public void setBranchName(String branchName) {
         this.branchName = branchName;
+    }
+    
+    public boolean isOnline() {
+        return isOnline;
+    }
+    
+    public void setOnline(boolean isOnline) {
+        this.isOnline = isOnline;
     }
 }
